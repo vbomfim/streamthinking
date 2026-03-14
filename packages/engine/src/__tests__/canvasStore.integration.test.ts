@@ -146,7 +146,8 @@ describe('Update operation payload [CONTRACT][AC6]', () => {
       type: 'update',
       expressionId: 'rect-update',
     });
-    expect((updateOp.payload as { data: unknown }).data).toBeDefined();
+    expect((updateOp.payload as { changes: unknown }).changes).toBeDefined();
+    expect((updateOp.payload as { changes: { position: unknown } }).changes.position).toEqual({ x: 999, y: 888 });
     expect(updateOp.author).toBeDefined();
     expect(typeof updateOp.timestamp).toBe('number');
   });
@@ -260,18 +261,18 @@ describe('CRUD workflow integration [BOUNDARY]', () => {
 // ── Edge cases ───────────────────────────────────────────────
 
 describe('Store edge cases [EDGE]', () => {
-  it('[EDGE] deleting non-existent IDs does not crash and still emits operation', () => {
+  it('[EDGE] deleting non-existent IDs is a no-op (no phantom operations)', () => {
     const expr = makeRectangle('existing');
     useCanvasStore.getState().addExpression(expr);
 
-    // Delete mix of existing and non-existing
+    // Delete only non-existing IDs — should not emit an operation
     useCanvasStore.getState().deleteExpressions(['nonexistent-1', 'nonexistent-2']);
 
     const state = useCanvasStore.getState();
     // existing expression should still be there
     expect(state.expressions['existing']).toBeDefined();
-    // 1 create + 1 delete = 2 operations
-    expect(state.operationLog).toHaveLength(2);
+    // Only 1 create operation — no phantom delete
+    expect(state.operationLog).toHaveLength(1);
   });
 
   it('[EDGE] updateExpression with empty partial still emits operation', () => {
@@ -331,7 +332,7 @@ describe('Store edge cases [EDGE]', () => {
     expect(useCanvasStore.getState().selectedIds.size).toBe(0);
   });
 
-  it('[EDGE] setCamera with extreme values', () => {
+  it('[EDGE] setCamera clamps extreme zoom values', () => {
     const extremeCamera: Camera = {
       x: Number.MAX_SAFE_INTEGER,
       y: -Number.MAX_SAFE_INTEGER,
@@ -343,15 +344,21 @@ describe('Store edge cases [EDGE]', () => {
     const state = useCanvasStore.getState();
     expect(state.camera.x).toBe(Number.MAX_SAFE_INTEGER);
     expect(state.camera.y).toBe(-Number.MAX_SAFE_INTEGER);
-    expect(state.camera.zoom).toBe(0.001);
+    expect(state.camera.zoom).toBe(0.01); // clamped to MIN_ZOOM
     expect(state.operationLog).toHaveLength(0); // [AC8] no operation emitted
   });
 
-  it('[EDGE] setCamera with zero zoom', () => {
+  it('[EDGE] setCamera clamps zero zoom to minimum', () => {
     useCanvasStore.getState().setCamera({ x: 0, y: 0, zoom: 0 });
 
-    expect(useCanvasStore.getState().camera.zoom).toBe(0);
+    expect(useCanvasStore.getState().camera.zoom).toBe(0.01); // clamped to MIN_ZOOM
     expect(useCanvasStore.getState().operationLog).toHaveLength(0);
+  });
+
+  it('[EDGE] setCamera clamps excessively high zoom to maximum', () => {
+    useCanvasStore.getState().setCamera({ x: 0, y: 0, zoom: 500 });
+
+    expect(useCanvasStore.getState().camera.zoom).toBe(100); // clamped to MAX_ZOOM
   });
 
   it('[EDGE] addExpression followed by immediate delete leaves clean state', () => {

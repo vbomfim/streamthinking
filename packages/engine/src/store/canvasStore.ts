@@ -13,9 +13,6 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { enableMapSet } from 'immer';
 import { nanoid } from 'nanoid';
-
-// Enable immer support for Set/Map (used by selectedIds: Set<string>)
-enableMapSet();
 import {
   visualExpressionSchema,
 } from '@infinicanvas/protocol';
@@ -26,6 +23,9 @@ import type {
 } from '@infinicanvas/protocol';
 import type { CanvasState, CanvasActions, ToolType, Camera } from '../types/index.js';
 
+// Enable immer support for Set/Map (used by selectedIds: Set<string>)
+enableMapSet();
+
 /** System author used for store-generated operations. */
 const SYSTEM_AUTHOR: AuthorInfo = {
   type: 'agent',
@@ -33,6 +33,16 @@ const SYSTEM_AUTHOR: AuthorInfo = {
   name: 'Canvas Engine',
   provider: 'infinicanvas',
 };
+
+/** Maximum operations kept in the log before oldest are evicted. */
+const MAX_OPERATION_LOG = 10_000;
+
+/** Min/max camera zoom bounds. */
+const MIN_ZOOM = 0.01;
+const MAX_ZOOM = 100;
+
+/** Fields that cannot be changed via updateExpression. */
+const IMMUTABLE_FIELDS = new Set(['id', 'kind', 'meta']);
 
 /** Creates a ProtocolOperation with unique ID and current timestamp. */
 function createOperation(
@@ -46,6 +56,14 @@ function createOperation(
     timestamp: Date.now(),
     payload,
   };
+}
+
+/** Append an operation to the log, evicting oldest entries if over cap. */
+function pushOperation(log: ProtocolOperation[], op: ProtocolOperation): void {
+  log.push(op);
+  if (log.length > MAX_OPERATION_LOG) {
+    log.splice(0, log.length - MAX_OPERATION_LOG);
+  }
 }
 
 export const useCanvasStore = create<CanvasState & CanvasActions>()(
@@ -71,7 +89,6 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
       }
 
       set((state) => {
-        // Prevent duplicate IDs
         if (state.expressions[expression.id]) {
           return;
         }
@@ -87,7 +104,7 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
           size: expression.size,
           data: expression.data,
         });
-        state.operationLog.push(operation);
+        pushOperation(state.operationLog, operation);
       });
     },
 
@@ -101,15 +118,49 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
           return;
         }
 
-        // Shallow merge of partial into existing expression
-        Object.assign(existing, partial);
+        // Strip immutable fields to protect invariants
+        const safeUpdates: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(partial)) {
+          if (!IMMUTABLE_FIELDS.has(key)) {
+            safeUpdates[key] = value;
+          }
+        }
+
+        // Snapshot original values for rollback
+        const originals: Record<string, unknown> = {};
+        for (const key of Object.keys(safeUpdates)) {
+          originals[key] = (existing as Record<string, unknown>)[key];
+        }
+
+        // Apply safe updates
+        Object.assign(existing, safeUpdates);
+
+        // Post-merge validation — revert if result is invalid
+        const merged = visualExpressionSchema.safeParse(existing);
+        if (!merged.success) {
+          // Rollback draft to original values
+          Object.assign(existing, originals);
+          console.warn(
+            `[canvasStore] Update would produce invalid expression, reverting:`,
+            merged.error.issues,
+          );
+          return;
+        }
+
+        // Build changes payload with only the fields that actually changed
+        const changes: Record<string, unknown> = {};
+        if (safeUpdates.position) changes.position = safeUpdates.position;
+        if (safeUpdates.size) changes.size = safeUpdates.size;
+        if (safeUpdates.angle !== undefined) changes.angle = safeUpdates.angle;
+        if (safeUpdates.style) changes.style = safeUpdates.style;
+        if (safeUpdates.data) changes.data = safeUpdates.data;
 
         const operation = createOperation('update', {
           type: 'update',
           expressionId: id,
-          data: partial.data ?? existing.data,
+          changes,
         });
-        state.operationLog.push(operation);
+        pushOperation(state.operationLog, operation);
       });
     },
 
@@ -119,9 +170,15 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
       }
 
       set((state) => {
-        const idSet = new Set(ids);
+        // Filter to only IDs that actually exist
+        const existingIds = ids.filter((id) => id in state.expressions);
+        if (existingIds.length === 0) {
+          return;
+        }
 
-        for (const id of ids) {
+        const idSet = new Set(existingIds);
+
+        for (const id of existingIds) {
           delete state.expressions[id];
           state.selectedIds.delete(id);
         }
@@ -132,9 +189,9 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
 
         const operation = createOperation('delete', {
           type: 'delete',
-          expressionIds: [...ids],
+          expressionIds: [...existingIds],
         });
-        state.operationLog.push(operation);
+        pushOperation(state.operationLog, operation);
       });
     },
 
@@ -142,7 +199,7 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
 
     setSelectedIds: (ids: Set<string>) => {
       set((state) => {
-        state.selectedIds = ids;
+        state.selectedIds = new Set(ids);
       });
     },
 
@@ -154,7 +211,11 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
 
     setCamera: (camera: Camera) => {
       set((state) => {
-        state.camera = camera;
+        state.camera = {
+          x: camera.x,
+          y: camera.y,
+          zoom: Math.max(MIN_ZOOM, Math.min(camera.zoom, MAX_ZOOM)),
+        };
       });
     },
   })),

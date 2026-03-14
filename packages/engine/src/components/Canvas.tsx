@@ -27,11 +27,23 @@ function CanvasInner() {
     const container = containerRef.current;
     if (!canvas || !container) return;
 
+    const dpr = window.devicePixelRatio || 1;
     const width = Math.max(container.clientWidth, MIN_WIDTH);
     const height = Math.max(container.clientHeight, MIN_HEIGHT);
 
-    canvas.width = width;
-    canvas.height = height;
+    // Set canvas backing store to physical pixels for crisp rendering
+    canvas.width = width * dpr;
+    canvas.height = height * dpr;
+
+    // Set CSS display size to logical pixels
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+
+    // Scale context so drawing uses logical coordinates
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
   }, []);
 
   useEffect(() => {

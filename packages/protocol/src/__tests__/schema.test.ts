@@ -901,3 +901,61 @@ describe('Protocol operation schemas', () => {
     expect(result.success).toBe(false);
   });
 });
+
+// ── kind/data.kind mismatch validation ──────────────────────
+
+describe('VisualExpression kind/data.kind consistency', () => {
+  it('rejects expression where kind does not match data.kind', () => {
+    const result = visualExpressionSchema.safeParse({
+      id: 'mismatch-1',
+      kind: 'rectangle',
+      position: { x: 0, y: 0 },
+      size: { width: 100, height: 100 },
+      angle: 0,
+      style: {
+        strokeColor: '#000000',
+        backgroundColor: 'transparent',
+        fillStyle: 'none',
+        strokeWidth: 2,
+        roughness: 1,
+        opacity: 1,
+      },
+      meta: {
+        author: humanAuthor,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        tags: [],
+        locked: false,
+      },
+      data: { kind: 'ellipse' },  // mismatch!
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts expression where kind matches data.kind', () => {
+    const result = visualExpressionSchema.safeParse({
+      id: 'match-1',
+      kind: 'rectangle',
+      position: { x: 0, y: 0 },
+      size: { width: 100, height: 100 },
+      angle: 0,
+      style: {
+        strokeColor: '#000000',
+        backgroundColor: 'transparent',
+        fillStyle: 'none',
+        strokeWidth: 2,
+        roughness: 1,
+        opacity: 1,
+      },
+      meta: {
+        author: humanAuthor,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        tags: [],
+        locked: false,
+      },
+      data: { kind: 'rectangle' },
+    });
+    expect(result.success).toBe(true);
+  });
+});

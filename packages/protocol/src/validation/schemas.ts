@@ -381,7 +381,10 @@ export const visualExpressionSchema = z.object({
   parentId: z.string().optional(),
   children: z.array(z.string()).optional(),
   data: expressionDataSchema,
-});
+}).refine(
+  (expr) => expr.kind === (expr.data as { kind: string }).kind,
+  { message: 'Expression kind must match data.kind', path: ['kind'] },
+);
 
 // ── Operation Schemas ──────────────────────────────────────
 
@@ -399,7 +402,13 @@ export const createPayloadSchema = z.object({
 export const updatePayloadSchema = z.object({
   type: z.literal('update'),
   expressionId: z.string().min(1),
-  data: z.record(z.unknown()),
+  changes: z.object({
+    position: positionSchema.optional(),
+    size: sizeSchema.optional(),
+    angle: z.number().optional(),
+    style: expressionStyleSchema.partial().optional(),
+    data: expressionDataSchema.optional(),
+  }),
 });
 
 export const deletePayloadSchema = z.object({

@@ -9,6 +9,7 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ExpressionBuilder } from '@infinicanvas/protocol';
+import type { VisualExpression } from '@infinicanvas/protocol';
 import { useCanvasStore } from '../store/canvasStore.js';
 import type { ToolType, Camera } from '../types/index.js';
 
@@ -176,9 +177,58 @@ describe('updateExpression', () => {
 
     warnSpy.mockRestore();
   });
-});
 
-// ── AC7: deleteExpressions ─────────────────────────────────
+  it('protects id from being overwritten via update', () => {
+    const expr = makeRectangle('rect-1');
+    useCanvasStore.getState().addExpression(expr);
+    useCanvasStore.getState().updateExpression('rect-1', { id: 'hacked' } as Partial<VisualExpression>);
+
+    const state = useCanvasStore.getState();
+    expect(state.expressions['rect-1']?.id).toBe('rect-1');
+    expect(state.expressions['hacked']).toBeUndefined();
+  });
+
+  it('protects kind from being overwritten via update', () => {
+    const expr = makeRectangle('rect-1');
+    useCanvasStore.getState().addExpression(expr);
+    useCanvasStore.getState().updateExpression('rect-1', { kind: 'ellipse' } as Partial<VisualExpression>);
+
+    const state = useCanvasStore.getState();
+    expect(state.expressions['rect-1']?.kind).toBe('rectangle');
+  });
+
+  it('rejects update that would produce invalid expression', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    const expr = makeRectangle('rect-1');
+    useCanvasStore.getState().addExpression(expr);
+    useCanvasStore.getState().updateExpression('rect-1', {
+      size: { width: -1, height: 0 },
+    });
+
+    const state = useCanvasStore.getState();
+    // Original size should be preserved (update reverted)
+    expect(state.expressions['rect-1']?.size).toEqual({ width: 300, height: 150 });
+    expect(warnSpy).toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
+
+  it('records changed fields accurately in update operation payload', () => {
+    const expr = makeRectangle('rect-1');
+    useCanvasStore.getState().addExpression(expr);
+    useCanvasStore.getState().updateExpression('rect-1', {
+      position: { x: 42, y: 99 },
+    });
+
+    const state = useCanvasStore.getState();
+    const updateOp = state.operationLog[1]!;
+    const payload = updateOp.payload as { changes: Record<string, unknown> };
+    expect(payload.changes.position).toEqual({ x: 42, y: 99 });
+    // data should NOT be in changes since we didn't change it
+    expect(payload.changes.data).toBeUndefined();
+  });
+});
 
 describe('deleteExpressions', () => {
   it('removes expressions from expressions map and expressionOrder', () => {

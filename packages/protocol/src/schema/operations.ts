@@ -43,7 +43,14 @@ export interface CreatePayload {
 export interface UpdatePayload {
   type: 'update';
   expressionId: string;
-  data: Partial<ExpressionData>;
+  /** Changed fields — only includes fields that were actually modified. */
+  changes: {
+    position?: { x: number; y: number };
+    size?: { width: number; height: number };
+    angle?: number;
+    style?: Partial<ExpressionStyle>;
+    data?: ExpressionData;
+  };
 }
 
 export interface DeletePayload {
