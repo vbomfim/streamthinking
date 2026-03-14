@@ -64,4 +64,14 @@ export interface CanvasActions {
   canRedo: boolean;
   /** Reset undo/redo history stacks. */
   clearHistory: () => void;
+  /**
+   * Apply a remote operation from the gateway without appending to operationLog.
+   * Prevents infinite send loops during collaboration.
+   */
+  applyRemoteOperation: (op: ProtocolOperation) => void;
+  /**
+   * Replace all canvas state for full state sync on session join.
+   * Clears operationLog and selection.
+   */
+  replaceState: (expressions: VisualExpression[], expressionOrder: string[]) => void;
 }

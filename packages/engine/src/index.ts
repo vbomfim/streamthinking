@@ -9,6 +9,8 @@
 
 // ── State store ────────────────────────────────────────────
 export { useCanvasStore } from './store/canvasStore.js';
+export { useAgentStore } from './store/agentStore.js';
+export type { AgentState, AgentActions } from './store/agentStore.js';
 
 // ── History ────────────────────────────────────────────────
 export { HistoryManager } from './history/historyManager.js';
@@ -43,7 +45,15 @@ export type { DrawableCache } from './renderer/drawableCache.js';
 // ── Hooks ──────────────────────────────────────────────────
 export { useCanvasInteraction } from './hooks/useCanvasInteraction.js';
 export type { CanvasInteraction } from './hooks/useCanvasInteraction.js';
+<<<<<<< HEAD
 export { useUndoRedoShortcuts } from './hooks/useUndoRedoShortcuts.js';
+=======
+export { createGatewayConnection } from './hooks/useGatewayConnection.js';
+export type {
+  GatewayConnectionOptions,
+  GatewayConnection,
+} from './hooks/useGatewayConnection.js';
+>>>>>>> 6369895 (feat(engine): client-side gateway connection — Issue #12)
 
 // ── Components ─────────────────────────────────────────────
 export { Canvas } from './components/Canvas.js';
