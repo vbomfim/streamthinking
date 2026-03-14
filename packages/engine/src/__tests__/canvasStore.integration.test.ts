@@ -53,7 +53,10 @@ beforeEach(() => {
     activeTool: 'select',
     camera: { x: 0, y: 0, zoom: 1 },
     operationLog: [],
+    canUndo: false,
+    canRedo: false,
   });
+  useCanvasStore.getState().clearHistory();
 });
 
 // ── AC4: Store state shape contract ──────────────────────────
@@ -69,6 +72,8 @@ describe('Store state shape [CONTRACT][AC4]', () => {
     expect(state).toHaveProperty('activeTool');
     expect(state).toHaveProperty('camera');
     expect(state).toHaveProperty('operationLog');
+    expect(state).toHaveProperty('canUndo');
+    expect(state).toHaveProperty('canRedo');
 
     // Type validation
     expect(typeof state.expressions).toBe('object');
@@ -79,6 +84,8 @@ describe('Store state shape [CONTRACT][AC4]', () => {
     expect(typeof state.camera.y).toBe('number');
     expect(typeof state.camera.zoom).toBe('number');
     expect(Array.isArray(state.operationLog)).toBe(true);
+    expect(typeof state.canUndo).toBe('boolean');
+    expect(typeof state.canRedo).toBe('boolean');
   });
 
   it('[CONTRACT] store exposes all required action methods', () => {
@@ -91,6 +98,9 @@ describe('Store state shape [CONTRACT][AC4]', () => {
     expect(typeof state.setSelectedIds).toBe('function');
     expect(typeof state.setActiveTool).toBe('function');
     expect(typeof state.setCamera).toBe('function');
+    expect(typeof state.undo).toBe('function');
+    expect(typeof state.redo).toBe('function');
+    expect(typeof state.clearHistory).toBe('function');
   });
 });
 

@@ -10,6 +10,10 @@
 // ── State store ────────────────────────────────────────────
 export { useCanvasStore } from './store/canvasStore.js';
 
+// ── History ────────────────────────────────────────────────
+export { HistoryManager } from './history/historyManager.js';
+export type { CanvasSnapshot } from './history/historyManager.js';
+
 // ── Camera math ────────────────────────────────────────────
 export {
   screenToWorld,
@@ -26,6 +30,7 @@ export type { RenderLoop } from './renderer/renderLoop.js';
 // ── Hooks ──────────────────────────────────────────────────
 export { useCanvasInteraction } from './hooks/useCanvasInteraction.js';
 export type { CanvasInteraction } from './hooks/useCanvasInteraction.js';
+export { useUndoRedoShortcuts } from './hooks/useUndoRedoShortcuts.js';
 
 // ── Components ─────────────────────────────────────────────
 export { Canvas } from './components/Canvas.js';

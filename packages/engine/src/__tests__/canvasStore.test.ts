@@ -50,7 +50,10 @@ beforeEach(() => {
     activeTool: 'select',
     camera: { x: 0, y: 0, zoom: 1 },
     operationLog: [],
+    canUndo: false,
+    canRedo: false,
   });
+  useCanvasStore.getState().clearHistory();
 });
 
 // ── AC5: addExpression ─────────────────────────────────────

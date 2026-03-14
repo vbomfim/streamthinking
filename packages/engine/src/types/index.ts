@@ -54,4 +54,14 @@ export interface CanvasActions {
   setActiveTool: (tool: ToolType) => void;
   /** Set the camera viewport state. */
   setCamera: (camera: Camera) => void;
+  /** Undo the last content mutation, restoring previous canvas state. */
+  undo: () => void;
+  /** Redo the last undone action, restoring next canvas state. */
+  redo: () => void;
+  /** Whether there are actions to undo. */
+  canUndo: boolean;
+  /** Whether there are actions to redo. */
+  canRedo: boolean;
+  /** Reset undo/redo history stacks. */
+  clearHistory: () => void;
 }
