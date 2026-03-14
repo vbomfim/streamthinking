@@ -21,7 +21,20 @@ export {
 // ── Renderers ──────────────────────────────────────────────
 export { renderGrid, getGridSpacing } from './renderer/gridRenderer.js';
 export { createRenderLoop } from './renderer/renderLoop.js';
-export type { RenderLoop } from './renderer/renderLoop.js';
+export type { RenderLoop, ExpressionProvider } from './renderer/renderLoop.js';
+export {
+  renderExpressions,
+  renderLabel,
+  renderArrowhead,
+  wrapText,
+  clearDrawableCache,
+  clearImageCache,
+} from './renderer/primitiveRenderer.js';
+export { mapStyleToRoughOptions, computeStyleHash } from './renderer/styleMapper.js';
+export { isVisible, getWorldViewport } from './renderer/viewportCulling.js';
+export type { BoundingBox, WorldViewport } from './renderer/viewportCulling.js';
+export { createDrawableCache } from './renderer/drawableCache.js';
+export type { DrawableCache } from './renderer/drawableCache.js';
 
 // ── Hooks ──────────────────────────────────────────────────
 export { useCanvasInteraction } from './hooks/useCanvasInteraction.js';
