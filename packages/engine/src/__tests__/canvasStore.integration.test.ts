@@ -361,6 +361,28 @@ describe('Store edge cases [EDGE]', () => {
     expect(useCanvasStore.getState().camera.zoom).toBe(100); // clamped to MAX_ZOOM
   });
 
+  it('[EDGE] setCamera rejects NaN values', () => {
+    useCanvasStore.getState().setCamera({ x: 10, y: 20, zoom: 2 });
+    useCanvasStore.getState().setCamera({ x: NaN, y: 0, zoom: 1 });
+
+    // Should remain at previous valid state
+    expect(useCanvasStore.getState().camera).toEqual({ x: 10, y: 20, zoom: 2 });
+  });
+
+  it('[EDGE] setCamera rejects Infinity values', () => {
+    useCanvasStore.getState().setCamera({ x: 5, y: 5, zoom: 1 });
+    useCanvasStore.getState().setCamera({ x: 0, y: Infinity, zoom: 1 });
+
+    expect(useCanvasStore.getState().camera).toEqual({ x: 5, y: 5, zoom: 1 });
+  });
+
+  it('[EDGE] setCamera rejects NaN zoom', () => {
+    useCanvasStore.getState().setCamera({ x: 0, y: 0, zoom: 1.5 });
+    useCanvasStore.getState().setCamera({ x: 0, y: 0, zoom: NaN });
+
+    expect(useCanvasStore.getState().camera.zoom).toBe(1.5);
+  });
+
   it('[EDGE] addExpression followed by immediate delete leaves clean state', () => {
     const expr = makeRectangle('flash');
     useCanvasStore.getState().addExpression(expr);
