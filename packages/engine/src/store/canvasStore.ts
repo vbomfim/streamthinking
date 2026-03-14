@@ -210,6 +210,10 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     },
 
     setCamera: (camera: Camera) => {
+      if (!Number.isFinite(camera.x) || !Number.isFinite(camera.y) || !Number.isFinite(camera.zoom)) {
+        console.warn('[canvasStore] Invalid camera values (NaN/Infinity) rejected');
+        return;
+      }
       set((state) => {
         state.camera = {
           x: camera.x,

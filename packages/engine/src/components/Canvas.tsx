@@ -1,8 +1,10 @@
 /**
- * Canvas — full-viewport HTML canvas element.
+ * Canvas — full-viewport HTML canvas element with camera system.
  *
  * Renders a white canvas that fills the entire viewport (100vw × 100vh).
  * Uses ResizeObserver to track window resize with debouncing (100ms). [AC3]
+ * Integrates render loop for grid + camera transforms. [AC8]
+ * Integrates pan/zoom interactions via useCanvasInteraction hook. [AC1, AC2]
  * Wrapped in ErrorBoundary for crash resilience. [AC9]
  *
  * @module
@@ -10,6 +12,10 @@
 
 import { useEffect, useRef, useCallback } from 'react';
 import { ErrorBoundary } from './ErrorBoundary.js';
+import { useCanvasInteraction } from '../hooks/useCanvasInteraction.js';
+import { useCanvasStore } from '../store/canvasStore.js';
+import { createRenderLoop } from '../renderer/renderLoop.js';
+import type { RenderLoop } from '../renderer/renderLoop.js';
 
 /** Minimum canvas dimensions to prevent zero-size or negative canvas. */
 const MIN_WIDTH = 1;
@@ -19,8 +25,9 @@ const MIN_HEIGHT = 1;
 const RESIZE_DEBOUNCE_MS = 100;
 
 function CanvasInner() {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const renderLoopRef = useRef<RenderLoop | null>(null);
+  const { canvasRef, cursor } = useCanvasInteraction();
 
   const updateCanvasSize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -44,7 +51,39 @@ function CanvasInner() {
     if (ctx) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
-  }, []);
+
+    // Update render loop viewport size
+    if (renderLoopRef.current) {
+      renderLoopRef.current.updateSize(width, height);
+    }
+  }, [canvasRef]);
+
+  // ── Render loop lifecycle ──────────────────────────────────
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    const container = containerRef.current;
+    const width = Math.max(container?.clientWidth ?? MIN_WIDTH, MIN_WIDTH);
+    const height = Math.max(container?.clientHeight ?? MIN_HEIGHT, MIN_HEIGHT);
+
+    const getCamera = () => useCanvasStore.getState().camera;
+    const loop = createRenderLoop(ctx, getCamera, width, height);
+
+    renderLoopRef.current = loop;
+    loop.start();
+
+    return () => {
+      loop.stop();
+      renderLoopRef.current = null;
+    };
+  }, [canvasRef]);
+
+  // ── Resize observer ────────────────────────────────────────
 
   useEffect(() => {
     const container = containerRef.current;
@@ -89,13 +128,14 @@ function CanvasInner() {
         style={{
           display: 'block',
           backgroundColor: '#ffffff',
+          cursor,
         }}
       />
     </div>
   );
 }
 
-/** Full-viewport canvas component with error boundary. */
+/** Full-viewport canvas component with camera system and error boundary. */
 export function Canvas() {
   return (
     <ErrorBoundary>
