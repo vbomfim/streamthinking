@@ -29,6 +29,10 @@ export class SessionManager {
   /** Start the garbage collection timer. */
   startGC(): void {
     this.gcTimer = setInterval(() => this.collectExpiredSessions(), GC_INTERVAL_MS);
+    // Don't prevent process exit if server is shutting down
+    if (this.gcTimer && typeof this.gcTimer === 'object' && 'unref' in this.gcTimer) {
+      (this.gcTimer as NodeJS.Timeout).unref();
+    }
   }
 
   /** Stop the garbage collection timer. */

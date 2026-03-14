@@ -1,8 +1,10 @@
 /**
  * Rate limiter for WebSocket clients.
  *
- * Uses a sliding-window counter to enforce a maximum number of
- * operations per second per client connection.
+ * Uses a fixed-window counter to enforce a maximum number of
+ * operations per second per client connection. Note: boundary bursts
+ * are possible (up to 2x rate at window edges). A sliding-window or
+ * token-bucket implementation is planned for V2.
  *
  * @module
  */

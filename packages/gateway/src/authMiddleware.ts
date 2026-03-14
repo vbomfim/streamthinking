@@ -8,6 +8,7 @@
  */
 
 import type { WebSocket } from 'ws';
+import { timingSafeEqual } from 'node:crypto';
 import { log } from './logger.js';
 
 /**
@@ -16,6 +17,8 @@ import { log } from './logger.js';
  *
  * If invalid or missing, closes the WebSocket with code 4001 "Unauthorized"
  * and returns `false`.
+ *
+ * Uses constant-time comparison to prevent timing attacks.
  */
 export function authenticate(ws: WebSocket, apiKey: string | undefined): boolean {
   const serverKey = process.env['INFINICANVAS_API_KEY'];
@@ -26,7 +29,8 @@ export function authenticate(ws: WebSocket, apiKey: string | undefined): boolean
     return false;
   }
 
-  if (!apiKey || apiKey !== serverKey) {
+  if (!apiKey || apiKey.length !== serverKey.length ||
+      !timingSafeEqual(Buffer.from(apiKey), Buffer.from(serverKey))) {
     log('auth_failed');
     ws.close(4001, 'Unauthorized');
     return false;

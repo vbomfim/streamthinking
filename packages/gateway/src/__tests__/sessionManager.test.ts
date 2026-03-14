@@ -136,11 +136,34 @@ describe('SessionManager', () => {
       const ws = createMockWs();
       manager.joinSession(id, ws);
 
+      manager.startGC();
+
       // Fast-forward 31 minutes
       vi.advanceTimersByTime(31 * 60 * 1000);
 
       // Session should still exist (has clients)
       expect(manager.getSession(id)).toBeDefined();
+
+      manager.stopGC();
+      vi.useRealTimers();
+    });
+
+    it('removes sessions with no clients after TTL expires', () => {
+      vi.useFakeTimers();
+      const id = manager.createSession();
+      const ws = createMockWs();
+      manager.joinSession(id, ws);
+      manager.leaveSession(id, ws);
+
+      manager.startGC();
+
+      // Fast-forward 35 minutes (past 30min TTL + aligned to 5min GC interval)
+      vi.advanceTimersByTime(35 * 60 * 1000);
+
+      // Session should be garbage collected
+      expect(manager.getSession(id)).toBeUndefined();
+
+      manager.stopGC();
       vi.useRealTimers();
     });
   });

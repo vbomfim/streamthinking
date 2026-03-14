@@ -58,13 +58,22 @@ export function createGateway(options: {
         return;
       }
 
-      let message: ClientMessage;
+      let parsed: unknown;
       try {
-        message = JSON.parse(data) as ClientMessage;
+        parsed = JSON.parse(data);
       } catch {
         sendError(ws, 'INVALID_JSON', 'Message is not valid JSON');
         return;
       }
+
+      // Validate message has a known type
+      if (!parsed || typeof parsed !== 'object' || !('type' in parsed) ||
+          typeof (parsed as Record<string, unknown>).type !== 'string') {
+        sendError(ws, 'INVALID_MESSAGE', 'Message must have a string type field');
+        return;
+      }
+
+      const message = parsed as ClientMessage;
 
       handleMessage(ws, message, sessionManager, rateLimiter, clientSessions);
     });
@@ -121,6 +130,13 @@ function handleMessage(
     case 'create-session': {
       if (!authenticate(ws, message.auth?.apiKey)) return;
 
+      // Leave existing session if any (prevent stale client references)
+      const existingSession = clientSessions.get(ws);
+      if (existingSession) {
+        sessionManager.leaveSession(existingSession, ws);
+        clientSessions.delete(ws);
+      }
+
       const sessionId = sessionManager.createSession();
       sessionManager.joinSession(sessionId, ws);
       clientSessions.set(ws, sessionId);
@@ -131,9 +147,16 @@ function handleMessage(
     case 'join': {
       if (!authenticate(ws, message.auth?.apiKey)) return;
 
+      // Leave existing session if any (prevent stale client references)
+      const prevSession = clientSessions.get(ws);
+      if (prevSession) {
+        sessionManager.leaveSession(prevSession, ws);
+        clientSessions.delete(ws);
+      }
+
       const state = sessionManager.joinSession(message.sessionId, ws);
       if (!state) {
-        sendError(ws, 'SESSION_NOT_FOUND', `Session ${message.sessionId} not found`);
+        sendError(ws, 'SESSION_NOT_FOUND', 'Session not found');
         return;
       }
       clientSessions.set(ws, message.sessionId);
