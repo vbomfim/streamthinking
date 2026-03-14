@@ -1,0 +1,1 @@
+# StreamThinking\n\nA visual communication protocol for humans & AI — an infinite canvas where AI agents express reasoning, diagrams, wireframes, and workflows, and humans respond by drawing, annotating, and editing. Both sides speak the same visual protocol.\n

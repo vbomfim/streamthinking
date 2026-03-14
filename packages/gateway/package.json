@@ -1,0 +1,16 @@
+{
+  "name": "@infinicanvas/gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "InfiniCanvas WebSocket server (Phase 4)",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "infinicanvas",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Visual communication protocol for humans and AI — a shared infinite canvas for co-creation",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "clean": "npm run clean --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

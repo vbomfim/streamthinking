@@ -1,0 +1,56 @@
+/**
+ * VisualExpression — the core type of the InfiniCanvas Protocol.
+ *
+ * Every element on the canvas is a VisualExpression, carrying its identity,
+ * position, style, metadata, and kind-specific data payload.
+ *
+ * @module
+ */
+
+import type { AuthorInfo, ExpressionStyle } from './metadata.js';
+import type { PrimitiveData } from './primitives.js';
+import type { CompositeData } from './composites.js';
+import type { AnnotationData } from './annotations.js';
+
+/** Discriminated union of all expression data payloads. */
+export type ExpressionData = PrimitiveData | CompositeData | AnnotationData;
+
+/** All valid expression kind strings, derived from ExpressionData. */
+export type ExpressionKind = ExpressionData['kind'];
+
+/** A visual expression on the InfiniCanvas. */
+export interface VisualExpression {
+  /** Unique identifier for this expression. */
+  id: string;
+  /** The kind of expression — discriminant for the `data` field. */
+  kind: ExpressionKind;
+  /** Position on the canvas (top-left corner). */
+  position: { x: number; y: number };
+  /** Dimensions of the expression bounding box. */
+  size: { width: number; height: number };
+  /** Rotation angle in degrees. */
+  angle: number;
+  /** Visual styling. */
+  style: ExpressionStyle;
+  /** Expression metadata. */
+  meta: {
+    /** Who created this expression. */
+    author: AuthorInfo;
+    /** Unix timestamp (ms) when the expression was created. */
+    createdAt: number;
+    /** Unix timestamp (ms) when the expression was last updated. */
+    updatedAt: number;
+    /** ID of the operation that produced this expression. */
+    sourceOperation?: string;
+    /** Freeform tags for categorization. */
+    tags: string[];
+    /** Whether this expression is locked from editing. */
+    locked: boolean;
+  };
+  /** ID of the parent expression (for grouping/nesting). */
+  parentId?: string;
+  /** IDs of child expressions. */
+  children?: string[];
+  /** Kind-specific data payload (discriminated by `kind`). */
+  data: ExpressionData;
+}

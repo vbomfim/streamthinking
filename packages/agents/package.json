@@ -1,0 +1,16 @@
+{
+  "name": "@infinicanvas/agents",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "InfiniCanvas AI agent adapters (Phase 5)",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0"
+  }
+}
