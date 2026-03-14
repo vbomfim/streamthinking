@@ -1,0 +1,242 @@
+/**
+ * WebSocket gateway server for InfiniCanvas.
+ *
+ * Provides real-time collaboration via WebSocket connections.
+ * Handles session management, authentication, protocol validation,
+ * rate limiting, and agent registration.
+ *
+ * @module
+ */
+
+import { WebSocketServer } from 'ws';
+import type { WebSocket, RawData } from 'ws';
+import { SessionManager } from './sessionManager.js';
+import { RateLimiter } from './rateLimiter.js';
+import { authenticate } from './authMiddleware.js';
+import { validateOperation, applyOperation } from './protocolHandler.js';
+import { registerAgent, broadcastToOthers } from './agentRegistry.js';
+import { log, logError } from './logger.js';
+import type { ClientMessage, ServerMessage } from './types.js';
+
+/** Maximum allowed message size: 1 MB. */
+const MAX_MESSAGE_SIZE = 1024 * 1024;
+
+/**
+ * Create and configure the WebSocket gateway server.
+ * Returns the server instance (does NOT call listen — the caller starts it).
+ */
+export function createGateway(options: {
+  sessionManager?: SessionManager;
+  rateLimiter?: RateLimiter;
+  port?: number;
+} = {}): { wss: WebSocketServer; sessionManager: SessionManager; start: () => void; stop: () => Promise<void> } {
+  const sessionManager = options.sessionManager ?? new SessionManager();
+  const rateLimiter = options.rateLimiter ?? new RateLimiter();
+  const port = options.port ?? (Number(process.env['PORT']) || 8080);
+
+  /** Per-client session mapping (instance-scoped). */
+  const clientSessions = new Map<WebSocket, string>();
+
+  const wss = new WebSocketServer({ port, maxPayload: MAX_MESSAGE_SIZE });
+
+  wss.on('connection', (ws: WebSocket) => {
+    log('client_connected');
+
+    ws.on('message', (raw: RawData, isBinary: boolean) => {
+      // Reject binary frames.
+      if (isBinary) {
+        logError('binary_rejected', new Error('Binary frames not supported'));
+        ws.close(1003, 'Binary frames not supported');
+        return;
+      }
+
+      const data = raw.toString();
+
+      // Message size check (defense in depth — ws maxPayload also enforces this).
+      if (data.length > MAX_MESSAGE_SIZE) {
+        sendError(ws, 'MESSAGE_TOO_LARGE', 'Message exceeds 1MB limit');
+        return;
+      }
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(data);
+      } catch {
+        sendError(ws, 'INVALID_JSON', 'Message is not valid JSON');
+        return;
+      }
+
+      // Validate message has a known type
+      if (!parsed || typeof parsed !== 'object' || !('type' in parsed) ||
+          typeof (parsed as Record<string, unknown>).type !== 'string') {
+        sendError(ws, 'INVALID_MESSAGE', 'Message must have a string type field');
+        return;
+      }
+
+      const message = parsed as ClientMessage;
+
+      handleMessage(ws, message, sessionManager, rateLimiter, clientSessions);
+    });
+
+    ws.on('close', () => {
+      const sessionId = clientSessions.get(ws);
+      if (sessionId) {
+        sessionManager.leaveSession(sessionId, ws);
+        clientSessions.delete(ws);
+      } else {
+        sessionManager.removeClientFromAll(ws);
+      }
+      rateLimiter.remove(ws);
+      log('client_disconnected');
+    });
+
+    ws.on('error', (error: Error) => {
+      logError('ws_error', error);
+    });
+  });
+
+  const start = (): void => {
+    sessionManager.startGC();
+    log('gateway_started', { port });
+  };
+
+  const stop = (): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      sessionManager.stopGC();
+      // Terminate all connected clients before closing the server.
+      for (const client of wss.clients) {
+        client.terminate();
+      }
+      wss.close((err) => {
+        if (err) reject(err);
+        else resolve();
+      });
+    });
+  };
+
+  return { wss, sessionManager, start, stop };
+}
+
+// ── Message Handler ────────────────────────────────────────
+
+function handleMessage(
+  ws: WebSocket,
+  message: ClientMessage,
+  sessionManager: SessionManager,
+  rateLimiter: RateLimiter,
+  clientSessions: Map<WebSocket, string>,
+): void {
+  switch (message.type) {
+    case 'create-session': {
+      if (!authenticate(ws, message.auth?.apiKey)) return;
+
+      // Leave existing session if any (prevent stale client references)
+      const existingSession = clientSessions.get(ws);
+      if (existingSession) {
+        sessionManager.leaveSession(existingSession, ws);
+        clientSessions.delete(ws);
+      }
+
+      const sessionId = sessionManager.createSession();
+      sessionManager.joinSession(sessionId, ws);
+      clientSessions.set(ws, sessionId);
+      send(ws, { type: 'session-created', sessionId });
+      break;
+    }
+
+    case 'join': {
+      if (!authenticate(ws, message.auth?.apiKey)) return;
+
+      // Leave existing session if any (prevent stale client references)
+      const prevSession = clientSessions.get(ws);
+      if (prevSession) {
+        sessionManager.leaveSession(prevSession, ws);
+        clientSessions.delete(ws);
+      }
+
+      const state = sessionManager.joinSession(message.sessionId, ws);
+      if (!state) {
+        sendError(ws, 'SESSION_NOT_FOUND', 'Session not found');
+        return;
+      }
+      clientSessions.set(ws, message.sessionId);
+      send(ws, {
+        type: 'state-sync',
+        sessionId: message.sessionId,
+        expressions: state.expressions,
+        expressionOrder: state.expressionOrder,
+      });
+      break;
+    }
+
+    case 'operation': {
+      const sessionId = clientSessions.get(ws);
+      if (!sessionId) {
+        sendError(ws, 'NOT_IN_SESSION', 'Join a session before sending operations');
+        return;
+      }
+
+      // Rate limiting.
+      if (!rateLimiter.allow(ws)) {
+        sendError(ws, 'RATE_LIMITED', 'Too many operations — slow down');
+        return;
+      }
+
+      // Validate operation against protocol schema.
+      const validationError = validateOperation(message.operation);
+      if (validationError) {
+        send(ws, validationError);
+        return;
+      }
+
+      const session = sessionManager.getSession(sessionId);
+      if (!session) {
+        sendError(ws, 'SESSION_NOT_FOUND', 'Session no longer exists');
+        return;
+      }
+
+      // Apply state mutation.
+      applyOperation(session, message.operation);
+
+      // Check for agent registration.
+      const agentMsg = registerAgent(session, message.operation.author);
+      if (agentMsg) {
+        broadcastToOthers(session, ws, agentMsg);
+      }
+
+      // Broadcast operation to other clients.
+      broadcastToOthers(session, ws, {
+        type: 'operation',
+        operation: message.operation,
+      });
+      break;
+    }
+
+    case 'leave': {
+      const sessionId = clientSessions.get(ws);
+      if (sessionId) {
+        sessionManager.leaveSession(sessionId, ws);
+        clientSessions.delete(ws);
+        log('client_left_session', { sessionId });
+      }
+      break;
+    }
+
+    default: {
+      sendError(ws, 'UNKNOWN_MESSAGE_TYPE', `Unknown message type`);
+      break;
+    }
+  }
+}
+
+// ── Helpers ────────────────────────────────────────────────
+
+function send(ws: WebSocket, message: ServerMessage): void {
+  if (ws.readyState === ws.OPEN) {
+    ws.send(JSON.stringify(message));
+  }
+}
+
+function sendError(ws: WebSocket, code: string, message: string): void {
+  send(ws, { type: 'error', code, message });
+}
