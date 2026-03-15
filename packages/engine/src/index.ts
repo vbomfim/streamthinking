@@ -144,6 +144,9 @@ export type {
   GatewayConnection,
 } from './hooks/useGatewayConnection.js';
 
+// ── Morph Engine ───────────────────────────────────────────
+export { morphExpression, canMorph, getMorphTargets } from './morph/morphEngine.js';
+
 // ── Components ─────────────────────────────────────────────
 export { Canvas } from './components/Canvas.js';
 export { ErrorBoundary } from './components/ErrorBoundary.js';
