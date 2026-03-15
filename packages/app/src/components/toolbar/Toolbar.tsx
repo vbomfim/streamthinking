@@ -12,6 +12,7 @@
 
 import { useCanvasStore } from '@infinicanvas/engine';
 import type { ToolType } from '@infinicanvas/engine';
+import type { ExpressionStyle } from '@infinicanvas/protocol';
 import {
   MousePointer2,
   Square,
@@ -53,6 +54,9 @@ const ICON_SIZE = 18;
 export function Toolbar() {
   const activeTool = useCanvasStore((s) => s.activeTool);
   const setActiveTool = useCanvasStore((s) => s.setActiveTool);
+  const lastUsedStyle = useCanvasStore((s) => s.lastUsedStyle);
+
+  const isTransparentFill = lastUsedStyle.backgroundColor === 'transparent';
 
   return (
     <div
@@ -105,6 +109,49 @@ export function Toolbar() {
           </button>
         );
       })}
+
+      {/* Style indicator — shows current stroke/fill colors */}
+      <div
+        style={{
+          width: '100%',
+          height: 1,
+          backgroundColor: '#e0e0e0',
+          margin: '2px 0',
+        }}
+      />
+      <StyleIndicator style={lastUsedStyle} isTransparentFill={isTransparentFill} />
     </div>
+  );
+}
+
+/** Small swatch showing current stroke + fill colors. */
+function StyleIndicator({
+  style,
+  isTransparentFill,
+}: {
+  style: ExpressionStyle;
+  isTransparentFill: boolean;
+}) {
+  return (
+    <div
+      data-testid="style-indicator"
+      data-transparent={isTransparentFill ? 'true' : 'false'}
+      title={`Stroke: ${style.strokeColor} / Fill: ${style.backgroundColor}`}
+      style={{
+        width: BUTTON_SIZE - 8,
+        height: BUTTON_SIZE - 8,
+        borderRadius: 4,
+        borderColor: style.strokeColor,
+        borderWidth: 3,
+        borderStyle: 'solid',
+        backgroundColor: isTransparentFill ? 'transparent' : style.backgroundColor,
+        backgroundImage: isTransparentFill
+          ? 'repeating-conic-gradient(#ddd 0% 25%, transparent 0% 50%)'
+          : undefined,
+        backgroundSize: isTransparentFill ? '8px 8px' : undefined,
+        margin: '0 auto',
+        cursor: 'default',
+      }}
+    />
   );
 }

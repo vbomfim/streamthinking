@@ -11,12 +11,14 @@
 import { Canvas } from '@infinicanvas/engine';
 import { Toolbar } from './components/toolbar/Toolbar.js';
 import { AgentSidebar } from './components/sidebar/AgentSidebar.js';
+import { StylePanel } from './components/panels/StylePanel.js';
 
 export function App() {
   return (
     <>
       <Canvas />
       <Toolbar />
+      <StylePanel />
       <AgentSidebar />
     </>
   );

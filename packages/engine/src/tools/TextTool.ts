@@ -11,7 +11,6 @@
  */
 
 import { nanoid } from 'nanoid';
-import { DEFAULT_EXPRESSION_STYLE } from '@infinicanvas/protocol';
 import type { VisualExpression } from '@infinicanvas/protocol';
 import type { ToolHandler, DrawPreview } from './BaseTool.js';
 import { useCanvasStore } from '../store/canvasStore.js';
@@ -86,7 +85,7 @@ export class TextTool implements ToolHandler {
       position: { x: this.inputPosition.x, y: this.inputPosition.y },
       size: { width: TEXT_WIDTH, height: TEXT_HEIGHT },
       angle: 0,
-      style: { ...DEFAULT_EXPRESSION_STYLE },
+      style: { ...useCanvasStore.getState().lastUsedStyle },
       meta: {
         author: LOCAL_AUTHOR,
         createdAt: now,
