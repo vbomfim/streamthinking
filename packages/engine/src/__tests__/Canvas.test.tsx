@@ -144,13 +144,13 @@ describe('Canvas rendering [AC2]', () => {
     expect(style.padding).toBe('0px');
   });
 
-  it('[AC2] renders a canvas element with white background', () => {
+  it('[AC2] renders a canvas element with themed background', () => {
     const { container } = render(<Canvas />);
 
     const canvas = container.querySelector('canvas');
     expect(canvas).toBeTruthy();
-    // jsdom normalizes hex colors to rgb()
-    expect(canvas!.style.backgroundColor).toMatch(/^(#ffffff|rgb\(255,\s*255,\s*255\))$/);
+    // Background uses CSS variable with #ffffff fallback
+    expect(canvas!.style.backgroundColor).toMatch(/^(#ffffff|rgb\(255,\s*255,\s*255\)|var\(--bg-canvas.*\))$/);
     expect(canvas!.style.display).toBe('block');
   });
 

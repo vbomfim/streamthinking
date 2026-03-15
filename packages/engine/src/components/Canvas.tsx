@@ -168,7 +168,7 @@ function CanvasInner() {
         ref={canvasRef}
         style={{
           display: 'block',
-          backgroundColor: '#ffffff',
+          backgroundColor: 'var(--bg-canvas, #ffffff)',
           cursor,
         }}
       />

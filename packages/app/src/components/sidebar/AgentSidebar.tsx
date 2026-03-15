@@ -40,7 +40,7 @@ function AgentRow({
         alignItems: 'center',
         gap: '8px',
         padding: '8px 12px',
-        borderBottom: '1px solid #2a2a2a',
+        borderBottom: '1px solid var(--border, #2a2a2a)',
       }}
     >
       {/* Status dot — green = connected */}
@@ -61,7 +61,7 @@ function AgentRow({
           style={{
             fontSize: '13px',
             fontWeight: 500,
-            color: '#e0e0e0',
+            color: 'var(--text-primary, #e0e0e0)',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -72,7 +72,7 @@ function AgentRow({
         <div
           style={{
             fontSize: '11px',
-            color: '#888',
+            color: 'var(--text-secondary, #888)',
           }}
         >
           {getProvider(agent)}
@@ -115,13 +115,13 @@ export function AgentSidebar({ activeAgentIds = [] }: AgentSidebarProps) {
         top: '16px',
         right: '16px',
         width: '220px',
-        backgroundColor: '#1e1e1e',
+        backgroundColor: 'var(--bg-panel, #1e1e1e)',
         borderRadius: '8px',
-        border: '1px solid #333',
+        border: '1px solid var(--border, #333)',
         overflow: 'hidden',
         fontFamily: 'system-ui, -apple-system, sans-serif',
         zIndex: 1000,
-        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
+        boxShadow: '0 4px 12px var(--shadow-strong, rgba(0, 0, 0, 0.3))',
       }}
     >
       {/* Header — click to collapse/expand */}
@@ -136,9 +136,9 @@ export function AgentSidebar({ activeAgentIds = [] }: AgentSidebarProps) {
           padding: '10px 12px',
           backgroundColor: 'transparent',
           border: 'none',
-          borderBottom: isExpanded ? '1px solid #333' : 'none',
+          borderBottom: isExpanded ? '1px solid var(--border, #333)' : 'none',
           cursor: 'pointer',
-          color: '#e0e0e0',
+          color: 'var(--text-primary, #e0e0e0)',
           fontSize: '14px',
           fontWeight: 600,
         }}
@@ -163,7 +163,7 @@ export function AgentSidebar({ activeAgentIds = [] }: AgentSidebarProps) {
               style={{
                 padding: '12px',
                 textAlign: 'center',
-                color: '#666',
+                color: 'var(--text-secondary, #666)',
                 fontSize: '12px',
               }}
             >

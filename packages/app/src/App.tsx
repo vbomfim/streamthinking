@@ -4,7 +4,7 @@
  * Renders the Canvas component from @infinicanvas/engine
  * with the Toolbar for drawing tools, ExpressionPalette for
  * composite insertion, AgentActions for AI interactions,
- * and AgentSidebar overlay for connected AI agents.
+ * AgentSidebar overlay, theme toggle, and export menu.
  *
  * @module
  */
@@ -18,6 +18,8 @@ import { AgentActions } from './components/toolbar/AgentActions.js';
 import type { AgentActionType } from './components/toolbar/AgentActions.js';
 import { AgentSidebar } from './components/sidebar/AgentSidebar.js';
 import { StylePanel } from './components/panels/StylePanel.js';
+import { ThemeToggle } from './components/panels/ThemeToggle.js';
+import { ExportMenu } from './components/panels/ExportMenu.js';
 
 export function App() {
   const addExpression = useCanvasStore((s) => s.addExpression);
@@ -78,6 +80,25 @@ export function App() {
         onAction={handleAgentAction}
       />
       <AgentSidebar />
+      {/* Top-left action bar: theme toggle + export menu */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 12,
+          left: 12,
+          display: 'flex',
+          gap: 4,
+          padding: 4,
+          backgroundColor: 'var(--bg-toolbar, #ffffff)',
+          borderRadius: 10,
+          boxShadow: '0 2px 8px var(--shadow, rgba(0,0,0,0.12))',
+          border: '1px solid var(--border, #e0e0e0)',
+          zIndex: 20,
+        }}
+      >
+        <ThemeToggle />
+        <ExportMenu />
+      </div>
     </>
   );
 }

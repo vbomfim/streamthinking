@@ -12,8 +12,11 @@ import type { Camera } from '../types/index.js';
 /** Base dot spacing in world units. */
 const BASE_SPACING = 20;
 
-/** Dot color — subtle gray. */
-const DOT_COLOR = '#e0e0e0';
+/**
+ * Default dot color — subtle gray. Used as fallback when
+ * CSS variable --grid-dot is not available (e.g., in tests).
+ */
+const DEFAULT_DOT_COLOR = '#e0e0e0';
 
 /** Dot radius in world units. */
 const DOT_RADIUS = 1.5;
@@ -29,6 +32,24 @@ export function getGridSpacing(zoom: number): number {
   if (zoom < 0.25) return BASE_SPACING * 4;
   if (zoom < 0.5) return BASE_SPACING * 2;
   return BASE_SPACING;
+}
+
+/**
+ * Resolve the grid dot color from CSS custom property or fallback.
+ *
+ * Reads --grid-dot from the computed style of the document root.
+ * Falls back to DEFAULT_DOT_COLOR if the variable is not set or
+ * if running in a non-browser environment (e.g., tests).
+ */
+function getGridDotColor(): string {
+  try {
+    const value = getComputedStyle(document.documentElement)
+      .getPropertyValue('--grid-dot')
+      .trim();
+    return value || DEFAULT_DOT_COLOR;
+  } catch {
+    return DEFAULT_DOT_COLOR;
+  }
 }
 
 /**
@@ -60,7 +81,7 @@ export function renderGrid(
   const endY = Math.ceil(worldBottom / spacing) * spacing;
 
   ctx.save();
-  ctx.fillStyle = DOT_COLOR;
+  ctx.fillStyle = getGridDotColor();
 
   for (let x = startX; x <= endX; x += spacing) {
     for (let y = startY; y <= endY; y += spacing) {
