@@ -16,6 +16,7 @@ import { enableMapSet } from 'immer';
 import { nanoid } from 'nanoid';
 import {
   visualExpressionSchema,
+  protocolOperationSchema,
 } from '@infinicanvas/protocol';
 import type {
   VisualExpression,
@@ -136,6 +137,8 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
           position: expression.position,
           size: expression.size,
           data: expression.data,
+          style: expression.style,
+          angle: expression.angle,
         });
         pushOperation(state.operationLog, operation);
 
@@ -330,6 +333,16 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     // ── Remote operations (NO operationLog append) ────────────
 
     applyRemoteOperation: (op: ProtocolOperation) => {
+      // Validate incoming remote operation against schema [R5]
+      const opResult = protocolOperationSchema.safeParse(op);
+      if (!opResult.success) {
+        console.warn(
+          '[canvasStore] Invalid remote operation rejected:',
+          opResult.error.issues,
+        );
+        return;
+      }
+
       set((state) => {
         switch (op.payload.type) {
           case 'create': {
@@ -339,8 +352,8 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
               kind: p.kind,
               position: p.position,
               size: p.size,
-              angle: 0,
-              style: {
+              angle: p.angle ?? 0,
+              style: p.style ?? {
                 strokeColor: '#000000',
                 backgroundColor: 'transparent',
                 fillStyle: 'none',
@@ -357,6 +370,15 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
               },
               data: p.data,
             };
+            // Validate reconstructed expression [R5]
+            const exprResult = visualExpressionSchema.safeParse(expr);
+            if (!exprResult.success) {
+              console.warn(
+                '[canvasStore] Invalid expression from remote create rejected:',
+                exprResult.error.issues,
+              );
+              break;
+            }
             state.expressions[p.expressionId] = expr;
             state.expressionOrder.push(p.expressionId);
             break;

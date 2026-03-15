@@ -43,6 +43,7 @@ import {
   // Operations
   protocolOperationSchema,
   operationPayloadSchema,
+  createPayloadSchema,
 } from '../index.js';
 
 // ── Test helpers ───────────────────────────────────────────
@@ -957,5 +958,135 @@ describe('VisualExpression kind/data.kind consistency', () => {
       data: { kind: 'rectangle' },
     });
     expect(result.success).toBe(true);
+  });
+});
+
+// ── R3: CreatePayload with style/angle ─────────────────────
+describe('CreatePayload style/angle fields (R3)', () => {
+  it('accepts create payload with optional style and angle', () => {
+    const result = createPayloadSchema.safeParse({
+      type: 'create',
+      expressionId: 'expr-1',
+      kind: 'rectangle',
+      position: { x: 10, y: 20 },
+      size: { width: 100, height: 50 },
+      data: { kind: 'rectangle', label: 'Box' },
+      style: {
+        strokeColor: '#ff0000',
+        backgroundColor: '#00ff00',
+        fillStyle: 'solid',
+        strokeWidth: 3,
+        roughness: 0,
+        opacity: 0.8,
+      },
+      angle: 45,
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts create payload without style and angle (backwards compatible)', () => {
+    const result = createPayloadSchema.safeParse({
+      type: 'create',
+      expressionId: 'expr-1',
+      kind: 'rectangle',
+      position: { x: 10, y: 20 },
+      size: { width: 100, height: 50 },
+      data: { kind: 'rectangle' },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('roundtrip: style in create payload is preserved through validation', () => {
+    const customStyle = {
+      strokeColor: '#ff0000',
+      backgroundColor: '#00ff00',
+      fillStyle: 'solid' as const,
+      strokeWidth: 5,
+      roughness: 2,
+      opacity: 0.5,
+    };
+    const payload = {
+      type: 'create',
+      expressionId: 'expr-1',
+      kind: 'rectangle',
+      position: { x: 0, y: 0 },
+      size: { width: 100, height: 100 },
+      data: { kind: 'rectangle' },
+      style: customStyle,
+      angle: 30,
+    };
+    const result = createPayloadSchema.safeParse(payload);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.style).toEqual(customStyle);
+      expect(result.data.angle).toBe(30);
+    }
+  });
+});
+
+// ── R4: Image src validation ───────────────────────────────
+describe('Image src validation (R4)', () => {
+  it('rejects javascript: URI', () => {
+    const result = imageDataSchema.safeParse({
+      kind: 'image',
+      src: 'javascript:alert(1)',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects data:text/html URI', () => {
+    const result = imageDataSchema.safeParse({
+      kind: 'image',
+      src: 'data:text/html,<script>alert(1)</script>',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts https:// URL', () => {
+    const result = imageDataSchema.safeParse({
+      kind: 'image',
+      src: 'https://example.com/img.png',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts http:// URL', () => {
+    const result = imageDataSchema.safeParse({
+      kind: 'image',
+      src: 'http://example.com/photo.jpg',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts data:image/png;base64 URI', () => {
+    const result = imageDataSchema.safeParse({
+      kind: 'image',
+      src: 'data:image/png;base64,iVBORw0KGgo=',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts data:image/jpeg;base64 URI', () => {
+    const result = imageDataSchema.safeParse({
+      kind: 'image',
+      src: 'data:image/jpeg;base64,/9j/4AAQ=',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects empty string', () => {
+    const result = imageDataSchema.safeParse({
+      kind: 'image',
+      src: '',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects ftp:// URL', () => {
+    const result = imageDataSchema.safeParse({
+      kind: 'image',
+      src: 'ftp://example.com/file.png',
+    });
+    expect(result.success).toBe(false);
   });
 });

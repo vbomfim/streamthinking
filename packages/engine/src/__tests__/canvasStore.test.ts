@@ -432,3 +432,135 @@ describe('operation IDs', () => {
     expect(uniqueIds.size).toBe(ids.length);
   });
 });
+
+// ── R3: applyRemoteOperation uses style/angle from CreatePayload ─
+
+describe('applyRemoteOperation with style/angle (R3)', () => {
+  it('uses style from CreatePayload when present', () => {
+    const customStyle = {
+      strokeColor: '#ff0000',
+      backgroundColor: '#00ff00',
+      fillStyle: 'solid' as const,
+      strokeWidth: 5,
+      roughness: 0,
+      opacity: 0.8,
+    };
+
+    useCanvasStore.getState().applyRemoteOperation({
+      id: 'op-1',
+      type: 'create',
+      author: testAuthor,
+      timestamp: Date.now(),
+      payload: {
+        type: 'create',
+        expressionId: 'styled-1',
+        kind: 'rectangle',
+        position: { x: 10, y: 20 },
+        size: { width: 100, height: 50 },
+        data: { kind: 'rectangle' },
+        style: customStyle,
+        angle: 45,
+      },
+    });
+
+    const expr = useCanvasStore.getState().expressions['styled-1'];
+    expect(expr).toBeDefined();
+    expect(expr!.style).toEqual(customStyle);
+    expect(expr!.angle).toBe(45);
+  });
+
+  it('falls back to defaults when style/angle absent in CreatePayload', () => {
+    useCanvasStore.getState().applyRemoteOperation({
+      id: 'op-2',
+      type: 'create',
+      author: testAuthor,
+      timestamp: Date.now(),
+      payload: {
+        type: 'create',
+        expressionId: 'default-1',
+        kind: 'rectangle',
+        position: { x: 0, y: 0 },
+        size: { width: 100, height: 50 },
+        data: { kind: 'rectangle' },
+      },
+    });
+
+    const expr = useCanvasStore.getState().expressions['default-1'];
+    expect(expr).toBeDefined();
+    expect(expr!.angle).toBe(0);
+    expect(expr!.style.strokeColor).toBe('#000000');
+    expect(expr!.style.fillStyle).toBe('none');
+  });
+});
+
+// ── R5: applyRemoteOperation validates incoming operations ────
+
+describe('applyRemoteOperation validation (R5)', () => {
+  it('rejects invalid remote operation (missing required fields)', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    useCanvasStore.getState().applyRemoteOperation({
+      id: '',  // invalid: min length 1
+      type: 'create',
+      author: testAuthor,
+      timestamp: Date.now(),
+      payload: {
+        type: 'create',
+        expressionId: 'bad-1',
+        kind: 'rectangle',
+        position: { x: 0, y: 0 },
+        size: { width: 100, height: 50 },
+        data: { kind: 'rectangle' },
+      },
+    });
+
+    // Should not add the expression
+    expect(useCanvasStore.getState().expressions['bad-1']).toBeUndefined();
+    expect(warnSpy).toHaveBeenCalled();
+
+    warnSpy.mockRestore();
+  });
+
+  it('rejects remote create with invalid payload data', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    useCanvasStore.getState().applyRemoteOperation({
+      id: 'op-valid',
+      type: 'create',
+      author: testAuthor,
+      timestamp: Date.now(),
+      payload: {
+        type: 'create',
+        expressionId: 'corrupt-1',
+        kind: 'rectangle',
+        position: { x: 0, y: 0 },
+        size: { width: -1, height: -1 },  // invalid: must be positive
+        data: { kind: 'rectangle' },
+      },
+    });
+
+    // Should not add the expression (size validation fails)
+    expect(useCanvasStore.getState().expressions['corrupt-1']).toBeUndefined();
+
+    warnSpy.mockRestore();
+  });
+
+  it('accepts valid remote operation', () => {
+    useCanvasStore.getState().applyRemoteOperation({
+      id: 'op-good',
+      type: 'create',
+      author: testAuthor,
+      timestamp: Date.now(),
+      payload: {
+        type: 'create',
+        expressionId: 'good-1',
+        kind: 'rectangle',
+        position: { x: 10, y: 20 },
+        size: { width: 100, height: 50 },
+        data: { kind: 'rectangle' },
+      },
+    });
+
+    expect(useCanvasStore.getState().expressions['good-1']).toBeDefined();
+  });
+});

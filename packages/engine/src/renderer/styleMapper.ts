@@ -36,6 +36,8 @@ export function mapStyleToRoughOptions(style: ExpressionStyle): Options {
  *
  * The hash includes all style fields that affect rendering. Two identical
  * styles produce the same hash; any change produces a different hash.
+ *
+ * @deprecated Use computeRenderHash for cache keys that include position/size/data.
  */
 export function computeStyleHash(style: ExpressionStyle): string {
   return [
@@ -47,5 +49,35 @@ export function computeStyleHash(style: ExpressionStyle): string {
     style.opacity,
     style.fontSize ?? '',
     style.fontFamily ?? '',
+  ].join('|');
+}
+
+/**
+ * Compute a deterministic hash for caching Rough.js drawables.
+ *
+ * Includes style, position, size, and data fields — any change to the
+ * visual representation of the expression will produce a different hash,
+ * triggering a cache miss and drawable regeneration.
+ */
+export function computeRenderHash(
+  style: ExpressionStyle,
+  position: { x: number; y: number },
+  size: { width: number; height: number },
+  data: unknown,
+): string {
+  return [
+    style.strokeColor,
+    style.backgroundColor,
+    style.fillStyle,
+    style.strokeWidth,
+    style.roughness,
+    style.opacity,
+    style.fontSize ?? '',
+    style.fontFamily ?? '',
+    position.x,
+    position.y,
+    size.width,
+    size.height,
+    JSON.stringify(data),
   ].join('|');
 }

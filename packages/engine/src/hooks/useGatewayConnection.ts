@@ -289,8 +289,14 @@ export function createGatewayConnection(
     lastError = null;
     backoffMs = INITIAL_BACKOFF_MS; // Reset backoff on successful connect
 
-    // Send handshake message
-    if (options.sessionId) {
+    // Send handshake message — use live session ID if one was assigned [R8]
+    if (currentSessionId) {
+      send({
+        type: 'join',
+        sessionId: currentSessionId,
+        auth: { apiKey: options.apiKey },
+      });
+    } else if (options.sessionId) {
       send({
         type: 'join',
         sessionId: options.sessionId,

@@ -38,6 +38,10 @@ export interface CreatePayload {
   position: { x: number; y: number };
   size: { width: number; height: number };
   data: ExpressionData;
+  /** Optional style — consumers fall back to defaults when absent. */
+  style?: ExpressionStyle;
+  /** Optional rotation angle in degrees — defaults to 0 when absent. */
+  angle?: number;
 }
 
 export interface UpdatePayload {

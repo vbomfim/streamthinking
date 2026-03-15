@@ -7,7 +7,6 @@
  * @module
  */
 
-import { nanoid } from 'nanoid';
 import type {
   VisualExpression,
   ExpressionStyle,
@@ -18,36 +17,9 @@ import type {
   TextData,
   StickyNoteData,
 } from '@infinicanvas/protocol';
-import { DEFAULT_STYLE, DEFAULT_TEXT, MCP_AUTHOR, randomStickyColor } from '../defaults.js';
+import { DEFAULT_TEXT, randomStickyColor } from '../defaults.js';
+import { buildExpression } from '../expressionFactory.js';
 import type { IGatewayClient } from '../gatewayClient.js';
-
-// ── Helper to build a VisualExpression ─────────────────────
-
-function buildExpression(
-  kind: VisualExpression['kind'],
-  position: { x: number; y: number },
-  size: { width: number; height: number },
-  data: VisualExpression['data'],
-  styleOverrides?: Partial<ExpressionStyle>,
-): VisualExpression {
-  const now = Date.now();
-  return {
-    id: nanoid(),
-    kind,
-    position,
-    size,
-    angle: 0,
-    style: { ...DEFAULT_STYLE, ...styleOverrides },
-    meta: {
-      author: MCP_AUTHOR,
-      createdAt: now,
-      updatedAt: now,
-      tags: [],
-      locked: false,
-    },
-    data,
-  };
-}
 
 // ── Tool parameter types ───────────────────────────────────
 

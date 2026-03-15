@@ -530,17 +530,19 @@ export function wrapText(
 /**
  * Get a cached drawable or create a new one. [AC14]
  *
- * Uses the module-level drawable cache keyed by expression ID + style hash.
+ * Uses the module-level drawable cache keyed by expression ID + render hash
+ * (style, position, size, and data).
  */
 function getOrCreateDrawable(
   expr: VisualExpression,
   create: () => Drawable,
 ): Drawable {
-  const cached = drawableCache.get(expr.id, expr.style);
+  const ctx = { style: expr.style, position: expr.position, size: expr.size, data: expr.data };
+  const cached = drawableCache.get(expr.id, ctx);
   if (cached) return cached;
 
   const drawable = create();
-  drawableCache.set(expr.id, expr.style, drawable);
+  drawableCache.set(expr.id, ctx, drawable);
   return drawable;
 }
 

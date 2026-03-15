@@ -490,6 +490,41 @@ describe('createGatewayConnection', () => {
 
       conn.disconnect();
     });
+
+    it('sends join with server-assigned sessionId on reconnect (R8)', () => {
+      // Connect WITHOUT an initial sessionId — server assigns one
+      const conn = createConnection(); // no sessionId in options
+      const ws1 = MockWebSocket.lastInstance!;
+
+      ws1.simulateOpen();
+      // First message should be create-session (no sessionId)
+      expect(ws1.sentParsed[0]).toEqual({
+        type: 'create-session',
+        auth: { apiKey: 'test-key-123' },
+      });
+
+      // Server assigns sessionId
+      ws1.simulateMessage({ type: 'session-created', sessionId: 'server-assigned-sess' });
+      expect(conn.sessionId).toBe('server-assigned-sess');
+
+      // Unexpected disconnect
+      ws1.simulateClose(1006, 'Connection lost');
+
+      // Reconnect after 1s
+      vi.advanceTimersByTime(1000);
+      const ws2 = MockWebSocket.lastInstance!;
+      ws2.simulateOpen();
+
+      // On reconnect, should send JOIN with the server-assigned sessionId
+      const reconnectMsg = ws2.sentParsed[0];
+      expect(reconnectMsg).toEqual({
+        type: 'join',
+        sessionId: 'server-assigned-sess',
+        auth: { apiKey: 'test-key-123' },
+      });
+
+      conn.disconnect();
+    });
   });
 
   describe('auth failure [AC7]', () => {

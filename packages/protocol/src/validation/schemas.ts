@@ -99,7 +99,10 @@ export const stickyNoteDataSchema = z.object({
 
 export const imageDataSchema = z.object({
   kind: z.literal('image'),
-  src: z.string().min(1),
+  src: z.string().min(1).refine(
+    (s) => /^(https?:\/\/|data:image\/)/.test(s),
+    'Must be http(s) URL or data:image/ URI',
+  ),
   alt: z.string().optional(),
 });
 
@@ -397,6 +400,8 @@ export const createPayloadSchema = z.object({
   position: positionSchema,
   size: sizeSchema,
   data: expressionDataSchema,
+  style: expressionStyleSchema.optional(),
+  angle: z.number().optional(),
 });
 
 export const updatePayloadSchema = z.object({

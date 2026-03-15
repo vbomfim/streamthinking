@@ -2,12 +2,14 @@
  * Unit tests for Rough.js drawable cache.
  *
  * Covers: cache hit/miss, invalidation on style change,
- * invalidation on data change, cache clearing, and key computation.
+ * invalidation on position/size/data change, cache clearing,
+ * and render hash computation.
  *
  * @module
  */
 
 import { createDrawableCache } from '../renderer/drawableCache.js';
+import type { RenderContext } from '../renderer/drawableCache.js';
 import type { ExpressionStyle } from '@infinicanvas/protocol';
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -24,6 +26,15 @@ function makeStyle(overrides: Partial<ExpressionStyle> = {}): ExpressionStyle {
   };
 }
 
+function makeContext(overrides: Partial<RenderContext> = {}): RenderContext {
+  return {
+    style: overrides.style ?? makeStyle(),
+    position: overrides.position ?? { x: 0, y: 0 },
+    size: overrides.size ?? { width: 100, height: 100 },
+    data: overrides.data ?? { kind: 'rectangle' },
+  };
+}
+
 /** Fake Drawable for testing (shape matches Rough.js Drawable). */
 function makeDrawable(shape = 'rectangle'): { shape: string; options: object; sets: unknown[] } {
   return { shape, options: {}, sets: [] };
@@ -35,29 +46,29 @@ describe('createDrawableCache', () => {
   it('returns cached drawable on cache hit', () => {
     const cache = createDrawableCache();
     const drawable = makeDrawable();
-    const style = makeStyle();
+    const ctx = makeContext();
 
-    cache.set('expr-1', style, drawable);
-    const result = cache.get('expr-1', style);
+    cache.set('expr-1', ctx, drawable);
+    const result = cache.get('expr-1', ctx);
     expect(result).toBe(drawable);
   });
 
   it('returns undefined on cache miss', () => {
     const cache = createDrawableCache();
-    const style = makeStyle();
+    const ctx = makeContext();
 
-    const result = cache.get('nonexistent', style);
+    const result = cache.get('nonexistent', ctx);
     expect(result).toBeUndefined();
   });
 
   it('invalidates when style changes', () => {
     const cache = createDrawableCache();
     const drawable = makeDrawable();
-    const style1 = makeStyle({ strokeColor: '#000000' });
-    const style2 = makeStyle({ strokeColor: '#ff0000' });
+    const ctx1 = makeContext({ style: makeStyle({ strokeColor: '#000000' }) });
+    const ctx2 = makeContext({ style: makeStyle({ strokeColor: '#ff0000' }) });
 
-    cache.set('expr-1', style1, drawable);
-    const result = cache.get('expr-1', style2);
+    cache.set('expr-1', ctx1, drawable);
+    const result = cache.get('expr-1', ctx2);
     expect(result).toBeUndefined();
   });
 
@@ -65,64 +76,64 @@ describe('createDrawableCache', () => {
     const cache = createDrawableCache();
     const drawable1 = makeDrawable('rectangle');
     const drawable2 = makeDrawable('ellipse');
-    const style1 = makeStyle({ strokeColor: '#000000' });
-    const style2 = makeStyle({ strokeColor: '#ff0000' });
+    const ctx1 = makeContext({ style: makeStyle({ strokeColor: '#000000' }) });
+    const ctx2 = makeContext({ style: makeStyle({ strokeColor: '#ff0000' }) });
 
-    cache.set('expr-1', style1, drawable1);
-    cache.set('expr-1', style2, drawable2);
+    cache.set('expr-1', ctx1, drawable1);
+    cache.set('expr-1', ctx2, drawable2);
 
-    expect(cache.get('expr-1', style2)).toBe(drawable2);
+    expect(cache.get('expr-1', ctx2)).toBe(drawable2);
     // Old style entry should be gone (replaced by new)
-    expect(cache.get('expr-1', style1)).toBeUndefined();
+    expect(cache.get('expr-1', ctx1)).toBeUndefined();
   });
 
   it('stores drawables for different expressions independently', () => {
     const cache = createDrawableCache();
     const drawable1 = makeDrawable('rectangle');
     const drawable2 = makeDrawable('ellipse');
-    const style = makeStyle();
+    const ctx = makeContext();
 
-    cache.set('expr-1', style, drawable1);
-    cache.set('expr-2', style, drawable2);
+    cache.set('expr-1', ctx, drawable1);
+    cache.set('expr-2', ctx, drawable2);
 
-    expect(cache.get('expr-1', style)).toBe(drawable1);
-    expect(cache.get('expr-2', style)).toBe(drawable2);
+    expect(cache.get('expr-1', ctx)).toBe(drawable1);
+    expect(cache.get('expr-2', ctx)).toBe(drawable2);
   });
 
   it('invalidate removes a specific expression from cache', () => {
     const cache = createDrawableCache();
     const drawable = makeDrawable();
-    const style = makeStyle();
+    const ctx = makeContext();
 
-    cache.set('expr-1', style, drawable);
+    cache.set('expr-1', ctx, drawable);
     cache.invalidate('expr-1');
-    expect(cache.get('expr-1', style)).toBeUndefined();
+    expect(cache.get('expr-1', ctx)).toBeUndefined();
   });
 
   it('invalidate does not affect other expressions', () => {
     const cache = createDrawableCache();
     const drawable1 = makeDrawable('rectangle');
     const drawable2 = makeDrawable('ellipse');
-    const style = makeStyle();
+    const ctx = makeContext();
 
-    cache.set('expr-1', style, drawable1);
-    cache.set('expr-2', style, drawable2);
+    cache.set('expr-1', ctx, drawable1);
+    cache.set('expr-2', ctx, drawable2);
     cache.invalidate('expr-1');
 
-    expect(cache.get('expr-1', style)).toBeUndefined();
-    expect(cache.get('expr-2', style)).toBe(drawable2);
+    expect(cache.get('expr-1', ctx)).toBeUndefined();
+    expect(cache.get('expr-2', ctx)).toBe(drawable2);
   });
 
   it('clear removes all entries', () => {
     const cache = createDrawableCache();
-    const style = makeStyle();
+    const ctx = makeContext();
 
-    cache.set('expr-1', style, makeDrawable());
-    cache.set('expr-2', style, makeDrawable());
+    cache.set('expr-1', ctx, makeDrawable());
+    cache.set('expr-2', ctx, makeDrawable());
     cache.clear();
 
-    expect(cache.get('expr-1', style)).toBeUndefined();
-    expect(cache.get('expr-2', style)).toBeUndefined();
+    expect(cache.get('expr-1', ctx)).toBeUndefined();
+    expect(cache.get('expr-2', ctx)).toBeUndefined();
   });
 
   it('handles invalidation of nonexistent entry gracefully', () => {
@@ -133,5 +144,50 @@ describe('createDrawableCache', () => {
   it('handles clear on empty cache gracefully', () => {
     const cache = createDrawableCache();
     expect(() => cache.clear()).not.toThrow();
+  });
+
+  // ── R1: Position/size/data change triggers cache miss ──────
+
+  it('invalidates when position changes (R1)', () => {
+    const cache = createDrawableCache();
+    const drawable = makeDrawable();
+    const ctx1 = makeContext({ position: { x: 10, y: 20 } });
+    const ctx2 = makeContext({ position: { x: 50, y: 60 } });
+
+    cache.set('expr-1', ctx1, drawable);
+    expect(cache.get('expr-1', ctx2)).toBeUndefined();
+  });
+
+  it('invalidates when size changes (R1)', () => {
+    const cache = createDrawableCache();
+    const drawable = makeDrawable();
+    const ctx1 = makeContext({ size: { width: 100, height: 50 } });
+    const ctx2 = makeContext({ size: { width: 200, height: 50 } });
+
+    cache.set('expr-1', ctx1, drawable);
+    expect(cache.get('expr-1', ctx2)).toBeUndefined();
+  });
+
+  it('invalidates when data changes (R1)', () => {
+    const cache = createDrawableCache();
+    const drawable = makeDrawable();
+    const ctx1 = makeContext({ data: { kind: 'rectangle', label: 'A' } });
+    const ctx2 = makeContext({ data: { kind: 'rectangle', label: 'B' } });
+
+    cache.set('expr-1', ctx1, drawable);
+    expect(cache.get('expr-1', ctx2)).toBeUndefined();
+  });
+
+  it('returns hit when position, size, data all match (R1)', () => {
+    const cache = createDrawableCache();
+    const drawable = makeDrawable();
+    const ctx = makeContext({
+      position: { x: 42, y: 99 },
+      size: { width: 300, height: 150 },
+      data: { kind: 'rectangle', label: 'same' },
+    });
+
+    cache.set('expr-1', ctx, drawable);
+    expect(cache.get('expr-1', ctx)).toBe(drawable);
   });
 });

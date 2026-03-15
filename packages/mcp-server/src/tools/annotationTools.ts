@@ -7,42 +7,14 @@
  * @module
  */
 
-import { nanoid } from 'nanoid';
 import type {
   VisualExpression,
   CommentData,
   CalloutData,
   HighlightData,
 } from '@infinicanvas/protocol';
-import { DEFAULT_STYLE, MCP_AUTHOR } from '../defaults.js';
+import { buildExpression } from '../expressionFactory.js';
 import type { IGatewayClient } from '../gatewayClient.js';
-
-// ── Shared expression builder ──────────────────────────────
-
-function buildExpression(
-  kind: VisualExpression['kind'],
-  position: { x: number; y: number },
-  size: { width: number; height: number },
-  data: VisualExpression['data'],
-): VisualExpression {
-  const now = Date.now();
-  return {
-    id: nanoid(),
-    kind,
-    position,
-    size,
-    angle: 0,
-    style: { ...DEFAULT_STYLE },
-    meta: {
-      author: MCP_AUTHOR,
-      createdAt: now,
-      updatedAt: now,
-      tags: [],
-      locked: false,
-    },
-    data,
-  };
-}
 
 // ── Tool parameter types ───────────────────────────────────
 

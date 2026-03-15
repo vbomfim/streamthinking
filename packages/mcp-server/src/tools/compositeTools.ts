@@ -8,10 +8,8 @@
  * @module
  */
 
-import { nanoid } from 'nanoid';
 import type {
   VisualExpression,
-  ExpressionStyle,
   FlowchartData,
   FlowNode,
   FlowEdge,
@@ -30,36 +28,9 @@ import type {
   KanbanData,
   KanbanColumn,
 } from '@infinicanvas/protocol';
-import { DEFAULT_STYLE, LAYOUT, MCP_AUTHOR } from '../defaults.js';
+import { LAYOUT } from '../defaults.js';
+import { buildExpression } from '../expressionFactory.js';
 import type { IGatewayClient } from '../gatewayClient.js';
-
-// ── Shared expression builder ──────────────────────────────
-
-function buildExpression(
-  kind: VisualExpression['kind'],
-  position: { x: number; y: number },
-  size: { width: number; height: number },
-  data: VisualExpression['data'],
-  styleOverrides?: Partial<ExpressionStyle>,
-): VisualExpression {
-  const now = Date.now();
-  return {
-    id: nanoid(),
-    kind,
-    position,
-    size,
-    angle: 0,
-    style: { ...DEFAULT_STYLE, ...styleOverrides },
-    meta: {
-      author: MCP_AUTHOR,
-      createdAt: now,
-      updatedAt: now,
-      tags: [],
-      locked: false,
-    },
-    data,
-  };
-}
 
 /** Estimate diagram size from node count using simple grid layout. */
 function estimateDiagramSize(

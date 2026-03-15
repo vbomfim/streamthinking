@@ -166,6 +166,8 @@ export class GatewayClient implements IGatewayClient {
       position: expression.position,
       size: expression.size,
       data: expression.data,
+      style: expression.style,
+      angle: expression.angle,
     };
 
     await this.sendOperation('create', payload);
@@ -231,7 +233,13 @@ export class GatewayClient implements IGatewayClient {
     let settled = false;
 
     this.ws?.on('message', (raw: WebSocket.RawData) => {
-      const msg = JSON.parse(raw.toString()) as ServerMessage;
+      let msg: ServerMessage;
+      try {
+        msg = JSON.parse(raw.toString()) as ServerMessage;
+      } catch {
+        console.warn('[GatewayClient] Malformed WebSocket message, ignoring');
+        return;
+      }
 
       switch (msg.type) {
         case 'session-created':
@@ -267,11 +275,34 @@ export class GatewayClient implements IGatewayClient {
 
   private applyRemoteOperation(op: ProtocolOperation): void {
     if (op.payload.type === 'create') {
-      const createPayload = op.payload;
-      const exists = this.expressions.some((e) => e.id === createPayload.expressionId);
+      const p = op.payload;
+      const exists = this.expressions.some((e) => e.id === p.expressionId);
       if (!exists) {
-        // This was from another client — we'd need the full expression
-        // For now, we just track what we sent ourselves
+        // Reconstruct full VisualExpression from CreatePayload + operation metadata
+        const expr: VisualExpression = {
+          id: p.expressionId,
+          kind: p.kind,
+          position: p.position,
+          size: p.size,
+          angle: p.angle ?? 0,
+          style: p.style ?? {
+            strokeColor: '#000000',
+            backgroundColor: 'transparent',
+            fillStyle: 'none',
+            strokeWidth: 2,
+            roughness: 1,
+            opacity: 1,
+          },
+          meta: {
+            author: op.author,
+            createdAt: op.timestamp,
+            updatedAt: op.timestamp,
+            tags: [],
+            locked: false,
+          },
+          data: p.data,
+        };
+        this.expressions.push(expr);
       }
     } else if (op.payload.type === 'delete') {
       const deletePayload = op.payload;
