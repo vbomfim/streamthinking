@@ -16,8 +16,10 @@ import { ErrorBoundary } from './ErrorBoundary.js';
 import { useCanvasInteraction } from '../hooks/useCanvasInteraction.js';
 import { useSelectionInteraction } from '../hooks/useSelectionInteraction.js';
 import { useManipulationInteraction } from '../hooks/useManipulationInteraction.js';
+import { useDrawingInteraction } from '../hooks/useDrawingInteraction.js';
 import { useUndoRedoShortcuts } from '../hooks/useUndoRedoShortcuts.js';
 import { useCanvasStore } from '../store/canvasStore.js';
+import { worldToScreen } from '../camera.js';
 import { createRenderLoop } from '../renderer/renderLoop.js';
 import type { RenderLoop } from '../renderer/renderLoop.js';
 
@@ -32,11 +34,24 @@ function CanvasInner() {
   const containerRef = useRef<HTMLDivElement>(null);
   const renderLoopRef = useRef<RenderLoop | null>(null);
   const { canvasRef, cursor: canvasCursor } = useCanvasInteraction();
-  const { renderMarquee } = useSelectionInteraction(canvasRef);
+  useSelectionInteraction(canvasRef);
   const { cursor: manipulationCursor } = useManipulationInteraction(canvasRef);
+  const { getDrawPreview, textTool } = useDrawingInteraction(canvasRef);
 
-  // Manipulation cursor takes priority over canvas default
-  const cursor = manipulationCursor !== 'default' ? manipulationCursor : canvasCursor;
+  // Track active tool for cursor and text overlay
+  const activeTool = useCanvasStore((s) => s.activeTool);
+  const camera = useCanvasStore((s) => s.camera);
+
+  // Check text tool input position on each render
+  const textInputPos = textTool.getInputPosition();
+
+  // Manipulation cursor takes priority, then drawing crosshair, then canvas default
+  let cursor = canvasCursor;
+  if (manipulationCursor !== 'default') {
+    cursor = manipulationCursor;
+  } else if (activeTool !== 'select') {
+    cursor = 'crosshair';
+  }
 
   // Register global undo/redo keyboard shortcuts [AC1, AC2]
   useUndoRedoShortcuts();
@@ -92,7 +107,10 @@ function CanvasInner() {
     const selectionProvider = {
       getSelectedIds: () => useCanvasStore.getState().selectedIds,
     };
-    const loop = createRenderLoop(ctx, getCamera, width, height, roughCanvas, expressionProvider, selectionProvider);
+    const drawPreviewProvider = {
+      getDrawPreview,
+    };
+    const loop = createRenderLoop(ctx, getCamera, width, height, roughCanvas, expressionProvider, selectionProvider, drawPreviewProvider);
 
     renderLoopRef.current = loop;
     loop.start();
@@ -141,6 +159,7 @@ function CanvasInner() {
         overflow: 'hidden',
         margin: 0,
         padding: 0,
+        position: 'relative',
       }}
     >
       <canvas
@@ -151,6 +170,20 @@ function CanvasInner() {
           cursor,
         }}
       />
+      {/* Text input overlay for text tool */}
+      {textInputPos && (
+        <TextInputOverlay
+          worldX={textInputPos.x}
+          worldY={textInputPos.y}
+          camera={camera}
+          onCommit={(text) => {
+            textTool.commitText(text);
+          }}
+          onCancel={() => {
+            textTool.onCancel();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -161,5 +194,64 @@ export function Canvas() {
     <ErrorBoundary>
       <CanvasInner />
     </ErrorBoundary>
+  );
+}
+
+// ── Text Input Overlay ─────────────────────────────────────
+
+interface TextInputOverlayProps {
+  worldX: number;
+  worldY: number;
+  camera: { x: number; y: number; zoom: number };
+  onCommit: (text: string) => void;
+  onCancel: () => void;
+}
+
+/**
+ * Textarea overlay positioned at a world coordinate for the text tool.
+ *
+ * Enter commits the text, ESC cancels. Auto-focuses on mount.
+ */
+function TextInputOverlay({ worldX, worldY, camera, onCommit, onCancel }: TextInputOverlayProps) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Convert world position to screen position
+  const screenPos = worldToScreen(worldX, worldY, camera);
+
+  useEffect(() => {
+    textareaRef.current?.focus();
+  }, []);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      onCommit(textareaRef.current?.value ?? '');
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      onCancel();
+    }
+  };
+
+  return (
+    <textarea
+      ref={textareaRef}
+      onKeyDown={handleKeyDown}
+      style={{
+        position: 'absolute',
+        left: `${screenPos.x}px`,
+        top: `${screenPos.y}px`,
+        minWidth: '200px',
+        minHeight: '40px',
+        padding: '4px 8px',
+        border: '2px solid #4A90D9',
+        borderRadius: '4px',
+        outline: 'none',
+        fontSize: '16px',
+        fontFamily: 'sans-serif',
+        background: 'white',
+        resize: 'both',
+        zIndex: 10,
+      }}
+    />
   );
 }

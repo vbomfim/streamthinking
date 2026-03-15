@@ -1,0 +1,141 @@
+/**
+ * Shared helper for area-based drawing tools (rectangle, ellipse, diamond).
+ *
+ * Implements the common pattern: click+drag → dashed preview →
+ * on release if area > 10×10, create expression.
+ *
+ * @module
+ */
+
+import { nanoid } from 'nanoid';
+import { DEFAULT_EXPRESSION_STYLE } from '@infinicanvas/protocol';
+import type { VisualExpression, ExpressionData } from '@infinicanvas/protocol';
+import type { ToolHandler, DrawPreview } from './BaseTool.js';
+import { useCanvasStore } from '../store/canvasStore.js';
+
+/** Minimum dimension (width or height) to create a shape. */
+const MIN_DIMENSION = 10;
+
+/** Human author for locally-drawn expressions. */
+const LOCAL_AUTHOR = {
+  type: 'human' as const,
+  id: 'local-user',
+  name: 'You',
+};
+
+/** Shape kind for area-based tools. */
+export type AreaShapeKind = 'rectangle' | 'ellipse' | 'diamond';
+
+/**
+ * Base class for area-based drawing tools.
+ *
+ * Handles the common drag-to-create pattern with preview rendering.
+ * Subclasses only need to specify the shape kind.
+ */
+export class AreaShapeTool implements ToolHandler {
+  private readonly shapeKind: AreaShapeKind;
+  private isDrawing = false;
+  private startX = 0;
+  private startY = 0;
+  private currentX = 0;
+  private currentY = 0;
+
+  constructor(kind: AreaShapeKind) {
+    this.shapeKind = kind;
+  }
+
+  onPointerDown(worldX: number, worldY: number, _event: PointerEvent): void {
+    this.isDrawing = true;
+    this.startX = worldX;
+    this.startY = worldY;
+    this.currentX = worldX;
+    this.currentY = worldY;
+  }
+
+  onPointerMove(worldX: number, worldY: number, _event: PointerEvent): void {
+    if (!this.isDrawing) return;
+    this.currentX = worldX;
+    this.currentY = worldY;
+  }
+
+  onPointerUp(worldX: number, worldY: number, _event: PointerEvent): void {
+    if (!this.isDrawing) {
+      return;
+    }
+
+    this.currentX = worldX;
+    this.currentY = worldY;
+    this.isDrawing = false;
+
+    const { x, y, width, height } = this.computeBounds();
+
+    // Only create if dimensions exceed minimum threshold
+    if (width < MIN_DIMENSION || height < MIN_DIMENSION) {
+      this.reset();
+      return;
+    }
+
+    const now = Date.now();
+    const id = nanoid();
+
+    const data: ExpressionData = { kind: this.shapeKind };
+
+    const expression: VisualExpression = {
+      id,
+      kind: this.shapeKind,
+      position: { x, y },
+      size: { width, height },
+      angle: 0,
+      style: { ...DEFAULT_EXPRESSION_STYLE },
+      meta: {
+        author: LOCAL_AUTHOR,
+        createdAt: now,
+        updatedAt: now,
+        tags: [],
+        locked: false,
+      },
+      data,
+    };
+
+    const store = useCanvasStore.getState();
+    store.addExpression(expression);
+    store.setSelectedIds(new Set([id]));
+    store.setActiveTool('select');
+
+    this.reset();
+  }
+
+  onCancel(): void {
+    this.isDrawing = false;
+    this.reset();
+  }
+
+  getPreview(): DrawPreview | null {
+    if (!this.isDrawing) return null;
+
+    // Don't show preview until pointer has moved from start
+    if (this.currentX === this.startX && this.currentY === this.startY) {
+      return null;
+    }
+
+    const { x, y, width, height } = this.computeBounds();
+    return { kind: this.shapeKind, x, y, width, height };
+  }
+
+  /** Compute normalized bounds (handles negative drag). */
+  private computeBounds() {
+    const x = Math.min(this.startX, this.currentX);
+    const y = Math.min(this.startY, this.currentY);
+    const width = Math.abs(this.currentX - this.startX);
+    const height = Math.abs(this.currentY - this.startY);
+    return { x, y, width, height };
+  }
+
+  /** Reset internal state. */
+  private reset(): void {
+    this.startX = 0;
+    this.startY = 0;
+    this.currentX = 0;
+    this.currentY = 0;
+  }
+}
