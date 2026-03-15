@@ -49,6 +49,21 @@ export {
 } from './renderer/compositeRegistry.js';
 export type { CompositeRenderer } from './renderer/compositeRegistry.js';
 export { renderFlowchart, clearLayoutCache } from './renderer/composites/flowchartRenderer.js';
+export {
+  renderSequenceDiagram,
+  clearLayoutCache as clearSequenceLayoutCache,
+  computeSequenceLayout,
+} from './renderer/composites/sequenceDiagramRenderer.js';
+export {
+  renderMindMap,
+  clearLayoutCache as clearMindMapLayoutCache,
+  computeMindMapLayout,
+} from './renderer/composites/mindMapRenderer.js';
+export {
+  renderReasoningChain,
+  clearLayoutCache as clearReasoningLayoutCache,
+  computeReasoningLayout,
+} from './renderer/composites/reasoningChainRenderer.js';
 
 // ── Interaction ────────────────────────────────────────────
 export {
