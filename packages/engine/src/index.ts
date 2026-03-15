@@ -65,6 +65,14 @@ export {
   clearLayoutCache as clearReasoningLayoutCache,
   computeReasoningLayout,
 } from './renderer/composites/reasoningChainRenderer.js';
+export { renderKanban } from './renderer/composites/kanbanRenderer.js';
+export { renderTable } from './renderer/composites/tableRenderer.js';
+export { renderWireframe } from './renderer/composites/wireframeRenderer.js';
+export { renderRoadmap } from './renderer/composites/roadmapRenderer.js';
+export { renderCodeBlock } from './renderer/composites/codeBlockRenderer.js';
+export { renderSlide } from './renderer/composites/slideRenderer.js';
+export { renderCollaborationDiagram } from './renderer/composites/collaborationDiagramRenderer.js';
+export { renderDecisionTree } from './renderer/composites/decisionTreeRenderer.js';
 
 // ── Interaction ────────────────────────────────────────────
 export {
