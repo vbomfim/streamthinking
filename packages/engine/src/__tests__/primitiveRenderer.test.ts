@@ -101,12 +101,15 @@ function createMockCtx() {
     arc: vi.fn(),
     fillText: vi.fn(),
     fillRect: vi.fn(),
+    strokeRect: vi.fn(),
     drawImage: vi.fn(),
     rotate: vi.fn(),
     translate: vi.fn(),
+    quadraticCurveTo: vi.fn(),
     measureText: vi.fn(() => ({ width: 50 })),
     fillStyle: '',
     strokeStyle: '',
+    lineWidth: 1,
     font: '',
     textAlign: 'left' as CanvasTextAlign,
     textBaseline: 'top' as CanvasTextBaseline,
@@ -169,10 +172,9 @@ describe('renderExpressions', () => {
     expect(rc.rectangle).toHaveBeenCalledTimes(1);
   });
 
-  it('warns and skips unknown expression kind', () => {
+  it('renders placeholder for unknown expression kind', () => {
     const ctx = createMockCtx();
     const rc = createMockRoughCanvas();
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     const unknown = makeExpression('unknown-1', 'nonexistent-kind', {});
     const expressions = { 'unknown-1': unknown };
@@ -180,14 +182,12 @@ describe('renderExpressions', () => {
 
     renderExpressions(ctx, rc as any, expressions, order, identityCamera, 800, 600);
 
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining('nonexistent-kind'),
+    // Should render placeholder with kind name instead of crashing
+    expect(ctx.fillText).toHaveBeenCalledWith(
+      'nonexistent-kind',
+      expect.any(Number),
+      expect.any(Number),
     );
-
-    // Should not crash
-    expect(rc.draw).not.toHaveBeenCalled();
-
-    warnSpy.mockRestore();
   });
 
   it('skips expression IDs not found in expressions map', () => {

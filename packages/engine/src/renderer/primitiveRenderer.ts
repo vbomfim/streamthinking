@@ -18,6 +18,7 @@ import { mapStyleToRoughOptions } from './styleMapper.js';
 import { isVisible } from './viewportCulling.js';
 import { createDrawableCache } from './drawableCache.js';
 import type { DrawableCache } from './drawableCache.js';
+import { getCompositeRenderer } from './compositeRegistry.js';
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -128,7 +129,7 @@ export function renderExpressions(
 /**
  * Dispatch to the correct renderer by expression kind.
  *
- * Unknown kinds emit a console.warn and are skipped. [AC15]
+ * Checks primitives first, then composite registry, then placeholder. [AC15]
  */
 function renderPrimitive(
   ctx: CanvasRenderingContext2D,
@@ -165,9 +166,16 @@ function renderPrimitive(
     case 'image':
       renderImage(ctx, expr);
       break;
-    default:
-      console.warn(`[PrimitiveRenderer] Unknown expression kind: "${kind}" (id: ${expr.id}). Skipping.`);
+    default: {
+      // Check composite renderer registry before falling back
+      const compositeRenderer = getCompositeRenderer(kind);
+      if (compositeRenderer) {
+        compositeRenderer(ctx, expr, roughCanvas);
+      } else {
+        renderPlaceholder(ctx, expr);
+      }
       break;
+    }
   }
 }
 
@@ -429,6 +437,64 @@ function renderImage(
     ctx.textBaseline = 'middle';
     ctx.fillText('⚠', x + width / 2, y + height / 2);
   }
+}
+
+// ── Placeholder renderer ─────────────────────────────────────
+
+/** Corner radius for placeholder rounded rectangle (px). */
+const PLACEHOLDER_CORNER_RADIUS = 8;
+
+/** Placeholder background color. */
+const PLACEHOLDER_BG_COLOR = '#e8e8e8';
+
+/** Placeholder border color. */
+const PLACEHOLDER_BORDER_COLOR = '#999999';
+
+/** Placeholder text color. */
+const PLACEHOLDER_TEXT_COLOR = '#666666';
+
+/**
+ * Render a placeholder for unknown/unimplemented expression kinds. [AC3]
+ *
+ * Draws a gray rounded rectangle with the kind name centered inside,
+ * providing a visible indicator that a renderer for this kind is needed.
+ */
+function renderPlaceholder(
+  ctx: CanvasRenderingContext2D,
+  expr: VisualExpression,
+): void {
+  const { x, y } = expr.position;
+  const { width, height } = expr.size;
+  const r = Math.min(PLACEHOLDER_CORNER_RADIUS, width / 2, height / 2);
+
+  ctx.save();
+
+  // Draw rounded rectangle background
+  ctx.fillStyle = PLACEHOLDER_BG_COLOR;
+  ctx.strokeStyle = PLACEHOLDER_BORDER_COLOR;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+  ctx.lineTo(x + width, y + height - r);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  ctx.lineTo(x + r, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+
+  // Draw kind name centered
+  ctx.fillStyle = PLACEHOLDER_TEXT_COLOR;
+  ctx.font = `14px ${DEFAULT_FONT_FAMILY}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(expr.kind, x + width / 2, y + height / 2);
+
+  ctx.restore();
 }
 
 // ── Helpers (exported for testing) ───────────────────────────

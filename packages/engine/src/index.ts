@@ -42,6 +42,13 @@ export type { BoundingBox, WorldViewport } from './renderer/viewportCulling.js';
 export { createDrawableCache } from './renderer/drawableCache.js';
 export type { DrawableCache, RenderContext } from './renderer/drawableCache.js';
 export { renderSelection } from './renderer/selectionRenderer.js';
+export {
+  registerCompositeRenderer,
+  getCompositeRenderer,
+  clearCompositeRenderers,
+} from './renderer/compositeRegistry.js';
+export type { CompositeRenderer } from './renderer/compositeRegistry.js';
+export { renderFlowchart, clearLayoutCache } from './renderer/composites/flowchartRenderer.js';
 
 // ── Interaction ────────────────────────────────────────────
 export {

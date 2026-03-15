@@ -19,6 +19,7 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
+    "@dagrejs/dagre": "^2.0.4",
     "@infinicanvas/protocol": "*",
     "immer": "^10.1.1",
     "nanoid": "^5.0.9",

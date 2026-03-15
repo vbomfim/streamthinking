@@ -5,12 +5,37 @@
  * Tests the Canvas component through its public interface (DOM output)
  * without testing internal implementation details.
  *
+ * S5-2: Also verifies that the render loop is wired with roughCanvas
+ * and expressionProvider (not undefined).
+ *
  * @module
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, act } from '@testing-library/react';
 import { Canvas } from '../components/Canvas.js';
+
+// ── Capture createRenderLoop calls ───────────────────────────
+
+const mockStart = vi.fn();
+const mockStop = vi.fn();
+const mockUpdateSize = vi.fn();
+
+const capturedArgs: unknown[][] = [];
+
+vi.mock('../renderer/renderLoop.js', () => ({
+  createRenderLoop: (...args: unknown[]) => {
+    capturedArgs.push(args);
+    return { start: mockStart, stop: mockStop, updateSize: mockUpdateSize };
+  },
+}));
+
+// Mock roughjs to avoid canvas context issues in jsdom
+vi.mock('roughjs', () => ({
+  default: {
+    canvas: vi.fn(() => ({ rectangle: vi.fn(), draw: vi.fn() })),
+  },
+}));
 
 // ── ResizeObserver mock ──────────────────────────────────────
 
@@ -35,12 +60,56 @@ class MockResizeObserver {
 
 // ── Setup ────────────────────────────────────────────────────
 
+const mockCtx = {
+  setTransform: vi.fn(),
+  clearRect: vi.fn(),
+  save: vi.fn(),
+  restore: vi.fn(),
+  fillText: vi.fn(),
+  fillRect: vi.fn(),
+  strokeRect: vi.fn(),
+  beginPath: vi.fn(),
+  moveTo: vi.fn(),
+  lineTo: vi.fn(),
+  fill: vi.fn(),
+  stroke: vi.fn(),
+  arc: vi.fn(),
+  drawImage: vi.fn(),
+  closePath: vi.fn(),
+  translate: vi.fn(),
+  rotate: vi.fn(),
+  scale: vi.fn(),
+  measureText: vi.fn(() => ({ width: 50 })),
+  canvas: { width: 800, height: 600 },
+  fillStyle: '',
+  strokeStyle: '',
+  lineWidth: 1,
+  font: '',
+  textAlign: 'left' as CanvasTextAlign,
+  textBaseline: 'top' as CanvasTextBaseline,
+  globalAlpha: 1,
+};
+
 beforeEach(() => {
   vi.stubGlobal('ResizeObserver', MockResizeObserver);
+
+  // Mock canvas getContext to return a mock 2D context (jsdom returns null)
+  const originalGetContext = HTMLCanvasElement.prototype.getContext;
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(
+    function (this: HTMLCanvasElement, contextId: string) {
+      if (contextId === '2d') return mockCtx as unknown as CanvasRenderingContext2D;
+      return originalGetContext.call(this, contextId as any) as any;
+    },
+  );
+
   resizeCallback = null;
   observedElements = [];
+  capturedArgs.length = 0;
   mockDisconnect.mockClear();
   mockObserve.mockClear();
+  mockStart.mockClear();
+  mockStop.mockClear();
+  mockUpdateSize.mockClear();
 });
 
 afterEach(() => {
@@ -182,5 +251,54 @@ describe('Canvas ErrorBoundary integration [AC9]', () => {
     const { container } = render(<Canvas />);
 
     expect(container.querySelector('canvas')).toBeTruthy();
+  });
+});
+
+// ── S5-2: Render loop wiring ─────────────────────────────────
+
+describe('Canvas render loop wiring (S5-2)', () => {
+  it('passes roughCanvas (not undefined) to createRenderLoop', () => {
+    render(<Canvas />);
+
+    expect(capturedArgs.length).toBeGreaterThanOrEqual(1);
+    const lastArgs = capturedArgs[capturedArgs.length - 1]!;
+    // args: (ctx, getCamera, width, height, roughCanvas, expressionProvider, selectionProvider)
+    const roughCanvas = lastArgs[4];
+    expect(roughCanvas).toBeDefined();
+    expect(roughCanvas).not.toBeNull();
+  });
+
+  it('passes expressionProvider (not undefined) to createRenderLoop', () => {
+    render(<Canvas />);
+
+    expect(capturedArgs.length).toBeGreaterThanOrEqual(1);
+    const lastArgs = capturedArgs[capturedArgs.length - 1]!;
+    const expressionProvider = lastArgs[5] as { getExpressions: () => unknown; getExpressionOrder: () => unknown };
+    expect(expressionProvider).toBeDefined();
+    expect(expressionProvider).not.toBeNull();
+    expect(typeof expressionProvider.getExpressions).toBe('function');
+    expect(typeof expressionProvider.getExpressionOrder).toBe('function');
+  });
+
+  it('passes selectionProvider (not undefined) to createRenderLoop', () => {
+    render(<Canvas />);
+
+    expect(capturedArgs.length).toBeGreaterThanOrEqual(1);
+    const lastArgs = capturedArgs[capturedArgs.length - 1]!;
+    const selectionProvider = lastArgs[6] as { getSelectedIds: () => unknown };
+    expect(selectionProvider).toBeDefined();
+    expect(selectionProvider).not.toBeNull();
+    expect(typeof selectionProvider.getSelectedIds).toBe('function');
+  });
+
+  it('starts the render loop after creation', () => {
+    render(<Canvas />);
+    expect(mockStart).toHaveBeenCalled();
+  });
+
+  it('stops the render loop on unmount', () => {
+    const { unmount } = render(<Canvas />);
+    unmount();
+    expect(mockStop).toHaveBeenCalled();
   });
 });
