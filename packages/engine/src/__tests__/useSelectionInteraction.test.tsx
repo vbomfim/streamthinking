@@ -2,7 +2,7 @@
  * Unit tests for useSelectionInteraction hook.
  *
  * Covers: click select, click deselect, shift+click toggle,
- * marquee selection, drag threshold, and tool gating.
+ * marquee selection, drag threshold, tool gating, and pointer capture.
  *
  * @vitest-environment jsdom
  * @module
@@ -14,6 +14,14 @@ import { useSelectionInteraction } from '../hooks/useSelectionInteraction.js';
 import { useCanvasInteraction } from '../hooks/useCanvasInteraction.js';
 import { useCanvasStore } from '../store/canvasStore.js';
 import type { VisualExpression, ExpressionStyle } from '@infinicanvas/protocol';
+
+// jsdom doesn't implement pointer capture APIs — stub them globally
+if (!Element.prototype.setPointerCapture) {
+  Element.prototype.setPointerCapture = function () {};
+}
+if (!Element.prototype.releasePointerCapture) {
+  Element.prototype.releasePointerCapture = function () {};
+}
 
 // ── Test helpers ─────────────────────────────────────────────
 
@@ -318,5 +326,57 @@ describe('useSelectionInteraction — tool gating', () => {
 
     const { selectedIds } = useCanvasStore.getState();
     expect(selectedIds.size).toBe(0);
+  });
+});
+
+// ── S5-4: Pointer capture for drag outside canvas ────────────
+
+describe('useSelectionInteraction — pointer capture (S5-4)', () => {
+  beforeEach(() => {
+    resetStore();
+    setupExpressions();
+    // Replace stubs with vi.fn() for assertion tracking
+    Element.prototype.setPointerCapture = vi.fn();
+    Element.prototype.releasePointerCapture = vi.fn();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('calls setPointerCapture on pointerdown', () => {
+    const { getByTestId } = render(<TestCanvas />);
+    const canvas = getByTestId('canvas') as HTMLCanvasElement;
+
+    act(() => {
+      firePointerEvent(canvas, 'pointerdown', { offsetX: 200, offsetY: 200 });
+    });
+
+    expect(canvas.setPointerCapture).toHaveBeenCalled();
+  });
+
+  it('calls releasePointerCapture on pointerup', () => {
+    const { getByTestId } = render(<TestCanvas />);
+    const canvas = getByTestId('canvas') as HTMLCanvasElement;
+
+    act(() => {
+      firePointerEvent(canvas, 'pointerdown', { offsetX: 200, offsetY: 200 });
+      firePointerEvent(canvas, 'pointerup', { offsetX: 200, offsetY: 200 });
+    });
+
+    expect(canvas.releasePointerCapture).toHaveBeenCalled();
+  });
+
+  it('does not call setPointerCapture when tool is not select', () => {
+    useCanvasStore.setState({ activeTool: 'rectangle' });
+
+    const { getByTestId } = render(<TestCanvas />);
+    const canvas = getByTestId('canvas') as HTMLCanvasElement;
+
+    act(() => {
+      firePointerEvent(canvas, 'pointerdown', { offsetX: 200, offsetY: 200 });
+    });
+
+    expect(canvas.setPointerCapture).not.toHaveBeenCalled();
   });
 });

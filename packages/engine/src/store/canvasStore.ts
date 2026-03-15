@@ -463,5 +463,83 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
         state.selectedIds = new Set<string>();
       });
     },
+
+    // ── Shape manipulation mutations ─────────────────────────
+
+    moveExpressions: (
+      moves: Array<{ id: string; from: { x: number; y: number }; to: { x: number; y: number } }>,
+    ) => {
+      if (moves.length === 0) return;
+
+      // Build a snapshot reflecting pre-drag positions (expressions may
+      // already be at 'to' positions from transient drag updates).
+      const currentState = get();
+      const snapshot = captureSnapshot(currentState);
+      for (const move of moves) {
+        const expr = snapshot.expressions[move.id];
+        if (expr) {
+          expr.position = { ...move.from };
+        }
+      }
+      historyManager.pushSnapshot(snapshot);
+
+      set((state) => {
+        for (const move of moves) {
+          const expr = state.expressions[move.id];
+          if (expr) {
+            expr.position = { ...move.to };
+          }
+        }
+
+        for (const move of moves) {
+          const operation = createOperation('move', {
+            type: 'move',
+            expressionId: move.id,
+            from: move.from,
+            to: move.to,
+          });
+          pushOperation(state.operationLog, operation);
+        }
+
+        state.canUndo = historyManager.canUndo();
+        state.canRedo = historyManager.canRedo();
+      });
+    },
+
+    transformExpression: (
+      id: string,
+      original: { position: { x: number; y: number }; size: { width: number; height: number } },
+      final: { position: { x: number; y: number }; size: { width: number; height: number } },
+    ) => {
+      const currentState = get();
+      if (!currentState.expressions[id]) return;
+
+      // Build a snapshot reflecting pre-resize state.
+      const snapshot = captureSnapshot(currentState);
+      const expr = snapshot.expressions[id];
+      if (expr) {
+        expr.position = { ...original.position };
+        expr.size = { ...original.size };
+      }
+      historyManager.pushSnapshot(snapshot);
+
+      set((state) => {
+        const expr = state.expressions[id];
+        if (!expr) return;
+
+        expr.position = { ...final.position };
+        expr.size = { ...final.size };
+
+        const operation = createOperation('transform', {
+          type: 'transform',
+          expressionId: id,
+          size: final.size,
+        });
+        pushOperation(state.operationLog, operation);
+
+        state.canUndo = historyManager.canUndo();
+        state.canRedo = historyManager.canRedo();
+      });
+    },
   })),
 );
