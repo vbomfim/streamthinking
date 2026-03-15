@@ -23,6 +23,7 @@ import { useRef, useEffect, useCallback, useState } from 'react';
 import { nanoid } from 'nanoid';
 import { useCanvasStore } from '../store/canvasStore.js';
 import { screenToWorld } from '../camera.js';
+import { isEditableTarget } from '../utils/isEditableTarget.js';
 import {
   detectPointerTarget,
   detectHandle,
@@ -219,6 +220,9 @@ export function useManipulationInteraction(
   // ── Keyboard handlers ──────────────────────────────────────
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // Skip when user is typing in editable elements [S7-6]
+    if (isEditableTarget(e.target)) return;
+
     const state = useCanvasStore.getState();
     if (state.activeTool !== 'select') return;
 

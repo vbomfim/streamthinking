@@ -11,6 +11,7 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { useCanvasStore } from '../store/canvasStore.js';
 import { zoomAtPoint } from '../camera.js';
+import { isEditableTarget } from '../utils/isEditableTarget.js';
 
 /** User-facing zoom bounds (tighter than store's [0.01, 100]). */
 const MIN_ZOOM = 0.1;
@@ -43,6 +44,9 @@ export function useCanvasInteraction(): CanvasInteraction {
   // ── Pan: Space + drag [AC1] ──────────────────────────────
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    // Skip when user is typing in editable elements [S7-6]
+    if (isEditableTarget(e.target)) return;
+
     if (e.code === 'Space' && !e.repeat) {
       e.preventDefault();
       spaceHeldRef.current = true;
@@ -51,6 +55,9 @@ export function useCanvasInteraction(): CanvasInteraction {
   }, []);
 
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
+    // Skip when user is typing in editable elements [S7-6]
+    if (isEditableTarget(e.target)) return;
+
     if (e.code === 'Space') {
       spaceHeldRef.current = false;
       isPanningRef.current = false;

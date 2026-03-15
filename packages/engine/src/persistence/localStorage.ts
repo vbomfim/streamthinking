@@ -14,6 +14,7 @@
  */
 
 import type { VisualExpression } from '@infinicanvas/protocol';
+import { visualExpressionSchema } from '@infinicanvas/protocol';
 import type { Camera } from '../types/index.js';
 
 /** The localStorage key used for persisted canvas state. [AC8] */
@@ -85,7 +86,10 @@ export function loadCanvasState(): PersistedCanvasState | null {
       return null;
     }
 
-    return parsed;
+    // Per-expression Zod validation [S7-2]
+    const validated = validateExpressions(parsed);
+
+    return validated;
   } catch {
     // localStorage unavailable [AC7]
     return null;
@@ -146,4 +150,37 @@ function isValidCamera(camera: unknown): camera is Camera {
 /** Type guard for DOMException with a specific name. */
 function isDOMException(error: unknown, name: string): boolean {
   return error instanceof DOMException && error.name === name;
+}
+
+/**
+ * Validate each expression in persisted state using Zod schema. [S7-2]
+ *
+ * Filters out invalid expressions and logs warnings for rejected ones.
+ * Uses Zod-stripped output (result.data) to prevent prototype pollution.
+ *
+ * @returns A new PersistedCanvasState with only valid expressions
+ */
+function validateExpressions(state: PersistedCanvasState): PersistedCanvasState {
+  const validExpressions: Record<string, VisualExpression> = {};
+  const validIds = new Set<string>();
+
+  for (const [id, expr] of Object.entries(state.expressions)) {
+    const result = visualExpressionSchema.safeParse(expr);
+    if (result.success) {
+      const validated = result.data as VisualExpression;
+      validExpressions[validated.id] = validated;
+      validIds.add(validated.id);
+    } else {
+      console.warn(
+        `[persistence] Invalid expression filtered out (id=${id}):`,
+        result.error.issues,
+      );
+    }
+  }
+
+  return {
+    expressions: validExpressions,
+    expressionOrder: state.expressionOrder.filter((id) => validIds.has(id)),
+    camera: state.camera,
+  };
 }

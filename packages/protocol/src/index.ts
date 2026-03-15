@@ -140,6 +140,7 @@ export {
   queryPayloadSchema,
   operationPayloadSchema,
   protocolOperationSchema,
+  withMaxDepth,
 } from './validation/schemas.js';
 
 // ── Builders ───────────────────────────────────────────────

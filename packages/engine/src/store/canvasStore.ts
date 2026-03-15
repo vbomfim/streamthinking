@@ -17,6 +17,7 @@ import { nanoid } from 'nanoid';
 import {
   visualExpressionSchema,
   protocolOperationSchema,
+  expressionStyleSchema,
   DEFAULT_EXPRESSION_STYLE,
 } from '@infinicanvas/protocol';
 import type {
@@ -466,17 +467,85 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     replaceState: (expressions: VisualExpression[], expressionOrder: string[]) => {
       set((state) => {
         const exprMap: Record<string, VisualExpression> = {};
+        const validIds = new Set<string>();
+
         for (const expr of expressions) {
-          exprMap[expr.id] = expr;
+          const result = visualExpressionSchema.safeParse(expr);
+          if (!result.success) {
+            console.warn(
+              `[canvasStore] replaceState: invalid expression rejected (id=${expr?.id}):`,
+              result.error.issues,
+            );
+            continue;
+          }
+          // Use Zod-stripped output to prevent prototype pollution [S7-1]
+          const validated = result.data as VisualExpression;
+          exprMap[validated.id] = validated;
+          validIds.add(validated.id);
         }
+
         state.expressions = exprMap;
-        state.expressionOrder = [...expressionOrder];
+        // Filter expressionOrder to only include validated IDs
+        state.expressionOrder = expressionOrder.filter((id) => validIds.has(id));
         state.operationLog = [];
         state.selectedIds = new Set<string>();
       });
     },
 
     // ── Shape manipulation mutations ─────────────────────────
+
+    /**
+     * Apply a validated style partial to multiple expressions. [S7-5]
+     *
+     * Validates the incoming style with `expressionStyleSchema.partial()`.
+     * Rejects invalid styles with a console.warn and returns without mutating.
+     * Emits a `style` ProtocolOperation and pushes an undo snapshot.
+     */
+    styleExpressions: (ids: string[], style: Partial<ExpressionStyle>) => {
+      if (ids.length === 0) return;
+
+      // Validate style partial before applying [S7-5]
+      const styleResult = expressionStyleSchema.partial().safeParse(style);
+      if (!styleResult.success) {
+        console.warn(
+          '[canvasStore] styleExpressions: invalid style rejected:',
+          styleResult.error.issues,
+        );
+        return;
+      }
+      const validatedStyle = styleResult.data as Partial<ExpressionStyle>;
+
+      const currentState = get();
+
+      // Filter to only IDs that exist and are not locked
+      const validIds = ids.filter((id) => {
+        const expr = currentState.expressions[id];
+        return expr && !expr.meta.locked;
+      });
+      if (validIds.length === 0) return;
+
+      // Push snapshot BEFORE mutation
+      historyManager.pushSnapshot(captureSnapshot(currentState));
+
+      set((state) => {
+        for (const id of validIds) {
+          const expr = state.expressions[id];
+          if (expr) {
+            expr.style = { ...expr.style, ...validatedStyle } as ExpressionStyle;
+          }
+        }
+
+        const operation = createOperation('style', {
+          type: 'style',
+          expressionIds: [...validIds],
+          style: validatedStyle,
+        });
+        pushOperation(state.operationLog, operation);
+
+        state.canUndo = historyManager.canUndo();
+        state.canRedo = historyManager.canRedo();
+      });
+    },
 
     moveExpressions: (
       moves: Array<{ id: string; from: { x: number; y: number }; to: { x: number; y: number } }>,

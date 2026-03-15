@@ -4,7 +4,7 @@
  * @module
  */
 
-import type { VisualExpression, ProtocolOperation } from '@infinicanvas/protocol';
+import type { VisualExpression, ProtocolOperation, ExpressionStyle } from '@infinicanvas/protocol';
 
 /** Tools available for canvas interaction. */
 export type ToolType =
@@ -71,9 +71,16 @@ export interface CanvasActions {
   applyRemoteOperation: (op: ProtocolOperation) => void;
   /**
    * Replace all canvas state for full state sync on session join.
+   * Validates each expression with Zod schema; rejects invalid ones. [S7-1]
    * Clears operationLog and selection.
    */
   replaceState: (expressions: VisualExpression[], expressionOrder: string[]) => void;
+  /**
+   * Apply a validated style partial to multiple expressions. [S7-5]
+   * Validates style with expressionStyleSchema.partial() before applying.
+   * Skips locked expressions.
+   */
+  styleExpressions: (ids: string[], style: Partial<ExpressionStyle>) => void;
   /**
    * Move expressions to new positions. Emits `move` ProtocolOperations.
    * Accepts original positions so undo snapshot reflects pre-drag state.

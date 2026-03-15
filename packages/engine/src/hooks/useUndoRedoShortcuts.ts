@@ -13,6 +13,7 @@
 
 import { useEffect } from 'react';
 import { useCanvasStore } from '../store/canvasStore.js';
+import { isEditableTarget } from '../utils/isEditableTarget.js';
 
 /**
  * Hook that registers global keyboard shortcuts for undo/redo.
@@ -23,6 +24,9 @@ import { useCanvasStore } from '../store/canvasStore.js';
 export function useUndoRedoShortcuts(): void {
   useEffect(() => {
     function handleKeyDown(event: KeyboardEvent): void {
+      // Skip when user is typing in editable elements [S7-6]
+      if (isEditableTarget(event.target)) return;
+
       const isModifier = event.ctrlKey || event.metaKey;
       if (!isModifier) return;
 

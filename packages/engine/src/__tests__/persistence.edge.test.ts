@@ -136,9 +136,9 @@ describe('Corrupted expression within valid JSON [EDGE][AC5 #9]', () => {
     storage[STORAGE_KEY] = json;
 
     const loaded = loadCanvasState();
-    // Structural validation only checks types, not referential integrity
+    // [S7-2] Per-expression validation now filters expressionOrder to match valid expressions
     expect(loaded).not.toBeNull();
-    expect(loaded!.expressionOrder).toEqual(['r1', 'ghost-id']);
+    expect(loaded!.expressionOrder).toEqual(['r1']);
   });
 });
 
