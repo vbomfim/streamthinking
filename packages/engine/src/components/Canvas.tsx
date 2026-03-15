@@ -13,6 +13,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { ErrorBoundary } from './ErrorBoundary.js';
 import { useCanvasInteraction } from '../hooks/useCanvasInteraction.js';
+import { useUndoRedoShortcuts } from '../hooks/useUndoRedoShortcuts.js';
 import { useCanvasStore } from '../store/canvasStore.js';
 import { createRenderLoop } from '../renderer/renderLoop.js';
 import type { RenderLoop } from '../renderer/renderLoop.js';
@@ -28,6 +29,9 @@ function CanvasInner() {
   const containerRef = useRef<HTMLDivElement>(null);
   const renderLoopRef = useRef<RenderLoop | null>(null);
   const { canvasRef, cursor } = useCanvasInteraction();
+
+  // Register global undo/redo keyboard shortcuts [AC1, AC2]
+  useUndoRedoShortcuts();
 
   const updateCanvasSize = useCallback(() => {
     const canvas = canvasRef.current;

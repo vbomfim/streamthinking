@@ -3,8 +3,9 @@
  *
  * Manages all canvas state: expressions, selection, tools, camera, and
  * the protocol operation log. Mutation actions that affect canvas content
- * (add, update, delete) emit ProtocolOperations for collaboration tracking.
- * UI-only actions (selection, tool, camera) do NOT emit operations.
+ * (add, update, delete) emit ProtocolOperations for collaboration tracking
+ * and push undo snapshots for history navigation.
+ * UI-only actions (selection, tool, camera) do NOT emit operations or snapshots.
  *
  * @module
  */
@@ -22,6 +23,8 @@ import type {
   AuthorInfo,
 } from '@infinicanvas/protocol';
 import type { CanvasState, CanvasActions, ToolType, Camera } from '../types/index.js';
+import { HistoryManager } from '../history/historyManager.js';
+import type { CanvasSnapshot } from '../history/historyManager.js';
 
 // Enable immer support for Set/Map (used by selectedIds: Set<string>)
 enableMapSet();
@@ -43,6 +46,9 @@ const MAX_ZOOM = 100;
 
 /** Fields that cannot be changed via updateExpression. */
 const IMMUTABLE_FIELDS = new Set(['id', 'kind', 'meta']);
+
+/** Shared history manager instance (lives outside Zustand to avoid serialization). */
+const historyManager = new HistoryManager();
 
 /** Creates a ProtocolOperation with unique ID and current timestamp. */
 function createOperation(
@@ -66,8 +72,21 @@ function pushOperation(log: ProtocolOperation[], op: ProtocolOperation): void {
   }
 }
 
+/** Extract a snapshot from the current canvas state (expressions + z-order). */
+function captureSnapshot(state: CanvasState): CanvasSnapshot {
+  // Build a plain-object clone of expressions (immer draft → plain)
+  const expressions: Record<string, VisualExpression> = {};
+  for (const [id, expr] of Object.entries(state.expressions)) {
+    expressions[id] = structuredClone(expr as VisualExpression);
+  }
+  return {
+    expressions,
+    expressionOrder: [...state.expressionOrder],
+  };
+}
+
 export const useCanvasStore = create<CanvasState & CanvasActions>()(
-  immer((set) => ({
+  immer((set, get) => ({
     // ── Initial state ────────────────────────────────────────
     expressions: {},
     expressionOrder: [],
@@ -75,8 +94,10 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     activeTool: 'select' as ToolType,
     camera: { x: 0, y: 0, zoom: 1 },
     operationLog: [],
+    canUndo: false,
+    canRedo: false,
 
-    // ── Content mutations (emit ProtocolOperations) ──────────
+    // ── Content mutations (emit ProtocolOperations + push snapshots) ──
 
     addExpression: (expression: VisualExpression) => {
       const result = visualExpressionSchema.safeParse(expression);
@@ -88,11 +109,16 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
         return;
       }
 
-      set((state) => {
-        if (state.expressions[expression.id]) {
-          return;
-        }
+      // Check for duplicate before snapshotting [AC8]
+      const currentState = get();
+      if (currentState.expressions[expression.id]) {
+        return;
+      }
 
+      // Push snapshot BEFORE mutation [AC8]
+      historyManager.pushSnapshot(captureSnapshot(currentState));
+
+      set((state) => {
         state.expressions[expression.id] = expression;
         state.expressionOrder.push(expression.id);
 
@@ -105,18 +131,30 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
           data: expression.data,
         });
         pushOperation(state.operationLog, operation);
+
+        state.canUndo = historyManager.canUndo();
+        state.canRedo = historyManager.canRedo();
       });
     },
 
     updateExpression: (id: string, partial: Partial<VisualExpression>) => {
+      const currentState = get();
+      const existing = currentState.expressions[id];
+      if (!existing) {
+        console.warn(
+          `[canvasStore] Cannot update non-existent expression: ${id}`,
+        );
+        return;
+      }
+
+      // Push snapshot BEFORE mutation [AC8]
+      historyManager.pushSnapshot(captureSnapshot(currentState));
+
+      let reverted = false;
+
       set((state) => {
-        const existing = state.expressions[id];
-        if (!existing) {
-          console.warn(
-            `[canvasStore] Cannot update non-existent expression: ${id}`,
-          );
-          return;
-        }
+        const expr = state.expressions[id];
+        if (!expr) return;
 
         // Strip immutable fields to protect invariants
         const safeUpdates: Record<string, unknown> = {};
@@ -129,21 +167,22 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
         // Snapshot original values for rollback
         const originals: Record<string, unknown> = {};
         for (const key of Object.keys(safeUpdates)) {
-          originals[key] = (existing as Record<string, unknown>)[key];
+          originals[key] = (expr as Record<string, unknown>)[key];
         }
 
         // Apply safe updates
-        Object.assign(existing, safeUpdates);
+        Object.assign(expr, safeUpdates);
 
         // Post-merge validation — revert if result is invalid
-        const merged = visualExpressionSchema.safeParse(existing);
+        const merged = visualExpressionSchema.safeParse(expr);
         if (!merged.success) {
           // Rollback draft to original values
-          Object.assign(existing, originals);
+          Object.assign(expr, originals);
           console.warn(
             `[canvasStore] Update would produce invalid expression, reverting:`,
             merged.error.issues,
           );
+          reverted = true;
           return;
         }
 
@@ -161,7 +200,19 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
           changes,
         });
         pushOperation(state.operationLog, operation);
+
+        state.canUndo = historyManager.canUndo();
+        state.canRedo = historyManager.canRedo();
       });
+
+      // If the update was reverted (validation failed), undo the snapshot push
+      if (reverted) {
+        historyManager.undo(captureSnapshot(get()));
+        set((state) => {
+          state.canUndo = historyManager.canUndo();
+          state.canRedo = historyManager.canRedo();
+        });
+      }
     },
 
     deleteExpressions: (ids: string[]) => {
@@ -169,13 +220,18 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
         return;
       }
 
-      set((state) => {
-        // Filter to only IDs that actually exist
-        const existingIds = ids.filter((id) => id in state.expressions);
-        if (existingIds.length === 0) {
-          return;
-        }
+      const currentState = get();
 
+      // Filter to only IDs that actually exist
+      const existingIds = ids.filter((id) => id in currentState.expressions);
+      if (existingIds.length === 0) {
+        return;
+      }
+
+      // Push snapshot BEFORE mutation [AC8]
+      historyManager.pushSnapshot(captureSnapshot(currentState));
+
+      set((state) => {
         const idSet = new Set(existingIds);
 
         for (const id of existingIds) {
@@ -192,10 +248,51 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
           expressionIds: [...existingIds],
         });
         pushOperation(state.operationLog, operation);
+
+        state.canUndo = historyManager.canUndo();
+        state.canRedo = historyManager.canRedo();
       });
     },
 
-    // ── UI-only state (NO ProtocolOperations) ────────────────
+    // ── Undo/Redo actions ────────────────────────────────────
+
+    undo: () => {
+      const currentState = get();
+      const snapshot = historyManager.undo(captureSnapshot(currentState));
+      if (!snapshot) return;
+
+      set((state) => {
+        // Restore expressions and z-order from snapshot
+        state.expressions = snapshot.expressions;
+        state.expressionOrder = snapshot.expressionOrder;
+        state.canUndo = historyManager.canUndo();
+        state.canRedo = historyManager.canRedo();
+      });
+    },
+
+    redo: () => {
+      const currentState = get();
+      const snapshot = historyManager.redo(captureSnapshot(currentState));
+      if (!snapshot) return;
+
+      set((state) => {
+        // Restore expressions and z-order from snapshot
+        state.expressions = snapshot.expressions;
+        state.expressionOrder = snapshot.expressionOrder;
+        state.canUndo = historyManager.canUndo();
+        state.canRedo = historyManager.canRedo();
+      });
+    },
+
+    clearHistory: () => {
+      historyManager.clear();
+      set((state) => {
+        state.canUndo = false;
+        state.canRedo = false;
+      });
+    },
+
+    // ── UI-only state (NO ProtocolOperations, NO snapshots) ──
 
     setSelectedIds: (ids: Set<string>) => {
       set((state) => {
