@@ -1,20 +1,31 @@
 /**
  * requestAnimationFrame-based render loop.
  *
- * Each frame: clear canvas → apply camera transform → render grid.
- * Future: expression rendering will be added after the grid step.
+ * Each frame: clear canvas → apply camera transform → render grid →
+ * render primitives in z-order.
  *
  * @module
  */
 
+import type { VisualExpression } from '@infinicanvas/protocol';
+import type { RoughCanvas } from 'roughjs/bin/canvas.js';
 import type { Camera } from '../types/index.js';
 import { applyTransform } from '../camera.js';
 import { renderGrid } from './gridRenderer.js';
+import { renderExpressions } from './primitiveRenderer.js';
 
 export interface RenderLoop {
   start(): void;
   stop(): void;
   updateSize(width: number, height: number): void;
+}
+
+/** Callback that returns the current expression state for rendering. */
+export interface ExpressionProvider {
+  /** All expressions on the canvas, keyed by ID. */
+  getExpressions(): Record<string, VisualExpression>;
+  /** Ordered list of expression IDs representing z-order (back to front). */
+  getExpressionOrder(): string[];
 }
 
 /**
@@ -24,12 +35,18 @@ export interface RenderLoop {
  * The `getCamera` callback is called each frame to get the latest
  * camera state — this avoids stale closures and ensures synchronous
  * camera updates are reflected immediately.
+ *
+ * The optional `roughCanvas` and `expressionProvider` enable primitive
+ * rendering. When provided, expressions are rendered in z-order after
+ * the grid, with viewport culling applied.
  */
 export function createRenderLoop(
   ctx: CanvasRenderingContext2D,
   getCamera: () => Camera,
   initialWidth: number,
   initialHeight: number,
+  roughCanvas?: RoughCanvas,
+  expressionProvider?: ExpressionProvider,
 ): RenderLoop {
   let width = initialWidth;
   let height = initialHeight;
@@ -51,7 +68,18 @@ export function createRenderLoop(
     // 3. Render grid (in world coordinates)
     renderGrid(ctx, camera, width, height);
 
-    // 4. (Future: render expressions here)
+    // 4. Render expressions in z-order [AC1]
+    if (roughCanvas && expressionProvider) {
+      renderExpressions(
+        ctx,
+        roughCanvas,
+        expressionProvider.getExpressions(),
+        expressionProvider.getExpressionOrder(),
+        camera,
+        width,
+        height,
+      );
+    }
 
     // Schedule next frame
     frameId = requestAnimationFrame(renderFrame);
