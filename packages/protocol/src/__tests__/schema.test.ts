@@ -44,6 +44,8 @@ import {
   protocolOperationSchema,
   operationPayloadSchema,
   createPayloadSchema,
+  // Defaults
+  DEFAULT_EXPRESSION_STYLE,
 } from '../index.js';
 
 // ── Test helpers ───────────────────────────────────────────
@@ -1088,5 +1090,22 @@ describe('Image src validation (R4)', () => {
       src: 'ftp://example.com/file.png',
     });
     expect(result.success).toBe(false);
+  });
+});
+
+// ── I2-2: DEFAULT_EXPRESSION_STYLE ─────────────────────────
+describe('DEFAULT_EXPRESSION_STYLE (I2-2)', () => {
+  it('exports canonical default values', () => {
+    expect(DEFAULT_EXPRESSION_STYLE.strokeColor).toBe('#1e1e1e');
+    expect(DEFAULT_EXPRESSION_STYLE.backgroundColor).toBe('transparent');
+    expect(DEFAULT_EXPRESSION_STYLE.fillStyle).toBe('hachure');
+    expect(DEFAULT_EXPRESSION_STYLE.strokeWidth).toBe(2);
+    expect(DEFAULT_EXPRESSION_STYLE.roughness).toBe(1);
+    expect(DEFAULT_EXPRESSION_STYLE.opacity).toBe(1);
+  });
+
+  it('passes its own schema validation', () => {
+    const result = expressionStyleSchema.safeParse(DEFAULT_EXPRESSION_STYLE);
+    expect(result.success).toBe(true);
   });
 });

@@ -17,6 +17,7 @@ import { nanoid } from 'nanoid';
 import {
   visualExpressionSchema,
   protocolOperationSchema,
+  DEFAULT_EXPRESSION_STYLE,
 } from '@infinicanvas/protocol';
 import type {
   VisualExpression,
@@ -353,14 +354,7 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
               position: p.position,
               size: p.size,
               angle: p.angle ?? 0,
-              style: p.style ?? {
-                strokeColor: '#000000',
-                backgroundColor: 'transparent',
-                fillStyle: 'none',
-                strokeWidth: 2,
-                roughness: 1,
-                opacity: 1,
-              },
+              style: p.style ?? { ...DEFAULT_EXPRESSION_STYLE },
               meta: {
                 author: op.author,
                 createdAt: op.timestamp,

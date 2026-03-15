@@ -324,3 +324,228 @@ describe('GatewayClient JSON.parse safety (R6)', () => {
     client.disconnect();
   });
 });
+
+// ── I2-1: Remote update/move/transform/style/morph handlers ──
+
+describe('GatewayClient remote operation handlers (I2-1)', () => {
+  /** Helper: connect client, create session, seed one expression. */
+  async function seedClient(): Promise<{
+    client: InstanceType<typeof GatewayClient>;
+  }> {
+    const client = new GatewayClient({ url: 'ws://localhost:8080' });
+    const p = client.connect();
+    mockWs.simulateOpen();
+    mockWs.simulateMessage({ type: 'session-created', sessionId: 'sess-1' });
+    await p;
+
+    // Seed an expression via remote create
+    mockWs.simulateMessage({
+      type: 'operation',
+      operation: {
+        id: 'seed-op',
+        type: 'create',
+        author: { type: 'human', id: 'u1', name: 'Test' },
+        timestamp: Date.now(),
+        payload: {
+          type: 'create',
+          expressionId: 'expr-1',
+          kind: 'rectangle',
+          position: { x: 10, y: 20 },
+          size: { width: 100, height: 50 },
+          data: { kind: 'rectangle', label: 'Box' },
+        },
+      },
+    });
+    return { client };
+  }
+
+  it('applies remote update operation', async () => {
+    const { client } = await seedClient();
+
+    mockWs.simulateMessage({
+      type: 'operation',
+      operation: {
+        id: 'update-op',
+        type: 'update',
+        author: { type: 'human', id: 'u2', name: 'Bob' },
+        timestamp: Date.now(),
+        payload: {
+          type: 'update',
+          expressionId: 'expr-1',
+          changes: {
+            position: { x: 200, y: 300 },
+            size: { width: 400, height: 250 },
+          },
+        },
+      },
+    });
+
+    const expr = client.getState().find((e) => e.id === 'expr-1');
+    expect(expr!.position).toEqual({ x: 200, y: 300 });
+    expect(expr!.size).toEqual({ width: 400, height: 250 });
+    client.disconnect();
+  });
+
+  it('applies remote move operation', async () => {
+    const { client } = await seedClient();
+
+    mockWs.simulateMessage({
+      type: 'operation',
+      operation: {
+        id: 'move-op',
+        type: 'move',
+        author: { type: 'human', id: 'u2', name: 'Bob' },
+        timestamp: Date.now(),
+        payload: {
+          type: 'move',
+          expressionId: 'expr-1',
+          from: { x: 10, y: 20 },
+          to: { x: 500, y: 600 },
+        },
+      },
+    });
+
+    const expr = client.getState().find((e) => e.id === 'expr-1');
+    expect(expr!.position).toEqual({ x: 500, y: 600 });
+    client.disconnect();
+  });
+
+  it('applies remote transform operation', async () => {
+    const { client } = await seedClient();
+
+    mockWs.simulateMessage({
+      type: 'operation',
+      operation: {
+        id: 'transform-op',
+        type: 'transform',
+        author: { type: 'human', id: 'u2', name: 'Bob' },
+        timestamp: Date.now(),
+        payload: {
+          type: 'transform',
+          expressionId: 'expr-1',
+          angle: 90,
+          size: { width: 300, height: 200 },
+        },
+      },
+    });
+
+    const expr = client.getState().find((e) => e.id === 'expr-1');
+    expect(expr!.angle).toBe(90);
+    expect(expr!.size).toEqual({ width: 300, height: 200 });
+    client.disconnect();
+  });
+
+  it('applies remote style operation', async () => {
+    const { client } = await seedClient();
+
+    mockWs.simulateMessage({
+      type: 'operation',
+      operation: {
+        id: 'style-op',
+        type: 'style',
+        author: { type: 'human', id: 'u2', name: 'Bob' },
+        timestamp: Date.now(),
+        payload: {
+          type: 'style',
+          expressionIds: ['expr-1'],
+          style: { strokeColor: '#ff0000', opacity: 0.5 },
+        },
+      },
+    });
+
+    const expr = client.getState().find((e) => e.id === 'expr-1');
+    expect(expr!.style.strokeColor).toBe('#ff0000');
+    expect(expr!.style.opacity).toBe(0.5);
+    client.disconnect();
+  });
+
+  it('applies remote morph operation', async () => {
+    const { client } = await seedClient();
+
+    mockWs.simulateMessage({
+      type: 'operation',
+      operation: {
+        id: 'morph-op',
+        type: 'morph',
+        author: { type: 'human', id: 'u2', name: 'Bob' },
+        timestamp: Date.now(),
+        payload: {
+          type: 'morph',
+          expressionId: 'expr-1',
+          fromKind: 'rectangle',
+          toKind: 'ellipse',
+          newData: { kind: 'ellipse', label: 'Morphed' },
+        },
+      },
+    });
+
+    const expr = client.getState().find((e) => e.id === 'expr-1');
+    expect(expr!.kind).toBe('ellipse');
+    expect(expr!.data).toEqual({ kind: 'ellipse', label: 'Morphed' });
+    client.disconnect();
+  });
+
+  it('ignores update for nonexistent expression', async () => {
+    const { client } = await seedClient();
+
+    mockWs.simulateMessage({
+      type: 'operation',
+      operation: {
+        id: 'update-ghost',
+        type: 'update',
+        author: { type: 'human', id: 'u2', name: 'Bob' },
+        timestamp: Date.now(),
+        payload: {
+          type: 'update',
+          expressionId: 'nonexistent',
+          changes: { position: { x: 999, y: 999 } },
+        },
+      },
+    });
+
+    // Original expression untouched
+    const expr = client.getState().find((e) => e.id === 'expr-1');
+    expect(expr!.position).toEqual({ x: 10, y: 20 });
+    client.disconnect();
+  });
+});
+
+// ── I2-2: Default style consistency ──────────────────────────
+
+describe('GatewayClient default style uses canonical values (I2-2)', () => {
+  it('remote create without style uses DEFAULT_EXPRESSION_STYLE', async () => {
+    const client = new GatewayClient({ url: 'ws://localhost:8080' });
+    const p = client.connect();
+    mockWs.simulateOpen();
+    mockWs.simulateMessage({ type: 'session-created', sessionId: 'sess-1' });
+    await p;
+
+    mockWs.simulateMessage({
+      type: 'operation',
+      operation: {
+        id: 'op-default',
+        type: 'create',
+        author: { type: 'human', id: 'u1', name: 'Test' },
+        timestamp: Date.now(),
+        payload: {
+          type: 'create',
+          expressionId: 'default-expr',
+          kind: 'rectangle',
+          position: { x: 0, y: 0 },
+          size: { width: 100, height: 100 },
+          data: { kind: 'rectangle' },
+        },
+      },
+    });
+
+    const expr = client.getState()[0]!;
+    expect(expr.style.strokeColor).toBe('#1e1e1e');
+    expect(expr.style.fillStyle).toBe('hachure');
+    expect(expr.style.roughness).toBe(1);
+    expect(expr.style.backgroundColor).toBe('transparent');
+    expect(expr.style.strokeWidth).toBe(2);
+    expect(expr.style.opacity).toBe(1);
+
+    client.disconnect();
+  });
+});

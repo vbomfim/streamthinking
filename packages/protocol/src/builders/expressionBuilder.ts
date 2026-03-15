@@ -17,18 +17,9 @@
 
 import { nanoid } from 'nanoid';
 import type { AuthorInfo, ExpressionStyle } from '../schema/metadata.js';
+import { DEFAULT_EXPRESSION_STYLE } from '../schema/metadata.js';
 import type { VisualExpression, ExpressionData } from '../schema/expressions.js';
 import type { FlowNode, FlowEdge, ReasoningStep } from '../schema/composites.js';
-
-/** Default style applied to new expressions when no style is specified. */
-const DEFAULT_STYLE: ExpressionStyle = {
-  strokeColor: '#000000',
-  backgroundColor: 'transparent',
-  fillStyle: 'none',
-  strokeWidth: 2,
-  roughness: 0,
-  opacity: 1,
-};
 
 /**
  * Internal builder that accumulates properties and produces
@@ -40,7 +31,7 @@ class ExpressionDraft {
   private position = { x: 0, y: 0 };
   private size = { width: 100, height: 100 };
   private angle = 0;
-  private expressionStyle: ExpressionStyle = { ...DEFAULT_STYLE };
+  private expressionStyle: ExpressionStyle = { ...DEFAULT_EXPRESSION_STYLE };
   private tags: string[] = [];
   private locked = false;
   private parentId?: string;

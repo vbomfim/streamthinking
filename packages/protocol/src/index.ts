@@ -9,6 +9,7 @@
 // ── Schema types ───────────────────────────────────────────
 
 export type { AuthorInfo, ExpressionStyle } from './schema/metadata.js';
+export { DEFAULT_EXPRESSION_STYLE } from './schema/metadata.js';
 
 export type {
   RectangleData,

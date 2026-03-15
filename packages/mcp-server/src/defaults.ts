@@ -7,17 +7,14 @@
  * @module
  */
 
+import { DEFAULT_EXPRESSION_STYLE } from '@infinicanvas/protocol';
 import type { ExpressionStyle } from '@infinicanvas/protocol';
 
-/** Default visual style for canvas expressions. */
-export const DEFAULT_STYLE: ExpressionStyle = {
-  strokeColor: '#1e1e1e',
-  backgroundColor: 'transparent',
-  fillStyle: 'hachure',
-  strokeWidth: 2,
-  roughness: 1,
-  opacity: 1,
-};
+/**
+ * Default visual style for canvas expressions.
+ * Re-exported from the canonical source in @infinicanvas/protocol.
+ */
+export const DEFAULT_STYLE: ExpressionStyle = { ...DEFAULT_EXPRESSION_STYLE };
 
 /** Pastel color palette for sticky notes. */
 export const STICKY_NOTE_COLORS = [

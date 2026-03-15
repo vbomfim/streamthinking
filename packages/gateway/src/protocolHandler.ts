@@ -11,7 +11,7 @@
  */
 
 import type { VisualExpression, ProtocolOperation } from '@infinicanvas/protocol';
-import { protocolOperationSchema } from '@infinicanvas/protocol';
+import { protocolOperationSchema, DEFAULT_EXPRESSION_STYLE } from '@infinicanvas/protocol';
 import type { Session, ErrorMessage } from './types.js';
 import { log, logError } from './logger.js';
 
@@ -81,15 +81,8 @@ function applyCreate(
     kind: payload.kind,
     position: payload.position,
     size: payload.size,
-    angle: 0,
-    style: {
-      strokeColor: '#000000',
-      backgroundColor: 'transparent',
-      fillStyle: 'solid',
-      strokeWidth: 2,
-      roughness: 0,
-      opacity: 1,
-    },
+    angle: payload.angle ?? 0,
+    style: payload.style ?? { ...DEFAULT_EXPRESSION_STYLE },
     meta: {
       author: operation.author,
       createdAt: operation.timestamp,

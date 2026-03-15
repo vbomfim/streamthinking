@@ -30,3 +30,18 @@ export interface ExpressionStyle {
   /** Font family name (optional) */
   fontFamily?: string;
 }
+
+/**
+ * Canonical default style for new expressions.
+ *
+ * Every place that needs a fallback style must import this constant
+ * instead of defining its own hardcoded values.
+ */
+export const DEFAULT_EXPRESSION_STYLE: ExpressionStyle = {
+  strokeColor: '#1e1e1e',
+  backgroundColor: 'transparent',
+  fillStyle: 'hachure',
+  strokeWidth: 2,
+  roughness: 1,
+  opacity: 1,
+};

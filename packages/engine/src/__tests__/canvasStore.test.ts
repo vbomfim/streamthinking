@@ -488,8 +488,8 @@ describe('applyRemoteOperation with style/angle (R3)', () => {
     const expr = useCanvasStore.getState().expressions['default-1'];
     expect(expr).toBeDefined();
     expect(expr!.angle).toBe(0);
-    expect(expr!.style.strokeColor).toBe('#000000');
-    expect(expr!.style.fillStyle).toBe('none');
+    expect(expr!.style.strokeColor).toBe('#1e1e1e');
+    expect(expr!.style.fillStyle).toBe('hachure');
   });
 });
 

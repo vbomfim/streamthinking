@@ -15,12 +15,17 @@ import type {
   ProtocolOperation,
   AuthorInfo,
   CreatePayload,
+  UpdatePayload,
   DeletePayload,
+  MovePayload,
+  TransformPayload,
   MorphPayload,
   StylePayload,
   ExpressionKind,
   ExpressionData,
+  ExpressionStyle,
 } from '@infinicanvas/protocol';
+import { DEFAULT_EXPRESSION_STYLE } from '@infinicanvas/protocol';
 import { MCP_AUTHOR } from './defaults.js';
 
 /** Messages the gateway sends back to us. */
@@ -274,41 +279,98 @@ export class GatewayClient implements IGatewayClient {
   }
 
   private applyRemoteOperation(op: ProtocolOperation): void {
-    if (op.payload.type === 'create') {
-      const p = op.payload;
-      const exists = this.expressions.some((e) => e.id === p.expressionId);
-      if (!exists) {
-        // Reconstruct full VisualExpression from CreatePayload + operation metadata
-        const expr: VisualExpression = {
-          id: p.expressionId,
-          kind: p.kind,
-          position: p.position,
-          size: p.size,
-          angle: p.angle ?? 0,
-          style: p.style ?? {
-            strokeColor: '#000000',
-            backgroundColor: 'transparent',
-            fillStyle: 'none',
-            strokeWidth: 2,
-            roughness: 1,
-            opacity: 1,
-          },
-          meta: {
-            author: op.author,
-            createdAt: op.timestamp,
-            updatedAt: op.timestamp,
-            tags: [],
-            locked: false,
-          },
-          data: p.data,
-        };
-        this.expressions.push(expr);
+    switch (op.payload.type) {
+      case 'create': {
+        const p = op.payload as CreatePayload;
+        const exists = this.expressions.some((e) => e.id === p.expressionId);
+        if (!exists) {
+          const expr: VisualExpression = {
+            id: p.expressionId,
+            kind: p.kind,
+            position: p.position,
+            size: p.size,
+            angle: p.angle ?? 0,
+            style: p.style ?? { ...DEFAULT_EXPRESSION_STYLE },
+            meta: {
+              author: op.author,
+              createdAt: op.timestamp,
+              updatedAt: op.timestamp,
+              tags: [],
+              locked: false,
+            },
+            data: p.data,
+          };
+          this.expressions.push(expr);
+        }
+        break;
       }
-    } else if (op.payload.type === 'delete') {
-      const deletePayload = op.payload;
-      this.expressions = this.expressions.filter(
-        (e) => !deletePayload.expressionIds.includes(e.id),
-      );
+
+      case 'update': {
+        const p = op.payload as UpdatePayload;
+        const existing = this.expressions.find((e) => e.id === p.expressionId);
+        if (existing) {
+          if (p.changes.position) existing.position = p.changes.position;
+          if (p.changes.size) existing.size = p.changes.size;
+          if (p.changes.angle !== undefined) existing.angle = p.changes.angle;
+          if (p.changes.style) {
+            existing.style = { ...existing.style, ...p.changes.style } as ExpressionStyle;
+          }
+          if (p.changes.data) existing.data = p.changes.data;
+        }
+        break;
+      }
+
+      case 'delete': {
+        const p = op.payload as DeletePayload;
+        this.expressions = this.expressions.filter(
+          (e) => !p.expressionIds.includes(e.id),
+        );
+        break;
+      }
+
+      case 'move': {
+        const p = op.payload as MovePayload;
+        const existing = this.expressions.find((e) => e.id === p.expressionId);
+        if (existing) {
+          existing.position = p.to;
+        }
+        break;
+      }
+
+      case 'transform': {
+        const p = op.payload as TransformPayload;
+        const existing = this.expressions.find((e) => e.id === p.expressionId);
+        if (existing) {
+          if (p.angle !== undefined) existing.angle = p.angle;
+          if (p.size) existing.size = p.size;
+        }
+        break;
+      }
+
+      case 'style': {
+        const p = op.payload as StylePayload;
+        for (const id of p.expressionIds) {
+          const existing = this.expressions.find((e) => e.id === id);
+          if (existing) {
+            existing.style = { ...existing.style, ...p.style } as ExpressionStyle;
+          }
+        }
+        break;
+      }
+
+      case 'morph': {
+        const p = op.payload as MorphPayload;
+        const existing = this.expressions.find((e) => e.id === p.expressionId);
+        if (existing) {
+          existing.kind = p.toKind;
+          existing.data = p.newData;
+        }
+        break;
+      }
+
+      default:
+        // Other operation types are broadcast-only and don't affect local state
+        break;
     }
   }
 
