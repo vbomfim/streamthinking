@@ -207,11 +207,12 @@ export function hitTestFreehand(
 }
 
 /**
- * Hit test a text expression.
+ * Hit test using bounding-box only (no tolerance margin).
  *
- * Bounding box only — no tolerance margin.
+ * Shared helper used by text, sticky-note, image, and as the default
+ * fallback for composite expression kinds.
  */
-export function hitTestText(
+export function hitTestBoundingBox(
   point: WorldPoint,
   expression: VisualExpression,
 ): boolean {
@@ -224,6 +225,18 @@ export function hitTestText(
     point.y >= y &&
     point.y <= y + height
   );
+}
+
+/**
+ * Hit test a text expression.
+ *
+ * Bounding box only — no tolerance margin.
+ */
+export function hitTestText(
+  point: WorldPoint,
+  expression: VisualExpression,
+): boolean {
+  return hitTestBoundingBox(point, expression);
 }
 
 /**
@@ -235,15 +248,7 @@ export function hitTestStickyNote(
   point: WorldPoint,
   expression: VisualExpression,
 ): boolean {
-  const { x, y } = expression.position;
-  const { width, height } = expression.size;
-
-  return (
-    point.x >= x &&
-    point.x <= x + width &&
-    point.y >= y &&
-    point.y <= y + height
-  );
+  return hitTestBoundingBox(point, expression);
 }
 
 /**
@@ -255,15 +260,7 @@ export function hitTestImage(
   point: WorldPoint,
   expression: VisualExpression,
 ): boolean {
-  const { x, y } = expression.position;
-  const { width, height } = expression.size;
-
-  return (
-    point.x >= x &&
-    point.x <= x + width &&
-    point.y >= y &&
-    point.y <= y + height
-  );
+  return hitTestBoundingBox(point, expression);
 }
 
 /**
@@ -297,6 +294,7 @@ export function hitTestExpression(
     case 'image':
       return hitTestImage(point, expression);
     default:
-      return false;
+      // Composite and unknown kinds: fall back to bounding-box hit test
+      return hitTestBoundingBox(point, expression);
   }
 }

@@ -83,6 +83,13 @@ export function clearLayoutCache(): void {
   layoutCache.clear();
 }
 
+/**
+ * Remove a single entry from the layout cache (e.g. after expression deletion).
+ */
+export function invalidateLayoutCache(exprId: string): void {
+  layoutCache.delete(exprId);
+}
+
 // ── Data hashing ─────────────────────────────────────────────
 
 /**
@@ -425,23 +432,7 @@ export function renderFlowchart(
 
   ctx.save();
 
-  // ── Empty flowchart: title in bordered box [AC12] ──────────
-  if (data.nodes.length === 0) {
-    const boxW = 200;
-    const boxH = 60;
-
-    const drawable = rc.rectangle(originX, originY, boxW, boxH, roughOptions);
-    rc.draw(drawable);
-
-    ctx.font = `bold ${TITLE_FONT_SIZE}px ${DEFAULT_FONT_FAMILY}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = expr.style.strokeColor;
-    ctx.fillText(data.title, originX + boxW / 2, originY + boxH / 2);
-
-    ctx.restore();
-    return;
-  }
+  // Data validated by Zod — nodes.min(1) ensures at least one node. [S6-3]
 
   // ── Compute / retrieve layout [AC4] ────────────────────────
   const layout = getLayout(expr.id, data);
@@ -449,7 +440,6 @@ export function renderFlowchart(
 
   // Compute offset: translate dagre coords so bounds start at expression position
   const graphWidth = bounds.maxX - bounds.minX + FLOWCHART_PADDING * 2;
-  const graphHeight = bounds.maxY - bounds.minY + FLOWCHART_PADDING * 2 + TITLE_HEIGHT;
 
   // NOTE: We do NOT mutate expr.size here — renderers must be pure. [S5-1]
   // Layout sizes are computed at expression creation time in compositeTools.

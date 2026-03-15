@@ -82,6 +82,8 @@ interface ReasoningLayout {
   cardWidth: number;
   totalHeight: number;
   dataHash: string;
+  /** Expression width used to compute this layout — part of cache key. */
+  exprWidth: number;
 }
 
 // ── Layout cache ─────────────────────────────────────────────
@@ -93,6 +95,13 @@ const layoutCache = new Map<string, ReasoningLayout>();
  */
 export function clearLayoutCache(): void {
   layoutCache.clear();
+}
+
+/**
+ * Remove a single entry from the layout cache (e.g. after expression deletion).
+ */
+export function invalidateLayoutCache(exprId: string): void {
+  layoutCache.delete(exprId);
 }
 
 // ── Data hashing ─────────────────────────────────────────────
@@ -163,6 +172,7 @@ export function computeReasoningLayout(
     cardWidth,
     totalHeight: currentY,
     dataHash: computeDataHash(data),
+    exprWidth,
   };
 }
 
@@ -176,7 +186,7 @@ function getLayout(
   const hash = computeDataHash(data);
   const cached = layoutCache.get(exprId);
 
-  if (cached && cached.dataHash === hash) {
+  if (cached && cached.dataHash === hash && cached.exprWidth === exprWidth) {
     return cached;
   }
 

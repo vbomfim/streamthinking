@@ -14,6 +14,7 @@ import {
   renderSequenceDiagram,
   clearLayoutCache,
   computeSequenceLayout,
+  invalidateLayoutCache,
 } from '../renderer/composites/sequenceDiagramRenderer.js';
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -416,26 +417,37 @@ describe('sequence diagram title', () => {
   });
 });
 
-// ── Empty Diagram ────────────────────────────────────────────
+// ── Zod validation rejects empty data (S6-3) ────────────────
 
-describe('empty sequence diagram', () => {
-  it('renders gracefully with no participants', () => {
-    const ctx = createMockCtx();
-    const rc = createMockRoughCanvas();
+describe('sequence diagram Zod validation (S6-3)', () => {
+  it('rejects sequence diagram with fewer than 2 participants', async () => {
+    const { sequenceDiagramDataSchema } = await import('@infinicanvas/protocol');
 
-    const expr = makeSequenceExpression({
-      title: 'Empty Diagram',
+    const result = sequenceDiagramDataSchema.safeParse({
+      kind: 'sequence-diagram',
+      title: 'Empty',
       participants: [],
       messages: [],
     });
 
-    expect(() => renderSequenceDiagram(ctx, expr, rc as any)).not.toThrow();
-
-    // Should still render title
-    const fillTextCalls = ctx.fillText.mock.calls.map((c: any[]) => c[0]);
-    expect(fillTextCalls).toContain('Empty Diagram');
+    expect(result.success).toBe(false);
   });
 
+  it('rejects sequence diagram with only 1 participant', async () => {
+    const { sequenceDiagramDataSchema } = await import('@infinicanvas/protocol');
+
+    const result = sequenceDiagramDataSchema.safeParse({
+      kind: 'sequence-diagram',
+      title: 'Solo',
+      participants: [{ id: 'a', name: 'Alice' }],
+      messages: [],
+    });
+
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('sequence diagram with participants but no messages', () => {
   it('renders gracefully with participants but no messages', () => {
     const ctx = createMockCtx();
     const rc = createMockRoughCanvas();
@@ -545,5 +557,32 @@ describe('sequence diagram renderer purity', () => {
 
     expect(expr.size.width).toBe(originalWidth);
     expect(expr.size.height).toBe(originalHeight);
+  });
+});
+
+// ── Layout cache invalidation (S6-4) ─────────────────────────
+
+describe('sequence diagram cache invalidation (S6-4)', () => {
+  it('removes cache entry on invalidateLayoutCache', () => {
+    const ctx = createMockCtx();
+    const rc = createMockRoughCanvas();
+
+    const expr = makeSequenceExpression({
+      title: 'Cache Test',
+      participants: [
+        { id: 'a', name: 'Alice' },
+        { id: 'b', name: 'Bob' },
+      ],
+      messages: [{ from: 'a', to: 'b', label: 'hi', type: 'sync' }],
+    });
+
+    // Render to populate cache
+    renderSequenceDiagram(ctx, expr, rc as any);
+
+    // Invalidate the specific entry
+    invalidateLayoutCache(expr.id);
+
+    // Re-render — should still work (recomputes layout)
+    expect(() => renderSequenceDiagram(ctx, expr, rc as any)).not.toThrow();
   });
 });

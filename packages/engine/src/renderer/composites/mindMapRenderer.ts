@@ -93,6 +93,13 @@ export function clearLayoutCache(): void {
   layoutCache.clear();
 }
 
+/**
+ * Remove a single entry from the layout cache (e.g. after expression deletion).
+ */
+export function invalidateLayoutCache(exprId: string): void {
+  layoutCache.delete(exprId);
+}
+
 // ── Data hashing ─────────────────────────────────────────────
 
 function computeDataHash(data: MindMapData): string {
@@ -154,7 +161,7 @@ function layoutBranch(
 
   nodes.push({
     id: branch.id,
-    label: isTruncated ? branch.label : branch.label,
+    label: branch.label,
     x: nodeX,
     y: nodeY,
     width: w,

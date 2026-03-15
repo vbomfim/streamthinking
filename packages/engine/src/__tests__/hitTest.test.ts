@@ -19,6 +19,7 @@ import {
   hitTestStickyNote,
   hitTestImage,
   hitTestExpression,
+  hitTestBoundingBox,
 } from '../interaction/hitTest.js';
 
 // ── Test helpers ─────────────────────────────────────────────
@@ -505,9 +506,12 @@ describe('hitTestExpression', () => {
     expect(hitTestExpression({ x: 50, y: 50 }, img, 0)).toBe(true);
   });
 
-  it('returns false for unknown expression kind', () => {
+  it('uses bounding-box fallback for unknown expression kind', () => {
     const unknown = { ...makeRect(0, 0, 100, 100), kind: 'unknown-widget' } as unknown as VisualExpression;
-    expect(hitTestExpression({ x: 50, y: 50 }, unknown, 0)).toBe(false);
+    // Inside bounding box → true (bounding-box fallback)
+    expect(hitTestExpression({ x: 50, y: 50 }, unknown, 0)).toBe(true);
+    // Outside bounding box → false
+    expect(hitTestExpression({ x: 200, y: 200 }, unknown, 0)).toBe(false);
   });
 });
 
@@ -528,5 +532,78 @@ describe('tolerance scaling', () => {
     const worldTolerance = 10 / 0.5;
     // Point 15px outside right edge in world coords: (215, 150)
     expect(hitTestRectangle({ x: 215, y: 150 }, rect, worldTolerance)).toBe(true);
+  });
+});
+
+// ── hitTestBoundingBox ───────────────────────────────────────
+
+describe('hitTestBoundingBox', () => {
+  it('returns true for point inside bounds', () => {
+    const rect = makeRect(100, 100, 200, 150);
+    expect(hitTestBoundingBox({ x: 200, y: 175 }, rect)).toBe(true);
+  });
+
+  it('returns true for point on edge', () => {
+    const rect = makeRect(100, 100, 200, 150);
+    expect(hitTestBoundingBox({ x: 100, y: 100 }, rect)).toBe(true);
+  });
+
+  it('returns false for point outside bounds', () => {
+    const rect = makeRect(100, 100, 200, 150);
+    expect(hitTestBoundingBox({ x: 50, y: 50 }, rect)).toBe(false);
+  });
+});
+
+// ── Composite expression hit testing (S6-2) ──────────────────
+
+describe('composite expression hit testing (S6-2)', () => {
+  /** Create a composite expression with known bounds. */
+  function makeComposite(
+    kind: string,
+    x: number,
+    y: number,
+    w: number,
+    h: number,
+  ): VisualExpression {
+    return {
+      id: `composite-${kind}`,
+      kind,
+      position: { x, y },
+      size: { width: w, height: h },
+      angle: 0,
+      style: DEFAULT_STYLE,
+      meta: DEFAULT_META,
+      data: { kind },
+    } as unknown as VisualExpression;
+  }
+
+  it('hit tests flowchart expressions using bounding box', () => {
+    const expr = makeComposite('flowchart', 100, 100, 400, 300);
+    expect(hitTestExpression({ x: 300, y: 250 }, expr, 0)).toBe(true);
+    expect(hitTestExpression({ x: 50, y: 50 }, expr, 0)).toBe(false);
+  });
+
+  it('hit tests sequence-diagram expressions using bounding box', () => {
+    const expr = makeComposite('sequence-diagram', 50, 50, 500, 400);
+    expect(hitTestExpression({ x: 200, y: 200 }, expr, 0)).toBe(true);
+    expect(hitTestExpression({ x: 600, y: 500 }, expr, 0)).toBe(false);
+  });
+
+  it('hit tests mind-map expressions using bounding box', () => {
+    const expr = makeComposite('mind-map', 0, 0, 600, 400);
+    expect(hitTestExpression({ x: 300, y: 200 }, expr, 0)).toBe(true);
+    expect(hitTestExpression({ x: 700, y: 500 }, expr, 0)).toBe(false);
+  });
+
+  it('hit tests reasoning-chain expressions using bounding box', () => {
+    const expr = makeComposite('reasoning-chain', 200, 200, 400, 600);
+    expect(hitTestExpression({ x: 400, y: 500 }, expr, 0)).toBe(true);
+    expect(hitTestExpression({ x: 100, y: 100 }, expr, 0)).toBe(false);
+  });
+
+  it('hit tests any future composite kind using bounding box', () => {
+    const expr = makeComposite('kanban', 0, 0, 300, 300);
+    expect(hitTestExpression({ x: 150, y: 150 }, expr, 0)).toBe(true);
+    expect(hitTestExpression({ x: 400, y: 400 }, expr, 0)).toBe(false);
   });
 });

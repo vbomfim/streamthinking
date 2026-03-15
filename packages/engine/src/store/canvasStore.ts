@@ -34,6 +34,10 @@ import type {
 import type { CanvasState, CanvasActions, ToolType, Camera } from '../types/index.js';
 import { HistoryManager } from '../history/historyManager.js';
 import type { CanvasSnapshot } from '../history/historyManager.js';
+import { invalidateLayoutCache as invalidateFlowchartCache } from '../renderer/composites/flowchartRenderer.js';
+import { invalidateLayoutCache as invalidateSequenceCache } from '../renderer/composites/sequenceDiagramRenderer.js';
+import { invalidateLayoutCache as invalidateMindMapCache } from '../renderer/composites/mindMapRenderer.js';
+import { invalidateLayoutCache as invalidateReasoningCache } from '../renderer/composites/reasoningChainRenderer.js';
 
 // Enable immer support for Set/Map (used by selectedIds: Set<string>)
 enableMapSet();
@@ -269,6 +273,14 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
         state.canUndo = historyManager.canUndo();
         state.canRedo = historyManager.canRedo();
       });
+
+      // Evict deleted expressions from composite renderer layout caches [S6-4]
+      for (const id of existingIds) {
+        invalidateFlowchartCache(id);
+        invalidateSequenceCache(id);
+        invalidateMindMapCache(id);
+        invalidateReasoningCache(id);
+      }
     },
 
     // ── Undo/Redo actions ────────────────────────────────────

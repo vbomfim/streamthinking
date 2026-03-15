@@ -14,6 +14,7 @@ import {
   renderMindMap,
   clearLayoutCache,
   computeMindMapLayout,
+  invalidateLayoutCache,
 } from '../renderer/composites/mindMapRenderer.js';
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -479,5 +480,30 @@ describe('mind map renderer purity', () => {
 
     expect(expr.size.width).toBe(originalWidth);
     expect(expr.size.height).toBe(originalHeight);
+  });
+});
+
+// ── Layout cache invalidation (S6-4) ─────────────────────────
+
+describe('mind map cache invalidation (S6-4)', () => {
+  it('removes cache entry on invalidateLayoutCache', () => {
+    const ctx = createMockCtx();
+    const rc = createMockRoughCanvas();
+
+    const expr = makeMindMapExpression({
+      centralTopic: 'Cache Test',
+      branches: [
+        { id: 'b1', label: 'Branch 1', children: [] },
+      ],
+    });
+
+    // Render to populate cache
+    renderMindMap(ctx, expr, rc as any);
+
+    // Invalidate the specific entry
+    invalidateLayoutCache(expr.id);
+
+    // Re-render — should still work (recomputes layout)
+    expect(() => renderMindMap(ctx, expr, rc as any)).not.toThrow();
   });
 });

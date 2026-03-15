@@ -14,6 +14,7 @@ import type { VisualExpression, ExpressionStyle, FlowchartData } from '@infinica
 import {
   renderFlowchart,
   clearLayoutCache,
+  invalidateLayoutCache,
 } from '../renderer/composites/flowchartRenderer.js';
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -303,28 +304,22 @@ describe('flowchart title', () => {
   });
 });
 
-// ── Empty Flowchart ──────────────────────────────────────────
+// ── Zod validation rejects empty data (S6-3) ────────────────
 
-describe('empty flowchart', () => {
-  it('renders title only in a bordered box', () => {
-    const ctx = createMockCtx();
-    const rc = createMockRoughCanvas();
+describe('flowchart Zod validation (S6-3)', () => {
+  it('rejects flowchart with zero nodes', async () => {
+    // Dynamic import so the test works regardless of protocol build
+    const { flowchartDataSchema } = await import('@infinicanvas/protocol');
 
-    const expr = makeFlowchartExpression({
-      title: 'Empty Flow',
+    const result = flowchartDataSchema.safeParse({
+      kind: 'flowchart',
+      title: 'Empty',
       nodes: [],
       edges: [],
+      direction: 'TB',
     });
 
-    renderFlowchart(ctx, expr, rc as any);
-
-    // Title text rendered
-    const fillTextCalls = ctx.fillText.mock.calls.map((c: any[]) => c[0]);
-    expect(fillTextCalls).toContain('Empty Flow');
-
-    // Bordered box rendered via roughCanvas.rectangle
-    expect(rc.rectangle).toHaveBeenCalled();
-    expect(rc.draw).toHaveBeenCalled();
+    expect(result.success).toBe(false);
   });
 });
 
@@ -480,5 +475,32 @@ describe('flowchart renderer purity (S5-1)', () => {
       rc.ellipse.mock.calls.length +
       rc.polygon.mock.calls.length;
     expect(totalShapeCalls).toBeGreaterThanOrEqual(2);
+  });
+});
+
+// ── Layout cache invalidation (S6-4) ─────────────────────────
+
+describe('flowchart cache invalidation (S6-4)', () => {
+  it('removes cache entry on invalidateLayoutCache', () => {
+    const ctx = createMockCtx();
+    const rc = createMockRoughCanvas();
+
+    const expr = makeFlowchartExpression({
+      title: 'Cache Test',
+      nodes: [
+        { id: 'a', label: 'Start', shape: 'rect' },
+        { id: 'b', label: 'End', shape: 'rect' },
+      ],
+      edges: [{ from: 'a', to: 'b' }],
+    });
+
+    // Render to populate cache
+    renderFlowchart(ctx, expr, rc as any);
+
+    // Invalidate the specific entry
+    invalidateLayoutCache(expr.id);
+
+    // Re-render — should still work (recomputes layout)
+    expect(() => renderFlowchart(ctx, expr, rc as any)).not.toThrow();
   });
 });

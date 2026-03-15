@@ -103,6 +103,13 @@ export function clearLayoutCache(): void {
   layoutCache.clear();
 }
 
+/**
+ * Remove a single entry from the layout cache (e.g. after expression deletion).
+ */
+export function invalidateLayoutCache(exprId: string): void {
+  layoutCache.delete(exprId);
+}
+
 // ── Data hashing ─────────────────────────────────────────────
 
 function computeDataHash(data: SequenceDiagramData): string {
@@ -293,23 +300,7 @@ export function renderSequenceDiagram(
 
   ctx.save();
 
-  // ── Empty diagram: title in bordered box ───────────────────
-  if (data.participants.length === 0) {
-    const boxW = 200;
-    const boxH = 60;
-
-    const drawable = rc.rectangle(originX, originY, boxW, boxH, roughOptions);
-    rc.draw(drawable);
-
-    ctx.font = `bold ${TITLE_FONT_SIZE}px ${DEFAULT_FONT_FAMILY}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillStyle = strokeColor;
-    ctx.fillText(data.title, originX + boxW / 2, originY + boxH / 2);
-
-    ctx.restore();
-    return;
-  }
+  // Data validated by Zod — participants.min(2) ensures at least two participants. [S6-3]
 
   // ── Compute / retrieve layout ──────────────────────────────
   const layout = getLayout(expr.id, data);

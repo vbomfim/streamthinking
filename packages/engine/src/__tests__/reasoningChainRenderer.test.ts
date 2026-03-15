@@ -14,6 +14,7 @@ import {
   renderReasoningChain,
   clearLayoutCache,
   computeReasoningLayout,
+  invalidateLayoutCache,
 } from '../renderer/composites/reasoningChainRenderer.js';
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -429,36 +430,31 @@ describe('reasoning chain final answer', () => {
   });
 });
 
-// ── Empty Reasoning Chain ────────────────────────────────────
+// ── Zod validation rejects empty data (S6-3) ────────────────
 
-describe('empty reasoning chain', () => {
-  it('renders gracefully with no steps', () => {
-    const ctx = createMockCtx();
-    const rc = createMockRoughCanvas();
+describe('reasoning chain Zod validation (S6-3)', () => {
+  it('rejects reasoning chain with zero steps', async () => {
+    const { reasoningChainDataSchema } = await import('@infinicanvas/protocol');
 
-    const expr = makeReasoningExpression({
-      question: 'Empty question?',
+    const result = reasoningChainDataSchema.safeParse({
+      kind: 'reasoning-chain',
+      question: 'Test?',
       steps: [],
-      finalAnswer: '',
+      finalAnswer: 'Done',
     });
 
-    expect(() => renderReasoningChain(ctx, expr, rc as any)).not.toThrow();
-
-    // Should still render the question
-    const fillTextCalls = ctx.fillText.mock.calls.map((c: any[]) => c[0]);
-    const hasQuestion = fillTextCalls.some((t: string) =>
-      t.includes('Empty question?'),
-    );
-    expect(hasQuestion).toBe(true);
+    expect(result.success).toBe(false);
   });
+});
 
-  it('renders question and answer without steps in between', () => {
+describe('reasoning chain question and answer rendering', () => {
+  it('renders question and answer with a single step', () => {
     const ctx = createMockCtx();
     const rc = createMockRoughCanvas();
 
     const expr = makeReasoningExpression({
       question: 'Quick answer?',
-      steps: [],
+      steps: [{ title: 'Think', content: 'Thought about it' }],
       finalAnswer: 'Yes!',
     });
 
@@ -555,5 +551,82 @@ describe('reasoning chain renderer purity', () => {
 
     expect(expr.size.width).toBe(originalWidth);
     expect(expr.size.height).toBe(originalHeight);
+  });
+});
+
+// ── Cache Key includes exprWidth (S6-1) ──────────────────────
+
+describe('reasoning chain cache key includes exprWidth (S6-1)', () => {
+  it('recomputes layout when expression width changes', () => {
+    const data: ReasoningChainData = {
+      kind: 'reasoning-chain',
+      question: 'Width test?',
+      steps: [{ title: 'Step', content: 'content' }],
+      finalAnswer: 'Done',
+    };
+
+    const layoutNarrow = computeReasoningLayout(data, 300);
+    const layoutWide = computeReasoningLayout(data, 600);
+
+    // Card widths should differ because exprWidth differs
+    expect(layoutWide.cardWidth).toBeGreaterThan(layoutNarrow.cardWidth);
+  });
+
+  it('invalidates cache when width changes between renders', () => {
+    const ctx = createMockCtx();
+    const rc = createMockRoughCanvas();
+
+    const expr = makeReasoningExpression(
+      {
+        question: 'Resize?',
+        steps: [{ title: 'S1', content: 'c' }],
+        finalAnswer: 'Yes',
+      },
+      { size: { width: 300, height: 500 } },
+    );
+
+    // First render at width 300
+    renderReasoningChain(ctx, expr, rc as any);
+    const firstRectCalls = rc.rectangle.mock.calls.slice();
+
+    // "Resize" — change expression width and re-render
+    const resizedExpr = {
+      ...expr,
+      size: { width: 600, height: 500 },
+    };
+
+    renderReasoningChain(ctx, resizedExpr, rc as any);
+
+    // The new render should use wider cards: the question box width
+    // from the second render should be wider than from the first render.
+    const firstQuestionW = firstRectCalls[0]![2] as number;
+    const secondRenderCalls = rc.rectangle.mock.calls.slice(firstRectCalls.length);
+    const secondQuestionW = secondRenderCalls[0]![2] as number;
+
+    expect(secondQuestionW).toBeGreaterThan(firstQuestionW);
+  });
+});
+
+// ── Layout cache invalidation (S6-4) ─────────────────────────
+
+describe('reasoning chain cache invalidation (S6-4)', () => {
+  it('removes cache entry on invalidateLayoutCache', () => {
+    const ctx = createMockCtx();
+    const rc = createMockRoughCanvas();
+
+    const expr = makeReasoningExpression({
+      question: 'Cache test?',
+      steps: [{ title: 'S1', content: 'c' }],
+      finalAnswer: 'Done',
+    });
+
+    // Render to populate cache
+    renderReasoningChain(ctx, expr, rc as any);
+
+    // Invalidate the specific entry
+    invalidateLayoutCache(expr.id);
+
+    // Re-render — should still work (recomputes layout)
+    expect(() => renderReasoningChain(ctx, expr, rc as any)).not.toThrow();
   });
 });
