@@ -1,0 +1,16 @@
+{
+  "mcpServers": {
+    "infinicanvas": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "tsx",
+        "packages/mcp-server/src/main.ts"
+      ],
+      "env": {
+        "INFINICANVAS_GATEWAY_URL": "${INFINICANVAS_GATEWAY_URL:-ws://localhost:8080}",
+        "INFINICANVAS_API_KEY": "${INFINICANVAS_API_KEY}"
+      }
+    }
+  }
+}

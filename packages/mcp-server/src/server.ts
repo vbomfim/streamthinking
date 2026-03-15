@@ -20,9 +20,8 @@
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { createGatewayClient, type IGatewayClient } from './gatewayClient.js';
+import { type IGatewayClient } from './gatewayClient.js';
 
 // ── Tool executors ─────────────────────────────────────────
 import {
@@ -423,41 +422,3 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
 
   return server;
 }
-
-// ── Main entry point ───────────────────────────────────────
-
-/** Start the MCP server with stdio transport and gateway connection. */
-async function main(): Promise<void> {
-  const gatewayClient = createGatewayClient();
-
-  // Connect to gateway (optional — tools will fail gracefully if not connected)
-  try {
-    await gatewayClient.connect();
-  } catch {
-    // Gateway may not be running yet — tools will report connection errors
-    // The MCP server itself can still start and list tools
-    process.stderr.write(
-      'Warning: Could not connect to InfiniCanvas gateway. ' +
-      'Tools will attempt to reconnect. Set INFINICANVAS_GATEWAY_URL and INFINICANVAS_API_KEY.\n',
-    );
-  }
-
-  const server = createMcpServer(gatewayClient);
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
-
-  // Graceful shutdown
-  process.on('SIGINT', () => {
-    gatewayClient.disconnect();
-    process.exit(0);
-  });
-  process.on('SIGTERM', () => {
-    gatewayClient.disconnect();
-    process.exit(0);
-  });
-}
-
-main().catch((err: unknown) => {
-  process.stderr.write(`MCP Server fatal error: ${err instanceof Error ? err.message : String(err)}\n`);
-  process.exit(1);
-});
