@@ -63,12 +63,17 @@ export {
 } from './interaction/selectionManager.js';
 export type { Marquee } from './interaction/selectionManager.js';
 
+// ── Persistence ────────────────────────────────────────────
+export { saveCanvasState, loadCanvasState, STORAGE_KEY } from './persistence/localStorage.js';
+export type { PersistedCanvasState } from './persistence/localStorage.js';
+
 // ── Hooks ──────────────────────────────────────────────────
 export { useCanvasInteraction } from './hooks/useCanvasInteraction.js';
 export type { CanvasInteraction } from './hooks/useCanvasInteraction.js';
 export { useUndoRedoShortcuts } from './hooks/useUndoRedoShortcuts.js';
 export { useSelectionInteraction } from './hooks/useSelectionInteraction.js';
 export type { SelectionInteraction, MarqueeRect } from './hooks/useSelectionInteraction.js';
+export { subscribeAutoSave, DEBOUNCE_MS } from './hooks/useAutoSave.js';
 export { createGatewayConnection } from './hooks/useGatewayConnection.js';
 export type {
   GatewayConnectionOptions,
