@@ -69,6 +69,19 @@ export {
   findExpressionsInMarquee,
 } from './interaction/selectionManager.js';
 export type { Marquee } from './interaction/selectionManager.js';
+export {
+  getHandlePositions,
+  detectHandle,
+  detectPointerTarget,
+  getCursorForTarget,
+  computeResize,
+  MIN_SIZE,
+} from './interaction/manipulationHelpers.js';
+export type {
+  HandleType,
+  HandleHit,
+  PointerTarget,
+} from './interaction/manipulationHelpers.js';
 
 // ── Persistence ────────────────────────────────────────────
 export { saveCanvasState, loadCanvasState, STORAGE_KEY } from './persistence/localStorage.js';
@@ -80,6 +93,8 @@ export type { CanvasInteraction } from './hooks/useCanvasInteraction.js';
 export { useUndoRedoShortcuts } from './hooks/useUndoRedoShortcuts.js';
 export { useSelectionInteraction } from './hooks/useSelectionInteraction.js';
 export type { SelectionInteraction, MarqueeRect } from './hooks/useSelectionInteraction.js';
+export { useManipulationInteraction } from './hooks/useManipulationInteraction.js';
+export type { ManipulationInteraction } from './hooks/useManipulationInteraction.js';
 export { subscribeAutoSave, DEBOUNCE_MS } from './hooks/useAutoSave.js';
 export { createGatewayConnection } from './hooks/useGatewayConnection.js';
 export type {

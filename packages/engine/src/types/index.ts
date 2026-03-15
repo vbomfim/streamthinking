@@ -74,4 +74,20 @@ export interface CanvasActions {
    * Clears operationLog and selection.
    */
   replaceState: (expressions: VisualExpression[], expressionOrder: string[]) => void;
+  /**
+   * Move expressions to new positions. Emits `move` ProtocolOperations.
+   * Accepts original positions so undo snapshot reflects pre-drag state.
+   */
+  moveExpressions: (
+    moves: Array<{ id: string; from: { x: number; y: number }; to: { x: number; y: number } }>,
+  ) => void;
+  /**
+   * Transform an expression (resize). Emits `transform` ProtocolOperation.
+   * Accepts original values so undo snapshot reflects pre-drag state.
+   */
+  transformExpression: (
+    id: string,
+    original: { position: { x: number; y: number }; size: { width: number; height: number } },
+    final: { position: { x: number; y: number }; size: { width: number; height: number } },
+  ) => void;
 }

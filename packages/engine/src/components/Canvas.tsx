@@ -15,6 +15,7 @@ import rough from 'roughjs';
 import { ErrorBoundary } from './ErrorBoundary.js';
 import { useCanvasInteraction } from '../hooks/useCanvasInteraction.js';
 import { useSelectionInteraction } from '../hooks/useSelectionInteraction.js';
+import { useManipulationInteraction } from '../hooks/useManipulationInteraction.js';
 import { useUndoRedoShortcuts } from '../hooks/useUndoRedoShortcuts.js';
 import { useCanvasStore } from '../store/canvasStore.js';
 import { createRenderLoop } from '../renderer/renderLoop.js';
@@ -30,8 +31,12 @@ const RESIZE_DEBOUNCE_MS = 100;
 function CanvasInner() {
   const containerRef = useRef<HTMLDivElement>(null);
   const renderLoopRef = useRef<RenderLoop | null>(null);
-  const { canvasRef, cursor } = useCanvasInteraction();
+  const { canvasRef, cursor: canvasCursor } = useCanvasInteraction();
   const { renderMarquee } = useSelectionInteraction(canvasRef);
+  const { cursor: manipulationCursor } = useManipulationInteraction(canvasRef);
+
+  // Manipulation cursor takes priority over canvas default
+  const cursor = manipulationCursor !== 'default' ? manipulationCursor : canvasCursor;
 
   // Register global undo/redo keyboard shortcuts [AC1, AC2]
   useUndoRedoShortcuts();
