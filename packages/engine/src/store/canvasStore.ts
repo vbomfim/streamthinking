@@ -110,6 +110,7 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     operationLog: [],
     canUndo: false,
     canRedo: false,
+    lastUsedStyle: { ...DEFAULT_EXPRESSION_STYLE },
 
     // ── Content mutations (emit ProtocolOperations + push snapshots) ──
 
@@ -625,6 +626,50 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
 
         state.canUndo = historyManager.canUndo();
         state.canRedo = historyManager.canRedo();
+      });
+    },
+
+    styleExpressions: (ids: string[], style: Partial<ExpressionStyle>) => {
+      if (ids.length === 0) return;
+
+      const currentState = get();
+
+      // Filter to existing, unlocked expressions
+      const validIds = ids.filter((id) => {
+        const expr = currentState.expressions[id];
+        return expr && !expr.meta.locked;
+      });
+      if (validIds.length === 0) return;
+
+      // Push snapshot BEFORE mutation for undo support
+      historyManager.pushSnapshot(captureSnapshot(currentState));
+
+      set((state) => {
+        for (const id of validIds) {
+          const expr = state.expressions[id];
+          if (expr) {
+            expr.style = { ...expr.style, ...style } as ExpressionStyle;
+          }
+        }
+
+        const operation = createOperation('style', {
+          type: 'style',
+          expressionIds: [...validIds],
+          style,
+        });
+        pushOperation(state.operationLog, operation);
+
+        // Update lastUsedStyle with the applied style
+        state.lastUsedStyle = { ...state.lastUsedStyle, ...style } as ExpressionStyle;
+
+        state.canUndo = historyManager.canUndo();
+        state.canRedo = historyManager.canRedo();
+      });
+    },
+
+    setLastUsedStyle: (style: Partial<ExpressionStyle>) => {
+      set((state) => {
+        state.lastUsedStyle = { ...state.lastUsedStyle, ...style } as ExpressionStyle;
       });
     },
   })),

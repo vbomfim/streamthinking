@@ -38,6 +38,8 @@ export interface CanvasState {
   camera: Camera;
   /** Log of all protocol operations applied to the canvas. */
   operationLog: ProtocolOperation[];
+  /** Last style used for drawing — applied to new expressions. */
+  lastUsedStyle: ExpressionStyle;
 }
 
 /** Actions available on the canvas store. */
@@ -97,4 +99,14 @@ export interface CanvasActions {
     original: { position: { x: number; y: number }; size: { width: number; height: number } },
     final: { position: { x: number; y: number }; size: { width: number; height: number } },
   ) => void;
+  /**
+   * Apply style changes to multiple expressions. Emits `style` ProtocolOperation.
+   * Also updates `lastUsedStyle` for new expression defaults.
+   */
+  styleExpressions: (ids: string[], style: Partial<ExpressionStyle>) => void;
+  /**
+   * Set the last-used style (merged with existing lastUsedStyle).
+   * UI-only — does NOT emit operations.
+   */
+  setLastUsedStyle: (style: Partial<ExpressionStyle>) => void;
 }

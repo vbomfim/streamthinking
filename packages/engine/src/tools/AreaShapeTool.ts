@@ -8,7 +8,6 @@
  */
 
 import { nanoid } from 'nanoid';
-import { DEFAULT_EXPRESSION_STYLE } from '@infinicanvas/protocol';
 import type { VisualExpression, ExpressionData } from '@infinicanvas/protocol';
 import type { ToolHandler, DrawPreview } from './BaseTool.js';
 import { useCanvasStore } from '../store/canvasStore.js';
@@ -86,7 +85,7 @@ export class AreaShapeTool implements ToolHandler {
       position: { x, y },
       size: { width, height },
       angle: 0,
-      style: { ...DEFAULT_EXPRESSION_STYLE },
+      style: { ...useCanvasStore.getState().lastUsedStyle },
       meta: {
         author: LOCAL_AUTHOR,
         createdAt: now,
