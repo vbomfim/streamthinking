@@ -1,0 +1,110 @@
+/**
+ * Toolbar — vertical tool selection bar on the left side of the canvas.
+ *
+ * Renders icon buttons for each drawing tool. Clicking a tool sets
+ * `activeTool` in the canvas store. The active tool is visually
+ * highlighted with a blue background.
+ *
+ * Uses lucide-react for icons.
+ *
+ * @module
+ */
+
+import { useCanvasStore } from '@infinicanvas/engine';
+import type { ToolType } from '@infinicanvas/engine';
+import {
+  MousePointer2,
+  Square,
+  Circle,
+  Diamond,
+  Minus,
+  ArrowRight,
+  Pencil,
+  Type,
+} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+
+/** Tool definition for rendering toolbar buttons. */
+interface ToolDefinition {
+  type: ToolType;
+  icon: LucideIcon;
+  label: string;
+}
+
+/** Ordered list of tools displayed in the toolbar. */
+const TOOLS: ToolDefinition[] = [
+  { type: 'select', icon: MousePointer2, label: 'Select (V)' },
+  { type: 'rectangle', icon: Square, label: 'Rectangle (R)' },
+  { type: 'ellipse', icon: Circle, label: 'Ellipse (O)' },
+  { type: 'diamond', icon: Diamond, label: 'Diamond (D)' },
+  { type: 'line', icon: Minus, label: 'Line (L)' },
+  { type: 'arrow', icon: ArrowRight, label: 'Arrow (A)' },
+  { type: 'freehand', icon: Pencil, label: 'Pen (P)' },
+  { type: 'text', icon: Type, label: 'Text (T)' },
+];
+
+/** Toolbar button size in pixels. */
+const BUTTON_SIZE = 36;
+
+/** Icon size in pixels. */
+const ICON_SIZE = 18;
+
+/** Toolbar component — renders a vertical bar on the left side. */
+export function Toolbar() {
+  const activeTool = useCanvasStore((s) => s.activeTool);
+  const setActiveTool = useCanvasStore((s) => s.setActiveTool);
+
+  return (
+    <div
+      role="toolbar"
+      aria-label="Drawing tools"
+      style={{
+        position: 'fixed',
+        left: 12,
+        top: '50%',
+        transform: 'translateY(-50%)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+        padding: 6,
+        backgroundColor: '#ffffff',
+        borderRadius: 10,
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.12)',
+        border: '1px solid #e0e0e0',
+        zIndex: 20,
+      }}
+    >
+      {TOOLS.map((tool) => {
+        const isActive = activeTool === tool.type;
+        const Icon = tool.icon;
+
+        return (
+          <button
+            key={tool.type}
+            type="button"
+            title={tool.label}
+            aria-label={tool.label}
+            aria-pressed={isActive}
+            data-tool={tool.type}
+            onClick={() => setActiveTool(tool.type)}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: BUTTON_SIZE,
+              height: BUTTON_SIZE,
+              border: 'none',
+              borderRadius: 6,
+              cursor: 'pointer',
+              backgroundColor: isActive ? '#4A90D9' : 'transparent',
+              color: isActive ? '#ffffff' : '#333333',
+              transition: 'background-color 0.15s, color 0.15s',
+            }}
+          >
+            <Icon size={ICON_SIZE} />
+          </button>
+        );
+      })}
+    </div>
+  );
+}

@@ -10,10 +10,12 @@
 import type { VisualExpression } from '@infinicanvas/protocol';
 import type { RoughCanvas } from 'roughjs/bin/canvas.js';
 import type { Camera } from '../types/index.js';
+import type { DrawPreview } from '../tools/BaseTool.js';
 import { applyTransform } from '../camera.js';
 import { renderGrid } from './gridRenderer.js';
 import { renderExpressions } from './primitiveRenderer.js';
 import { renderSelection } from './selectionRenderer.js';
+import { renderDrawPreview } from './drawPreviewRenderer.js';
 
 export interface RenderLoop {
   start(): void;
@@ -33,6 +35,12 @@ export interface ExpressionProvider {
 export interface SelectionProvider {
   /** Set of currently selected expression IDs. */
   getSelectedIds(): Set<string>;
+}
+
+/** Callback that returns the current draw preview for rendering. */
+export interface DrawPreviewProvider {
+  /** Current draw preview from the active tool, or null. */
+  getDrawPreview(): DrawPreview | null;
 }
 
 /**
@@ -55,6 +63,7 @@ export function createRenderLoop(
   roughCanvas?: RoughCanvas,
   expressionProvider?: ExpressionProvider,
   selectionProvider?: SelectionProvider,
+  drawPreviewProvider?: DrawPreviewProvider,
 ): RenderLoop {
   let width = initialWidth;
   let height = initialHeight;
@@ -97,6 +106,14 @@ export function createRenderLoop(
         expressionProvider.getExpressions(),
         camera,
       );
+    }
+
+    // 6. Render draw preview (transient dashed outline during tool drag)
+    if (drawPreviewProvider) {
+      const preview = drawPreviewProvider.getDrawPreview();
+      if (preview) {
+        renderDrawPreview(ctx, preview);
+      }
     }
 
     // Schedule next frame

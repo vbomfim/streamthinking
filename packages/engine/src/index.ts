@@ -27,7 +27,7 @@ export {
 // ── Renderers ──────────────────────────────────────────────
 export { renderGrid, getGridSpacing } from './renderer/gridRenderer.js';
 export { createRenderLoop } from './renderer/renderLoop.js';
-export type { RenderLoop, ExpressionProvider, SelectionProvider } from './renderer/renderLoop.js';
+export type { RenderLoop, ExpressionProvider, SelectionProvider, DrawPreviewProvider } from './renderer/renderLoop.js';
 export {
   renderExpressions,
   renderLabel,
@@ -42,6 +42,7 @@ export type { BoundingBox, WorldViewport } from './renderer/viewportCulling.js';
 export { createDrawableCache } from './renderer/drawableCache.js';
 export type { DrawableCache, RenderContext } from './renderer/drawableCache.js';
 export { renderSelection } from './renderer/selectionRenderer.js';
+export { renderDrawPreview } from './renderer/drawPreviewRenderer.js';
 export {
   registerCompositeRenderer,
   getCompositeRenderer,
@@ -98,6 +99,17 @@ export type {
   PointerTarget,
 } from './interaction/manipulationHelpers.js';
 
+// ── Drawing Tools ──────────────────────────────────────────
+export type { ToolHandler, DrawPreview, ToolHandlerRegistry } from './tools/BaseTool.js';
+export { createToolHandlerRegistry } from './tools/BaseTool.js';
+export { RectangleTool } from './tools/RectangleTool.js';
+export { EllipseTool } from './tools/EllipseTool.js';
+export { DiamondTool } from './tools/DiamondTool.js';
+export { LineTool } from './tools/LineTool.js';
+export { ArrowTool } from './tools/ArrowTool.js';
+export { FreehandTool } from './tools/FreehandTool.js';
+export { TextTool } from './tools/TextTool.js';
+
 // ── Persistence ────────────────────────────────────────────
 export { saveCanvasState, loadCanvasState, STORAGE_KEY } from './persistence/localStorage.js';
 export type { PersistedCanvasState } from './persistence/localStorage.js';
@@ -110,6 +122,8 @@ export { useSelectionInteraction } from './hooks/useSelectionInteraction.js';
 export type { SelectionInteraction, MarqueeRect } from './hooks/useSelectionInteraction.js';
 export { useManipulationInteraction } from './hooks/useManipulationInteraction.js';
 export type { ManipulationInteraction } from './hooks/useManipulationInteraction.js';
+export { useDrawingInteraction } from './hooks/useDrawingInteraction.js';
+export type { DrawingInteraction } from './hooks/useDrawingInteraction.js';
 export { subscribeAutoSave, DEBOUNCE_MS } from './hooks/useAutoSave.js';
 export { createGatewayConnection } from './hooks/useGatewayConnection.js';
 export type {
