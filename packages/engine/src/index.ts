@@ -11,6 +11,8 @@
 export { useCanvasStore } from './store/canvasStore.js';
 export { useAgentStore } from './store/agentStore.js';
 export type { AgentState, AgentActions } from './store/agentStore.js';
+export { useUiStore, applyThemeToDocument, THEME_STORAGE_KEY } from './store/uiStore.js';
+export type { Theme, UiState, UiActions } from './store/uiStore.js';
 
 // ── History ────────────────────────────────────────────────
 export { HistoryManager } from './history/historyManager.js';
@@ -121,6 +123,15 @@ export { TextTool } from './tools/TextTool.js';
 // ── Persistence ────────────────────────────────────────────
 export { saveCanvasState, loadCanvasState, STORAGE_KEY } from './persistence/localStorage.js';
 export type { PersistedCanvasState } from './persistence/localStorage.js';
+
+// ── Export/Import ──────────────────────────────────────────
+export { exportToJson } from './export/toJson.js';
+export type { ExportedCanvasState } from './export/toJson.js';
+export { importFromJson } from './export/fromJson.js';
+export type { ImportResult, ImportSuccess, ImportError } from './export/fromJson.js';
+export { exportToPng, computeExportBounds, EXPORT_PADDING } from './export/toPng.js';
+export type { ExportBounds } from './export/toPng.js';
+export { buildSvgString, downloadSvg } from './export/toSvg.js';
 
 // ── Hooks ──────────────────────────────────────────────────
 export { useCanvasInteraction } from './hooks/useCanvasInteraction.js';

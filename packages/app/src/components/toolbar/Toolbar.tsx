@@ -71,10 +71,10 @@ export function Toolbar() {
         flexDirection: 'column',
         gap: 4,
         padding: 6,
-        backgroundColor: '#ffffff',
+        backgroundColor: 'var(--bg-toolbar, #ffffff)',
         borderRadius: 10,
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.12)',
-        border: '1px solid #e0e0e0',
+        boxShadow: '0 2px 8px var(--shadow, rgba(0, 0, 0, 0.12))',
+        border: '1px solid var(--border, #e0e0e0)',
         zIndex: 20,
       }}
     >
@@ -101,7 +101,7 @@ export function Toolbar() {
               borderRadius: 6,
               cursor: 'pointer',
               backgroundColor: isActive ? '#4A90D9' : 'transparent',
-              color: isActive ? '#ffffff' : '#333333',
+              color: isActive ? '#ffffff' : 'var(--text-primary, #333333)',
               transition: 'background-color 0.15s, color 0.15s',
             }}
           >
