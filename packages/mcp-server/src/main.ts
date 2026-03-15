@@ -44,7 +44,8 @@ export async function startServer(
     // The MCP server itself can still start and list tools
     process.stderr.write(
       'Warning: Could not connect to InfiniCanvas gateway. ' +
-      'Tools will attempt to reconnect. Set INFINICANVAS_GATEWAY_URL and INFINICANVAS_API_KEY.\n',
+      'Gateway unavailable. Canvas tools will return errors until gateway is reachable. ' +
+      'Restart the MCP server to retry.\n',
     );
   }
 

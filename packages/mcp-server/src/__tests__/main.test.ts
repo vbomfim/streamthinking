@@ -90,15 +90,39 @@ describe('MCP server entry point (main.ts)', () => {
     });
   });
 
-  describe('gateway session lifecycle', () => {
-    it('creates or joins a session via gateway client', async () => {
+  describe('gateway connection failure messaging (S5-6)', () => {
+    it('logs honest error message when gateway fails — no reconnect claim', async () => {
+      const failingClient = createMockGatewayClient({ connectThrows: true });
+      const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+      const { startServer } = await import('../main.js');
+      const cleanup = await startServer({ gatewayClient: failingClient });
+
+      // Should NOT contain misleading "reconnect" language
+      const allWrites = stderrSpy.mock.calls.map((c) => String(c[0])).join('');
+      expect(allWrites).not.toContain('attempt to reconnect');
+      expect(allWrites).not.toContain('will reconnect');
+
+      // Should contain honest messaging
+      expect(allWrites).toContain('Gateway unavailable');
+      expect(allWrites).toContain('will return errors');
+      expect(allWrites).toContain('Restart');
+
+      stderrSpy.mockRestore();
+      cleanup();
+    });
+
+    it('does not log error message when gateway connects successfully', async () => {
+      const stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
       const { startServer } = await import('../main.js');
       const cleanup = await startServer({ gatewayClient: mockClient });
 
-      // The connect() method handles create/join session internally
-      expect(mockClient.connect).toHaveBeenCalledOnce();
-      expect(mockClient.getSessionId()).toBe('test-session-1');
+      const allWrites = stderrSpy.mock.calls.map((c) => String(c[0])).join('');
+      expect(allWrites).not.toContain('Gateway unavailable');
+      expect(allWrites).not.toContain('Warning');
 
+      stderrSpy.mockRestore();
       cleanup();
     });
   });
