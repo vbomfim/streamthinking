@@ -172,6 +172,24 @@ describe('S7-1: replaceState() per-expression Zod validation', () => {
     expect(state.operationLog).toHaveLength(0);
     expect(state.selectedIds.size).toBe(0);
   });
+
+  it('clears undo history so undo is unavailable after replaceState', () => {
+    const rect1 = makeRectangle('rect-1');
+    useCanvasStore.getState().addExpression(rect1);
+    expect(useCanvasStore.getState().canUndo).toBe(true);
+
+    const rect2 = makeRectangle('rect-2');
+    useCanvasStore.getState().replaceState([rect2], ['rect-2']);
+
+    const state = useCanvasStore.getState();
+    expect(state.canUndo).toBe(false);
+    expect(state.canRedo).toBe(false);
+
+    // Undo should be a no-op
+    useCanvasStore.getState().undo();
+    expect(useCanvasStore.getState().expressions['rect-2']).toBeDefined();
+    expect(useCanvasStore.getState().expressions['rect-1']).toBeUndefined();
+  });
 });
 
 // ═══════════════════════════════════════════════════════════

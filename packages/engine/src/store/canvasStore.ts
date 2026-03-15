@@ -489,6 +489,11 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
         state.expressionOrder = expressionOrder.filter((id) => validIds.has(id));
         state.operationLog = [];
         state.selectedIds = new Set<string>();
+
+        // Clear undo/redo history on full state replacement
+        historyManager.clear();
+        state.canUndo = false;
+        state.canRedo = false;
       });
     },
 
