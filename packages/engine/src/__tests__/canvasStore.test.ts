@@ -564,3 +564,62 @@ describe('applyRemoteOperation validation (R5)', () => {
     expect(useCanvasStore.getState().expressions['good-1']).toBeDefined();
   });
 });
+
+// ── S5-3: meta.locked enforcement in canvasStore ───────────
+
+describe('meta.locked enforcement in canvasStore (S5-3)', () => {
+  /** Helper: add a locked expression to the store. */
+  function addLockedExpression(id: string) {
+    const expr = makeRectangle(id);
+    useCanvasStore.getState().addExpression(expr);
+    // Directly set locked flag (bypass normal update path)
+    useCanvasStore.setState((state) => {
+      const e = state.expressions[id];
+      if (e) e.meta.locked = true;
+    });
+  }
+
+  it('updateExpression skips locked expressions', () => {
+    addLockedExpression('locked-1');
+    const originalPos = { ...useCanvasStore.getState().expressions['locked-1']!.position };
+
+    useCanvasStore.getState().updateExpression('locked-1', {
+      position: { x: 999, y: 999 },
+    });
+
+    expect(useCanvasStore.getState().expressions['locked-1']!.position).toEqual(originalPos);
+  });
+
+  it('updateExpression still works on unlocked expressions', () => {
+    const expr = makeRectangle('unlocked-1');
+    useCanvasStore.getState().addExpression(expr);
+
+    useCanvasStore.getState().updateExpression('unlocked-1', {
+      position: { x: 999, y: 999 },
+    });
+
+    expect(useCanvasStore.getState().expressions['unlocked-1']!.position).toEqual({ x: 999, y: 999 });
+  });
+
+  it('deleteExpressions filters out locked expression IDs', () => {
+    addLockedExpression('locked-1');
+    const unlocked = makeRectangle('unlocked-1');
+    useCanvasStore.getState().addExpression(unlocked);
+
+    useCanvasStore.getState().deleteExpressions(['locked-1', 'unlocked-1']);
+
+    expect(useCanvasStore.getState().expressions['locked-1']).toBeDefined();
+    expect(useCanvasStore.getState().expressions['unlocked-1']).toBeUndefined();
+  });
+
+  it('deleteExpressions with only locked IDs is a no-op', () => {
+    addLockedExpression('locked-1');
+    const logBefore = useCanvasStore.getState().operationLog.length;
+
+    useCanvasStore.getState().deleteExpressions(['locked-1']);
+
+    expect(useCanvasStore.getState().expressions['locked-1']).toBeDefined();
+    // No new operation should be logged for a no-op delete
+    expect(useCanvasStore.getState().operationLog.length).toBe(logBefore);
+  });
+});

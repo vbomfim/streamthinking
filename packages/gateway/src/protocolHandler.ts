@@ -110,6 +110,8 @@ function applyUpdate(
     return;
   }
 
+  if (expr.meta.locked) return;
+
   const { changes } = payload;
   if (changes.position) expr.position = changes.position;
   if (changes.size) expr.size = changes.size;
@@ -123,12 +125,20 @@ function applyDelete(
   session: Session,
   payload: Extract<ProtocolOperation['payload'], { type: 'delete' }>,
 ): void {
-  for (const id of payload.expressionIds) {
+  const deletableIds = payload.expressionIds.filter((id) => {
+    const expr = session.expressions[id];
+    return expr && !expr.meta.locked;
+  });
+
+  for (const id of deletableIds) {
     delete session.expressions[id];
     const idx = session.expressionOrder.indexOf(id);
     if (idx !== -1) session.expressionOrder.splice(idx, 1);
   }
-  log('expressions_deleted', { sessionId: session.id, count: payload.expressionIds.length });
+
+  if (deletableIds.length > 0) {
+    log('expressions_deleted', { sessionId: session.id, count: deletableIds.length });
+  }
 }
 
 function applyMove(
@@ -137,6 +147,7 @@ function applyMove(
 ): void {
   const expr = session.expressions[payload.expressionId];
   if (!expr) return;
+  if (expr.meta.locked) return;
   expr.position = payload.to;
   expr.meta.updatedAt = Date.now();
 }
@@ -147,6 +158,7 @@ function applyTransform(
 ): void {
   const expr = session.expressions[payload.expressionId];
   if (!expr) return;
+  if (expr.meta.locked) return;
   if (payload.angle !== undefined) expr.angle = payload.angle;
   if (payload.size) expr.size = payload.size;
   expr.meta.updatedAt = Date.now();
@@ -159,6 +171,7 @@ function applyStyle(
   for (const id of payload.expressionIds) {
     const expr = session.expressions[id];
     if (!expr) continue;
+    if (expr.meta.locked) continue;
     expr.style = { ...expr.style, ...payload.style };
     expr.meta.updatedAt = Date.now();
   }

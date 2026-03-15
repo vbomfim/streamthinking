@@ -405,12 +405,17 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
     'Morph an expression from one visual kind to another (e.g., rectangle → ellipse). Preserves the label if possible.',
     {
       elementId: z.string().min(1).describe('ID of the element to morph'),
-      toKind: z.string().min(1).describe('Target expression kind (e.g., "rectangle", "ellipse", "diamond", "text", "sticky-note")'),
+      toKind: z.enum([
+        'rectangle', 'ellipse', 'diamond', 'line', 'arrow', 'freehand', 'text', 'sticky-note', 'image',
+        'flowchart', 'sequence-diagram', 'collaboration-diagram', 'wireframe', 'roadmap', 'mind-map',
+        'kanban', 'reasoning-chain', 'decision-tree', 'slide', 'code-block', 'table',
+        'comment', 'callout', 'highlight', 'marker',
+      ]).describe('Target expression kind (e.g., "rectangle", "ellipse", "diamond", "text", "sticky-note")'),
     },
     async (params) => {
       const result = await executeMorph(gatewayClient, {
         elementId: params.elementId,
-        toKind: params.toKind as import('@infinicanvas/protocol').ExpressionKind,
+        toKind: params.toKind,
       });
       return { content: [{ type: 'text' as const, text: result }] };
     },

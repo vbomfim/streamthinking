@@ -158,6 +158,9 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
         return;
       }
 
+      // S5-3: Skip locked expressions
+      if (existing.meta.locked) return;
+
       // Push snapshot BEFORE mutation [AC8]
       historyManager.pushSnapshot(captureSnapshot(currentState));
 
@@ -233,8 +236,11 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
 
       const currentState = get();
 
-      // Filter to only IDs that actually exist
-      const existingIds = ids.filter((id) => id in currentState.expressions);
+      // Filter to only IDs that actually exist and are not locked [S5-3]
+      const existingIds = ids.filter((id) => {
+        const expr = currentState.expressions[id];
+        return expr && !expr.meta.locked;
+      });
       if (existingIds.length === 0) {
         return;
       }

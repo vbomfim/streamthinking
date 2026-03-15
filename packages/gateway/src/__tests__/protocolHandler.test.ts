@@ -140,6 +140,161 @@ describe('protocolHandler', () => {
     });
   });
 
+  // ── S5-3: meta.locked enforcement ──────────────────────────
+
+  describe('meta.locked enforcement (S5-3)', () => {
+    /** Helper: create a session with a locked expression. */
+    function sessionWithLockedExpr(): Session {
+      const session = createSession();
+      applyOperation(session, makeCreateOp({ expressionId: 'locked-1' }));
+      session.expressions['locked-1']!.meta.locked = true;
+      // Also add an unlocked expression for comparison
+      applyOperation(session, makeCreateOp({ expressionId: 'unlocked-1' }));
+      return session;
+    }
+
+    it('applyUpdate skips locked expressions', () => {
+      const session = sessionWithLockedExpr();
+      const originalPos = { ...session.expressions['locked-1']!.position };
+
+      applyOperation(session, {
+        id: 'op-upd',
+        type: 'update',
+        author: testAuthor,
+        timestamp: Date.now(),
+        payload: {
+          type: 'update',
+          expressionId: 'locked-1',
+          changes: { position: { x: 999, y: 999 } },
+        },
+      });
+
+      expect(session.expressions['locked-1']!.position).toEqual(originalPos);
+    });
+
+    it('applyUpdate still works on unlocked expressions', () => {
+      const session = sessionWithLockedExpr();
+
+      applyOperation(session, {
+        id: 'op-upd2',
+        type: 'update',
+        author: testAuthor,
+        timestamp: Date.now(),
+        payload: {
+          type: 'update',
+          expressionId: 'unlocked-1',
+          changes: { position: { x: 999, y: 999 } },
+        },
+      });
+
+      expect(session.expressions['unlocked-1']!.position).toEqual({ x: 999, y: 999 });
+    });
+
+    it('applyMove skips locked expressions', () => {
+      const session = sessionWithLockedExpr();
+      const originalPos = { ...session.expressions['locked-1']!.position };
+
+      applyOperation(session, {
+        id: 'op-mv',
+        type: 'move',
+        author: testAuthor,
+        timestamp: Date.now(),
+        payload: {
+          type: 'move',
+          expressionId: 'locked-1',
+          from: originalPos,
+          to: { x: 500, y: 500 },
+        },
+      });
+
+      expect(session.expressions['locked-1']!.position).toEqual(originalPos);
+    });
+
+    it('applyTransform skips locked expressions', () => {
+      const session = sessionWithLockedExpr();
+      const originalAngle = session.expressions['locked-1']!.angle;
+
+      applyOperation(session, {
+        id: 'op-tf',
+        type: 'transform',
+        author: testAuthor,
+        timestamp: Date.now(),
+        payload: {
+          type: 'transform',
+          expressionId: 'locked-1',
+          angle: 180,
+          size: { width: 999, height: 999 },
+        },
+      });
+
+      expect(session.expressions['locked-1']!.angle).toBe(originalAngle);
+      expect(session.expressions['locked-1']!.size).toEqual({ width: 100, height: 50 });
+    });
+
+    it('applyStyle skips locked expressions', () => {
+      const session = sessionWithLockedExpr();
+      const originalStroke = session.expressions['locked-1']!.style.strokeColor;
+
+      applyOperation(session, {
+        id: 'op-st',
+        type: 'style',
+        author: testAuthor,
+        timestamp: Date.now(),
+        payload: {
+          type: 'style',
+          expressionIds: ['locked-1', 'unlocked-1'],
+          style: { strokeColor: '#ff0000' },
+        },
+      });
+
+      // Locked expression unchanged
+      expect(session.expressions['locked-1']!.style.strokeColor).toBe(originalStroke);
+      // Unlocked expression updated
+      expect(session.expressions['unlocked-1']!.style.strokeColor).toBe('#ff0000');
+    });
+
+    it('applyDelete filters out locked expression IDs', () => {
+      const session = sessionWithLockedExpr();
+
+      applyOperation(session, {
+        id: 'op-del',
+        type: 'delete',
+        author: testAuthor,
+        timestamp: Date.now(),
+        payload: {
+          type: 'delete',
+          expressionIds: ['locked-1', 'unlocked-1'],
+        },
+      });
+
+      // Locked expression still exists
+      expect(session.expressions['locked-1']).toBeDefined();
+      expect(session.expressionOrder).toContain('locked-1');
+      // Unlocked expression removed
+      expect(session.expressions['unlocked-1']).toBeUndefined();
+      expect(session.expressionOrder).not.toContain('unlocked-1');
+    });
+
+    it('applyDelete with only locked IDs is a no-op', () => {
+      const session = sessionWithLockedExpr();
+      const orderBefore = [...session.expressionOrder];
+
+      applyOperation(session, {
+        id: 'op-del2',
+        type: 'delete',
+        author: testAuthor,
+        timestamp: Date.now(),
+        payload: {
+          type: 'delete',
+          expressionIds: ['locked-1'],
+        },
+      });
+
+      expect(session.expressions['locked-1']).toBeDefined();
+      expect(session.expressionOrder).toEqual(orderBefore);
+    });
+  });
+
   describe('applyCreate default style consistency (I2-2)', () => {
     it('uses canonical DEFAULT_EXPRESSION_STYLE values', () => {
       const session = createSession();

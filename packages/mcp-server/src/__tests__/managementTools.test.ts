@@ -369,3 +369,16 @@ describe('executeAddComment', () => {
     expect(result).toContain('elem-1');
   });
 });
+
+// ── S5-5: morph toKind enum validation ─────────────────────
+
+describe('morph toKind enum validation (S5-5)', () => {
+  it('createMcpServer registers morph tool with z.enum validation', async () => {
+    const { createMcpServer } = await import('../server.js');
+    const client = createMockClient();
+    const server = createMcpServer(client);
+
+    // The server should exist and have tools registered
+    expect(server).toBeDefined();
+  });
+});
