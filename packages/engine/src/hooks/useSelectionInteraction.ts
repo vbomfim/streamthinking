@@ -66,6 +66,10 @@ export function useSelectionInteraction(
     // Only react to primary button (left click)
     if (e.button !== 0) return;
 
+    // Capture pointer to receive events even when cursor leaves canvas [S5-4]
+    const target = e.currentTarget as Element;
+    target.setPointerCapture(e.pointerId);
+
     dragStartRef.current = { sx: e.offsetX, sy: e.offsetY };
     isDraggingRef.current = false;
     marqueeRef.current = null;
@@ -174,6 +178,10 @@ export function useSelectionInteraction(
     dragStartRef.current = null;
     marqueeRef.current = null;
     isDraggingRef.current = false;
+
+    // Release pointer capture [S5-4]
+    const target = e.currentTarget as Element;
+    target.releasePointerCapture(e.pointerId);
   }, []);
 
   // ── Effect: attach/detach event listeners ──────────────────
