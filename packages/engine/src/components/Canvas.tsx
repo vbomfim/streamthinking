@@ -11,6 +11,7 @@
  */
 
 import { useEffect, useRef, useCallback } from 'react';
+import rough from 'roughjs';
 import { ErrorBoundary } from './ErrorBoundary.js';
 import { useCanvasInteraction } from '../hooks/useCanvasInteraction.js';
 import { useSelectionInteraction } from '../hooks/useSelectionInteraction.js';
@@ -78,10 +79,15 @@ function CanvasInner() {
     const height = Math.max(container?.clientHeight ?? MIN_HEIGHT, MIN_HEIGHT);
 
     const getCamera = () => useCanvasStore.getState().camera;
+    const roughCanvas = rough.canvas(canvas);
+    const expressionProvider = {
+      getExpressions: () => useCanvasStore.getState().expressions,
+      getExpressionOrder: () => useCanvasStore.getState().expressionOrder,
+    };
     const selectionProvider = {
       getSelectedIds: () => useCanvasStore.getState().selectedIds,
     };
-    const loop = createRenderLoop(ctx, getCamera, width, height, undefined, undefined, selectionProvider);
+    const loop = createRenderLoop(ctx, getCamera, width, height, roughCanvas, expressionProvider, selectionProvider);
 
     renderLoopRef.current = loop;
     loop.start();

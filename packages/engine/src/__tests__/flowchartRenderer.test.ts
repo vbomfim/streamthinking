@@ -424,15 +424,18 @@ describe('flowchart layout cache', () => {
   });
 });
 
-// ── Auto-Sizing ──────────────────────────────────────────────
+// ── Renderer Purity (S5-1) ───────────────────────────────────
 
-describe('flowchart auto-sizing', () => {
-  it('updates expression size from dagre layout output', () => {
+describe('flowchart renderer purity (S5-1)', () => {
+  it('does NOT mutate expression size during render', () => {
     const ctx = createMockCtx();
     const rc = createMockRoughCanvas();
 
+    const originalWidth = 400;
+    const originalHeight = 300;
+
     const expr = makeFlowchartExpression({
-      title: 'Auto-size',
+      title: 'Pure Render',
       nodes: [
         { id: 'a', label: 'Start', shape: 'rect' },
         { id: 'b', label: 'Process', shape: 'rect' },
@@ -442,13 +445,40 @@ describe('flowchart auto-sizing', () => {
         { from: 'a', to: 'b' },
         { from: 'b', to: 'c' },
       ],
+    }, {
+      size: { width: originalWidth, height: originalHeight },
     });
 
     renderFlowchart(ctx, expr, rc as any);
 
-    // After rendering, expression size should have been auto-computed
-    // from dagre layout. The size should be positive and reasonable.
-    expect(expr.size.width).toBeGreaterThan(0);
-    expect(expr.size.height).toBeGreaterThan(0);
+    // Renderer MUST NOT mutate expr.size — it should remain as set at creation
+    expect(expr.size.width).toBe(originalWidth);
+    expect(expr.size.height).toBe(originalHeight);
+  });
+
+  it('renders correctly regardless of expression size values', () => {
+    const ctx = createMockCtx();
+    const rc = createMockRoughCanvas();
+
+    const expr = makeFlowchartExpression({
+      title: 'Any Size',
+      nodes: [
+        { id: 'a', label: 'Start', shape: 'rect' },
+        { id: 'b', label: 'End', shape: 'rect' },
+      ],
+      edges: [{ from: 'a', to: 'b' }],
+    }, {
+      size: { width: 1, height: 1 }, // Unrealistic size shouldn't matter
+    });
+
+    // Should not throw — renderer computes layout internally
+    expect(() => renderFlowchart(ctx, expr, rc as any)).not.toThrow();
+
+    // Nodes should still be rendered
+    const totalShapeCalls =
+      rc.rectangle.mock.calls.length +
+      rc.ellipse.mock.calls.length +
+      rc.polygon.mock.calls.length;
+    expect(totalShapeCalls).toBeGreaterThanOrEqual(2);
   });
 });

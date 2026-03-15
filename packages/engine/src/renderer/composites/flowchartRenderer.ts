@@ -451,9 +451,8 @@ export function renderFlowchart(
   const graphWidth = bounds.maxX - bounds.minX + FLOWCHART_PADDING * 2;
   const graphHeight = bounds.maxY - bounds.minY + FLOWCHART_PADDING * 2 + TITLE_HEIGHT;
 
-  // Auto-size expression bounds [AC11]
-  expr.size.width = graphWidth;
-  expr.size.height = graphHeight;
+  // NOTE: We do NOT mutate expr.size here — renderers must be pure. [S5-1]
+  // Layout sizes are computed at expression creation time in compositeTools.
 
   const offsetX = originX - bounds.minX + FLOWCHART_PADDING;
   const offsetY = originY - bounds.minY + FLOWCHART_PADDING + TITLE_HEIGHT;

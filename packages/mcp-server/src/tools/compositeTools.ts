@@ -32,6 +32,35 @@ import { LAYOUT } from '../defaults.js';
 import { buildExpression } from '../expressionFactory.js';
 import type { IGatewayClient } from '../gatewayClient.js';
 
+/**
+ * Estimate flowchart size using dagre-compatible constants.
+ *
+ * Uses the same node width, height, separation, and padding values
+ * as the renderer's dagre layout to produce a close approximation
+ * of the final rendered size. [S5-1]
+ */
+function estimateFlowchartSize(
+  nodeCount: number,
+  direction: 'TB' | 'LR' | 'BT' | 'RL',
+): { width: number; height: number } {
+  // Match renderer constants for consistent sizing
+  const NODE_WIDTH = 140;
+  const NODE_HEIGHT = 50;
+  const NODE_SEP = 50;
+  const RANK_SEP = 60;
+  const PADDING = 30;
+  const TITLE_HEIGHT = 30;
+
+  const isVertical = direction === 'TB' || direction === 'BT';
+  const cols = isVertical ? Math.ceil(Math.sqrt(nodeCount)) : nodeCount;
+  const rows = isVertical ? Math.ceil(nodeCount / Math.max(cols, 1)) : 1;
+
+  const width = cols * NODE_WIDTH + Math.max(cols - 1, 0) * NODE_SEP + PADDING * 2;
+  const height = rows * NODE_HEIGHT + Math.max(rows - 1, 0) * RANK_SEP + PADDING * 2 + TITLE_HEIGHT;
+
+  return { width, height };
+}
+
 /** Estimate diagram size from node count using simple grid layout. */
 function estimateDiagramSize(
   nodeCount: number,
@@ -151,7 +180,7 @@ export function buildFlowchart(params: DrawFlowchartParams): VisualExpression {
     direction,
   };
 
-  const size = estimateDiagramSize(nodes.length, direction);
+  const size = estimateFlowchartSize(nodes.length, direction);
   const position = { x: params.x ?? 0, y: params.y ?? 0 };
 
   return buildExpression('flowchart', position, size, data);
