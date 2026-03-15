@@ -13,10 +13,10 @@
     }
   },
   "bin": {
-    "infinicanvas-mcp": "./dist/server.js"
+    "infinicanvas-mcp": "./dist/main.js"
   },
   "scripts": {
-    "start": "tsx src/server.ts",
+    "start": "tsx src/main.ts",
     "build": "tsc",
     "test": "vitest run",
     "test:watch": "vitest",

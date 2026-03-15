@@ -10,6 +10,10 @@
 // ── Server ─────────────────────────────────────────────────
 export { createMcpServer } from './server.js';
 
+// ── Entry point ────────────────────────────────────────────
+export { startServer } from './main.js';
+export type { StartServerOptions } from './main.js';
+
 // ── Gateway client ─────────────────────────────────────────
 export { createGatewayClient, GatewayClient } from './gatewayClient.js';
 export type { IGatewayClient, GatewayClientOptions } from './gatewayClient.js';
