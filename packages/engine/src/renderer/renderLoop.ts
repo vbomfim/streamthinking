@@ -13,6 +13,7 @@ import type { Camera } from '../types/index.js';
 import { applyTransform } from '../camera.js';
 import { renderGrid } from './gridRenderer.js';
 import { renderExpressions } from './primitiveRenderer.js';
+import { renderSelection } from './selectionRenderer.js';
 
 export interface RenderLoop {
   start(): void;
@@ -26,6 +27,12 @@ export interface ExpressionProvider {
   getExpressions(): Record<string, VisualExpression>;
   /** Ordered list of expression IDs representing z-order (back to front). */
   getExpressionOrder(): string[];
+}
+
+/** Callback that returns the current selection state for rendering. */
+export interface SelectionProvider {
+  /** Set of currently selected expression IDs. */
+  getSelectedIds(): Set<string>;
 }
 
 /**
@@ -47,6 +54,7 @@ export function createRenderLoop(
   initialHeight: number,
   roughCanvas?: RoughCanvas,
   expressionProvider?: ExpressionProvider,
+  selectionProvider?: SelectionProvider,
 ): RenderLoop {
   let width = initialWidth;
   let height = initialHeight;
@@ -78,6 +86,16 @@ export function createRenderLoop(
         camera,
         width,
         height,
+      );
+    }
+
+    // 5. Render selection UI (bounding boxes + handles)
+    if (expressionProvider && selectionProvider) {
+      renderSelection(
+        ctx,
+        selectionProvider.getSelectedIds(),
+        expressionProvider.getExpressions(),
+        camera,
       );
     }
 

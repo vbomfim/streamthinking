@@ -27,7 +27,7 @@ export {
 // ── Renderers ──────────────────────────────────────────────
 export { renderGrid, getGridSpacing } from './renderer/gridRenderer.js';
 export { createRenderLoop } from './renderer/renderLoop.js';
-export type { RenderLoop, ExpressionProvider } from './renderer/renderLoop.js';
+export type { RenderLoop, ExpressionProvider, SelectionProvider } from './renderer/renderLoop.js';
 export {
   renderExpressions,
   renderLabel,
@@ -41,19 +41,39 @@ export { isVisible, getWorldViewport } from './renderer/viewportCulling.js';
 export type { BoundingBox, WorldViewport } from './renderer/viewportCulling.js';
 export { createDrawableCache } from './renderer/drawableCache.js';
 export type { DrawableCache } from './renderer/drawableCache.js';
+export { renderSelection } from './renderer/selectionRenderer.js';
+
+// ── Interaction ────────────────────────────────────────────
+export {
+  hitTestRectangle,
+  hitTestEllipse,
+  hitTestDiamond,
+  hitTestLine,
+  hitTestArrow,
+  hitTestFreehand,
+  hitTestText,
+  hitTestStickyNote,
+  hitTestImage,
+  hitTestExpression,
+} from './interaction/hitTest.js';
+export type { WorldPoint } from './interaction/hitTest.js';
+export {
+  findExpressionAtPoint,
+  findExpressionsInMarquee,
+} from './interaction/selectionManager.js';
+export type { Marquee } from './interaction/selectionManager.js';
 
 // ── Hooks ──────────────────────────────────────────────────
 export { useCanvasInteraction } from './hooks/useCanvasInteraction.js';
 export type { CanvasInteraction } from './hooks/useCanvasInteraction.js';
-<<<<<<< HEAD
 export { useUndoRedoShortcuts } from './hooks/useUndoRedoShortcuts.js';
-=======
+export { useSelectionInteraction } from './hooks/useSelectionInteraction.js';
+export type { SelectionInteraction, MarqueeRect } from './hooks/useSelectionInteraction.js';
 export { createGatewayConnection } from './hooks/useGatewayConnection.js';
 export type {
   GatewayConnectionOptions,
   GatewayConnection,
 } from './hooks/useGatewayConnection.js';
->>>>>>> 6369895 (feat(engine): client-side gateway connection — Issue #12)
 
 // ── Components ─────────────────────────────────────────────
 export { Canvas } from './components/Canvas.js';

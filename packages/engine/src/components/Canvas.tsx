@@ -13,6 +13,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { ErrorBoundary } from './ErrorBoundary.js';
 import { useCanvasInteraction } from '../hooks/useCanvasInteraction.js';
+import { useSelectionInteraction } from '../hooks/useSelectionInteraction.js';
 import { useUndoRedoShortcuts } from '../hooks/useUndoRedoShortcuts.js';
 import { useCanvasStore } from '../store/canvasStore.js';
 import { createRenderLoop } from '../renderer/renderLoop.js';
@@ -29,6 +30,7 @@ function CanvasInner() {
   const containerRef = useRef<HTMLDivElement>(null);
   const renderLoopRef = useRef<RenderLoop | null>(null);
   const { canvasRef, cursor } = useCanvasInteraction();
+  const { renderMarquee } = useSelectionInteraction(canvasRef);
 
   // Register global undo/redo keyboard shortcuts [AC1, AC2]
   useUndoRedoShortcuts();
@@ -76,7 +78,10 @@ function CanvasInner() {
     const height = Math.max(container?.clientHeight ?? MIN_HEIGHT, MIN_HEIGHT);
 
     const getCamera = () => useCanvasStore.getState().camera;
-    const loop = createRenderLoop(ctx, getCamera, width, height);
+    const selectionProvider = {
+      getSelectedIds: () => useCanvasStore.getState().selectedIds,
+    };
+    const loop = createRenderLoop(ctx, getCamera, width, height, undefined, undefined, selectionProvider);
 
     renderLoopRef.current = loop;
     loop.start();
