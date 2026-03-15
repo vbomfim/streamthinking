@@ -13,6 +13,7 @@ import React from 'react';
 import { render, cleanup, act } from '@testing-library/react';
 import { useManipulationInteraction } from '../hooks/useManipulationInteraction.js';
 import { useCanvasInteraction } from '../hooks/useCanvasInteraction.js';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
 import { useCanvasStore } from '../store/canvasStore.js';
 import type { VisualExpression, ExpressionStyle } from '@infinicanvas/protocol';
 
@@ -108,6 +109,8 @@ let lastManipulationCursor = 'default';
 function TestCanvas() {
   const { canvasRef, cursor: canvasCursor } = useCanvasInteraction();
   const { cursor: manipulationCursor } = useManipulationInteraction(canvasRef);
+  // Keyboard shortcuts (delete, duplicate) are now centralized
+  useKeyboardShortcuts({ cancelDraw: () => {} });
   lastManipulationCursor = manipulationCursor;
   return (
     <canvas

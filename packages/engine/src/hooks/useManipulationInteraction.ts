@@ -1,5 +1,5 @@
 /**
- * Manipulation interaction hook — move, resize, delete, duplicate.
+ * Manipulation interaction hook — move and resize.
  *
  * Integrates with canvas pointer events when the Select tool is active:
  * - **Move** (AC1, AC2): Drag selected shape body → move all selected
@@ -9,31 +9,27 @@
  *   Shift = constrain aspect ratio. Emit `transform` operation.
  * - **Resize edge** (AC4): Drag edge midpoint → one-dimension resize.
  * - **Resize minimum** (AC5): Cannot resize below 10×10 world units.
- * - **Delete** (AC6): Backspace/Delete removes all selected (unlocked).
- * - **Duplicate** (AC7): Ctrl/Cmd+D duplicates selected with +20,+20 offset.
- * - **Locked guard** (AC8): Locked shapes are no-ops for move/resize/delete.
+ * - **Locked guard** (AC8): Locked shapes are no-ops for move/resize.
  * - **Move preview** (AC9): Real-time drag via transient state; commit on
  *   pointerup only.
  * - **Cursor feedback** (AC10): `move` on body, resize arrows on handles.
+ *
+ * Keyboard shortcuts (delete, duplicate) are handled centrally by
+ * useKeyboardShortcuts.
  *
  * @module
  */
 
 import { useRef, useEffect, useCallback, useState } from 'react';
-import { nanoid } from 'nanoid';
 import { useCanvasStore } from '../store/canvasStore.js';
 import { screenToWorld } from '../camera.js';
 import { isEditableTarget } from '../utils/isEditableTarget.js';
 import {
   detectPointerTarget,
-  detectHandle,
   computeResize,
   getCursorForTarget,
 } from '../interaction/manipulationHelpers.js';
-import type { HandleType, HandleHit } from '../interaction/manipulationHelpers.js';
-
-/** Duplicate offset in world units. [AC7] */
-const DUPLICATE_OFFSET = 20;
+import type { HandleHit } from '../interaction/manipulationHelpers.js';
 
 export interface ManipulationInteraction {
   /** Current cursor style based on pointer target. */
@@ -217,62 +213,6 @@ export function useManipulationInteraction(
     dragModeRef.current = { kind: 'none' };
   }, []);
 
-  // ── Keyboard handlers ──────────────────────────────────────
-
-  const handleKeyDown = useCallback((e: KeyboardEvent) => {
-    // Skip when user is typing in editable elements [S7-6]
-    if (isEditableTarget(e.target)) return;
-
-    const state = useCanvasStore.getState();
-    if (state.activeTool !== 'select') return;
-
-    const { selectedIds, expressions } = state;
-    if (selectedIds.size === 0) return;
-
-    // ── Delete (AC6) ──
-    if (e.key === 'Delete' || e.key === 'Backspace') {
-      e.preventDefault();
-      // Filter out locked expressions (AC8)
-      const deletableIds = Array.from(selectedIds).filter(
-        (id) => !expressions[id]?.meta.locked,
-      );
-      if (deletableIds.length > 0) {
-        state.deleteExpressions(deletableIds);
-      }
-      return;
-    }
-
-    // ── Duplicate (AC7) ──
-    if (e.key === 'd' && (e.ctrlKey || e.metaKey)) {
-      e.preventDefault();
-      const newIds: string[] = [];
-
-      for (const id of selectedIds) {
-        const expr = expressions[id];
-        if (!expr) continue;
-
-        const newId = nanoid();
-        const duplicate = structuredClone(expr);
-        duplicate.id = newId;
-        duplicate.position = {
-          x: expr.position.x + DUPLICATE_OFFSET,
-          y: expr.position.y + DUPLICATE_OFFSET,
-        };
-        duplicate.meta = {
-          ...duplicate.meta,
-          createdAt: Date.now(),
-          updatedAt: Date.now(),
-        };
-
-        state.addExpression(duplicate);
-        newIds.push(newId);
-      }
-
-      // Select the new duplicates
-      state.setSelectedIds(new Set(newIds));
-    }
-  }, []);
-
   // ── Effect: attach/detach event listeners ──────────────────
 
   useEffect(() => {
@@ -282,15 +222,13 @@ export function useManipulationInteraction(
     canvas.addEventListener('pointerdown', handlePointerDown);
     canvas.addEventListener('pointermove', handlePointerMove);
     canvas.addEventListener('pointerup', handlePointerUp);
-    window.addEventListener('keydown', handleKeyDown);
 
     return () => {
       canvas.removeEventListener('pointerdown', handlePointerDown);
       canvas.removeEventListener('pointermove', handlePointerMove);
       canvas.removeEventListener('pointerup', handlePointerUp);
-      window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [canvasRef, handlePointerDown, handlePointerMove, handlePointerUp, handleKeyDown]);
+  }, [canvasRef, handlePointerDown, handlePointerMove, handlePointerUp]);
 
   return { cursor };
 }

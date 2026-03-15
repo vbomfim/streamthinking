@@ -126,6 +126,11 @@ export type { PersistedCanvasState } from './persistence/localStorage.js';
 export { useCanvasInteraction } from './hooks/useCanvasInteraction.js';
 export type { CanvasInteraction } from './hooks/useCanvasInteraction.js';
 export { useUndoRedoShortcuts } from './hooks/useUndoRedoShortcuts.js';
+export { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts.js';
+export type {
+  UseKeyboardShortcutsOptions,
+  KeyboardShortcutsState,
+} from './hooks/useKeyboardShortcuts.js';
 export { useSelectionInteraction } from './hooks/useSelectionInteraction.js';
 export type { SelectionInteraction, MarqueeRect } from './hooks/useSelectionInteraction.js';
 export { useManipulationInteraction } from './hooks/useManipulationInteraction.js';
@@ -142,6 +147,7 @@ export type {
 // ── Components ─────────────────────────────────────────────
 export { Canvas } from './components/Canvas.js';
 export { ErrorBoundary } from './components/ErrorBoundary.js';
+export { ShortcutsHelpPanel } from './components/ShortcutsHelpPanel.js';
 
 // ── Types ──────────────────────────────────────────────────
 export type {

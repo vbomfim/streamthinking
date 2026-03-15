@@ -13,11 +13,12 @@
 import { useEffect, useRef, useCallback } from 'react';
 import rough from 'roughjs';
 import { ErrorBoundary } from './ErrorBoundary.js';
+import { ShortcutsHelpPanel } from './ShortcutsHelpPanel.js';
 import { useCanvasInteraction } from '../hooks/useCanvasInteraction.js';
 import { useSelectionInteraction } from '../hooks/useSelectionInteraction.js';
 import { useManipulationInteraction } from '../hooks/useManipulationInteraction.js';
 import { useDrawingInteraction } from '../hooks/useDrawingInteraction.js';
-import { useUndoRedoShortcuts } from '../hooks/useUndoRedoShortcuts.js';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
 import { useCanvasStore } from '../store/canvasStore.js';
 import { worldToScreen } from '../camera.js';
 import { createRenderLoop } from '../renderer/renderLoop.js';
@@ -36,7 +37,7 @@ function CanvasInner() {
   const { canvasRef, cursor: canvasCursor } = useCanvasInteraction();
   useSelectionInteraction(canvasRef);
   const { cursor: manipulationCursor } = useManipulationInteraction(canvasRef);
-  const { getDrawPreview, textTool } = useDrawingInteraction(canvasRef);
+  const { getDrawPreview, textTool, cancelDraw } = useDrawingInteraction(canvasRef);
 
   // Track active tool for cursor and text overlay
   const activeTool = useCanvasStore((s) => s.activeTool);
@@ -53,8 +54,9 @@ function CanvasInner() {
     cursor = 'crosshair';
   }
 
-  // Register global undo/redo keyboard shortcuts [AC1, AC2]
-  useUndoRedoShortcuts();
+  // Register centralized keyboard shortcuts (tool switching, undo/redo,
+  // delete, duplicate, select all, escape, help panel) [Issue #10]
+  const { showShortcutsHelp, setShowShortcutsHelp } = useKeyboardShortcuts({ cancelDraw });
 
   const updateCanvasSize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -183,6 +185,10 @@ function CanvasInner() {
             textTool.onCancel();
           }}
         />
+      )}
+      {/* Keyboard shortcuts help panel */}
+      {showShortcutsHelp && (
+        <ShortcutsHelpPanel onClose={() => setShowShortcutsHelp(false)} />
       )}
     </div>
   );

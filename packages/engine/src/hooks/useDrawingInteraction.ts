@@ -3,7 +3,8 @@
  *
  * When the active tool is not 'select', this hook intercepts pointer events,
  * converts screen coordinates to world space, and dispatches to the active
- * tool handler. Also handles ESC key to cancel drawing operations.
+ * tool handler. Exposes a cancelDraw callback for the central keyboard
+ * shortcuts hook to invoke on ESC.
  *
  * @module
  */
@@ -25,6 +26,8 @@ export interface DrawingInteraction {
   getDrawPreview(): DrawPreview | null;
   /** Text tool instance for overlay input positioning. */
   textTool: TextTool;
+  /** Cancel any active draw operation and reset text tool state. */
+  cancelDraw(): void;
 }
 
 /**
@@ -117,27 +120,19 @@ export function useDrawingInteraction(
     [],
   );
 
-  // ── ESC key handler ────────────────────────────────────────
+  // ── Cancel draw function (exposed for useKeyboardShortcuts) ──
 
-  const handleKeyDown = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        // Cancel any active draw operation
-        const handler = activeDrawHandlerRef.current;
-        if (handler) {
-          handler.onCancel();
-          activeDrawHandlerRef.current = null;
-        }
+  const cancelDraw = useCallback(() => {
+    // Cancel any active draw operation
+    const handler = activeDrawHandlerRef.current;
+    if (handler) {
+      handler.onCancel();
+      activeDrawHandlerRef.current = null;
+    }
 
-        // Also cancel text input if waiting
-        textTool.onCancel();
-
-        // Switch back to select tool
-        useCanvasStore.getState().setActiveTool('select');
-      }
-    },
-    [textTool],
-  );
+    // Also cancel text input if waiting
+    textTool.onCancel();
+  }, [textTool]);
 
   // ── Effect: attach/detach event listeners ──────────────────
 
@@ -148,15 +143,13 @@ export function useDrawingInteraction(
     canvas.addEventListener('pointerdown', handlePointerDown);
     canvas.addEventListener('pointermove', handlePointerMove);
     canvas.addEventListener('pointerup', handlePointerUp);
-    window.addEventListener('keydown', handleKeyDown);
 
     return () => {
       canvas.removeEventListener('pointerdown', handlePointerDown);
       canvas.removeEventListener('pointermove', handlePointerMove);
       canvas.removeEventListener('pointerup', handlePointerUp);
-      window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [canvasRef, handlePointerDown, handlePointerMove, handlePointerUp, handleKeyDown]);
+  }, [canvasRef, handlePointerDown, handlePointerMove, handlePointerUp]);
 
   // ── Public API ─────────────────────────────────────────────
 
@@ -172,5 +165,5 @@ export function useDrawingInteraction(
     return activeHandler?.getPreview() ?? null;
   }, [getActiveHandler]);
 
-  return { getDrawPreview, textTool };
+  return { getDrawPreview, textTool, cancelDraw };
 }
