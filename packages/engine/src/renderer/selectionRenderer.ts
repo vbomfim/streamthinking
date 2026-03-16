@@ -94,6 +94,20 @@ function renderPointHandles(
 ): void {
   const pointHandles = getPointHandlePositions(expr);
 
+  // Check for drag offset: during transient drag, position changes
+  // but data.points don't — skip handles to avoid stale positions
+  const data = expr.data as { points?: [number, number][] };
+  if (data.points && data.points.length > 0) {
+    const firstPoint = data.points[0];
+    const expectedMinX = Math.min(...data.points.map(p => p[0]));
+    const expectedMinY = Math.min(...data.points.map(p => p[1]));
+    if (Math.abs(expr.position.x - expectedMinX) > 0.5 ||
+        Math.abs(expr.position.y - expectedMinY) > 0.5) {
+      // Position is offset from points — we're mid-drag, skip handles
+      return;
+    }
+  }
+
   for (const { x: px, y: py } of pointHandles) {
     ctx.beginPath();
     ctx.arc(px, py, radius, 0, Math.PI * 2);
