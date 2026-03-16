@@ -32,11 +32,18 @@ export function findSnapPoint(
   const anchors: Array<{ anchor: string; point: { x: number; y: number } }> =
     getAnchorPoints(targetExpression);
 
+  // Check if point is inside the shape's bounding box — if so, snap to nearest edge
+  const { x, y } = targetExpression.position;
+  const { width, height } = targetExpression.size;
+  const isInside = worldPoint.x >= x && worldPoint.x <= x + width &&
+                   worldPoint.y >= y && worldPoint.y <= y + height;
+
   let closest: { anchor: string; point: { x: number; y: number }; dist: number } | null = null;
 
   for (const { anchor, point } of anchors) {
     const dist = Math.hypot(worldPoint.x - point.x, worldPoint.y - point.y);
-    if (dist <= snapDistance && (closest === null || dist < closest.dist)) {
+    const threshold = isInside ? Infinity : snapDistance; // Always snap when inside
+    if (dist <= threshold && (closest === null || dist < closest.dist)) {
       closest = { anchor, point, dist };
     }
   }

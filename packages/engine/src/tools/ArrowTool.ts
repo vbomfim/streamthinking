@@ -18,7 +18,7 @@ import { findSnapPoint } from '../interaction/connectorHelpers.js';
 const MIN_ARROW_LENGTH = 5;
 
 /** Snap distance in world units for connector binding. */
-const SNAP_DISTANCE = 20;
+const SNAP_DISTANCE = 50;
 
 /** Human author for locally-drawn expressions. */
 const LOCAL_AUTHOR = {
