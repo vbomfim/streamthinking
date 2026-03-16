@@ -37,6 +37,7 @@ export function useCanvasInteraction(): CanvasInteraction {
   const spaceHeldRef = useRef(false);
   const isPanningRef = useRef(false);
   const isMiddlePanningRef = useRef(false);
+  const rightClickMovedRef = useRef(false);
   const lastMouseRef = useRef({ x: 0, y: 0 });
 
   // ── Pan: Space + drag [AC1] ──────────────────────────────
@@ -72,6 +73,7 @@ export function useCanvasInteraction(): CanvasInteraction {
       // Middle-click or right-click drag pan
       e.preventDefault();
       isMiddlePanningRef.current = true;
+      rightClickMovedRef.current = false;
       lastMouseRef.current = { x: e.clientX, y: e.clientY };
       setCursor('grabbing');
     }
@@ -83,6 +85,10 @@ export function useCanvasInteraction(): CanvasInteraction {
     const dx = e.clientX - lastMouseRef.current.x;
     const dy = e.clientY - lastMouseRef.current.y;
     lastMouseRef.current = { x: e.clientX, y: e.clientY };
+
+    if (isMiddlePanningRef.current && (Math.abs(dx) > 1 || Math.abs(dy) > 1)) {
+      rightClickMovedRef.current = true;
+    }
 
     // [AC7] Divide pan delta by zoom for consistent speed
     const { camera } = useCanvasStore.getState();
@@ -99,7 +105,15 @@ export function useCanvasInteraction(): CanvasInteraction {
       setCursor(spaceHeldRef.current ? 'grab' : 'default');
     }
     if (isMiddlePanningRef.current) {
+      // Right-click without drag → deselect tool, switch to Select
+      if (!rightClickMovedRef.current) {
+        const { activeTool } = useCanvasStore.getState();
+        if (activeTool !== 'select') {
+          useCanvasStore.getState().setActiveTool('select');
+        }
+      }
       isMiddlePanningRef.current = false;
+      rightClickMovedRef.current = false;
       setCursor('default');
     }
   }, []);
