@@ -68,8 +68,8 @@ export function useCanvasInteraction(): CanvasInteraction {
       isPanningRef.current = true;
       lastMouseRef.current = { x: e.clientX, y: e.clientY };
       setCursor('grabbing');
-    } else if (e.button === 1) {
-      // Middle-click pan — same behavior as Space+drag
+    } else if (e.button === 1 || e.button === 2) {
+      // Middle-click or right-click drag pan
       e.preventDefault();
       isMiddlePanningRef.current = true;
       lastMouseRef.current = { x: e.clientX, y: e.clientY };
@@ -133,6 +133,12 @@ export function useCanvasInteraction(): CanvasInteraction {
     setCamera(newCamera);
   }, []);
 
+  // ── Prevent context menu on canvas (right-click used for pan) ──
+
+  const preventContextMenu = useCallback((e: Event) => {
+    e.preventDefault();
+  }, []);
+
   // ── Effect: attach/detach event listeners ────────────────
 
   useEffect(() => {
@@ -148,6 +154,8 @@ export function useCanvasInteraction(): CanvasInteraction {
       canvas.addEventListener('mouseup', handleMouseUp);
       // { passive: false } to prevent browser scroll
       canvas.addEventListener('wheel', handleWheel, { passive: false });
+      // Suppress right-click context menu (right-click is used for pan)
+      canvas.addEventListener('contextmenu', preventContextMenu);
     }
 
     // Also listen on window for mouseup (in case cursor leaves canvas)
@@ -163,6 +171,7 @@ export function useCanvasInteraction(): CanvasInteraction {
         canvas.removeEventListener('mousemove', handleMouseMove);
         canvas.removeEventListener('mouseup', handleMouseUp);
         canvas.removeEventListener('wheel', handleWheel);
+        canvas.removeEventListener('contextmenu', preventContextMenu);
       }
     };
   }, [handleKeyDown, handleKeyUp, handleMouseDown, handleMouseMove, handleMouseUp, handleWheel]);
