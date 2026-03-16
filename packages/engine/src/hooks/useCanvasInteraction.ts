@@ -10,12 +10,8 @@
 
 import { useRef, useState, useEffect, useCallback } from 'react';
 import { useCanvasStore } from '../store/canvasStore.js';
-import { zoomAtPoint } from '../camera.js';
+import { zoomAtPoint, MIN_ZOOM, MAX_ZOOM } from '../camera.js';
 import { isEditableTarget } from '../utils/isEditableTarget.js';
-
-/** User-facing zoom bounds (tighter than store's [0.01, 100]). */
-const MIN_ZOOM = 0.1;
-const MAX_ZOOM = 5.0;
 
 /** Zoom sensitivity — how much one scroll "step" changes zoom. */
 const ZOOM_SENSITIVITY = 0.001;

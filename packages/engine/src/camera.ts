@@ -165,6 +165,15 @@ export function computeFitToContent(
   const centerX = (minX + maxX) / 2;
   const centerY = (minY + maxY) / 2;
 
+  // Guard against zero-dimension expressions (point-like)
+  if (contentWidth === 0 || contentHeight === 0) {
+    return {
+      x: centerX - viewportWidth / 2,
+      y: centerY - viewportHeight / 2,
+      zoom: 1,
+    };
+  }
+
   // Effective viewport with padding
   const effectiveWidth = viewportWidth * (1 - FIT_PADDING);
   const effectiveHeight = viewportHeight * (1 - FIT_PADDING);
