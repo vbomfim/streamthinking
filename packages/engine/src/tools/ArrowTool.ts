@@ -64,11 +64,13 @@ export class ArrowTool implements ToolHandler {
     this.endX = worldX;
     this.endY = worldY;
 
-    // Check for end snap indicator [CLEAN-CODE]
+    // Check for end snap — move endpoint to snap point
     const snap = this.findNearestSnap(worldX, worldY);
     if (snap) {
       this.currentSnapPoint = snap.point;
       this.currentSnapTargetId = snap.targetId;
+      this.endX = snap.point.x;
+      this.endY = snap.point.y;
     } else {
       this.currentSnapPoint = undefined;
       this.currentSnapTargetId = undefined;
