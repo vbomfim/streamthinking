@@ -61,20 +61,25 @@ export class ArrowTool implements ToolHandler {
   }
 
   onPointerMove(worldX: number, worldY: number, _event: PointerEvent): void {
-    if (!this.isDrawing) return;
-    this.endX = worldX;
-    this.endY = worldY;
-
-    // Check for end snap — move endpoint to snap point
+    // Check for snap — show indicator even before drawing starts
     const snap = this.findNearestSnap(worldX, worldY);
     if (snap) {
       this.currentSnapPoint = snap.point;
       this.currentSnapTargetId = snap.targetId;
-      this.endX = snap.point.x;
-      this.endY = snap.point.y;
     } else {
       this.currentSnapPoint = undefined;
       this.currentSnapTargetId = undefined;
+    }
+
+    if (!this.isDrawing) return;
+
+    this.endX = worldX;
+    this.endY = worldY;
+
+    // Snap endpoint during drawing
+    if (snap) {
+      this.endX = snap.point.x;
+      this.endY = snap.point.y;
     }
   }
 
@@ -151,7 +156,19 @@ export class ArrowTool implements ToolHandler {
   }
 
   getPreview(): DrawPreview | null {
-    if (!this.isDrawing) return null;
+    // Show snap indicator even when not drawing (hover preview)
+    if (!this.isDrawing) {
+      if (this.currentSnapPoint) {
+        return {
+          kind: 'arrow',
+          x: 0, y: 0, width: 0, height: 0,
+          points: [],
+          snapPoint: this.currentSnapPoint,
+          snapTargetId: this.currentSnapTargetId,
+        };
+      }
+      return null;
+    }
     if (this.endX === this.startX && this.endY === this.startY) return null;
 
     const points: [number, number][] = [
