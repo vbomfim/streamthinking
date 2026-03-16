@@ -99,6 +99,48 @@ function captureSnapshot(state: CanvasState): CanvasSnapshot {
   };
 }
 
+/** Point-based expression kinds whose data includes a `points` array. */
+const POINT_BASED_KINDS = new Set(['line', 'arrow', 'freehand']);
+
+/**
+ * Translate `data.points` by (dx, dy) for point-based expressions.
+ *
+ * Point-based shapes (line, arrow, freehand) store their geometry as
+ * absolute world coordinates in `data.points`. When moving these shapes,
+ * the points must be translated along with `position` to keep the
+ * rendered shape in sync with the selection bounding box. [#74]
+ *
+ * Non-point-based shapes (rectangle, ellipse, etc.) are no-ops.
+ * Freehand points are [x, y, pressure] — only x and y are translated.
+ */
+function translateExpressionPoints(
+  expr: VisualExpression,
+  dx: number,
+  dy: number,
+): void {
+  if (!POINT_BASED_KINDS.has(expr.kind)) return;
+
+  const data = expr.data as { points?: unknown[] };
+  if (!data.points || data.points.length === 0) return;
+
+  if (expr.kind === 'freehand') {
+    // Freehand: [x, y, pressure]
+    const points = data.points as [number, number, number][];
+    for (const point of points) {
+      point[0] += dx;
+      point[1] += dy;
+      // point[2] (pressure) is preserved
+    }
+  } else {
+    // Line/Arrow: [x, y]
+    const points = data.points as [number, number][];
+    for (const point of points) {
+      point[0] += dx;
+      point[1] += dy;
+    }
+  }
+}
+
 export const useCanvasStore = create<CanvasState & CanvasActions>()(
   immer((set, get) => ({
     // ── Initial state ────────────────────────────────────────
@@ -566,6 +608,8 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
         const expr = snapshot.expressions[move.id];
         if (expr) {
           expr.position = { ...move.from };
+          // Note: data.points in snapshot are already at original positions
+          // because transient drag only updates position, not points. [#74]
         }
       }
       historyManager.pushSnapshot(snapshot);
@@ -575,6 +619,10 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
           const expr = state.expressions[move.id];
           if (expr) {
             expr.position = { ...move.to };
+            // Translate data.points for point-based shapes [#74]
+            const dx = move.to.x - move.from.x;
+            const dy = move.to.y - move.from.y;
+            translateExpressionPoints(expr, dx, dy);
           }
         }
 

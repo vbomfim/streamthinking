@@ -265,12 +265,22 @@ function renderLine(
   if (expr.data.kind !== 'line') return;
   const { points } = expr.data;
   const options = mapStyleToRoughOptions(expr.style);
+  const offset = computePositionOffset(expr);
+
+  if (offset.x !== 0 || offset.y !== 0) {
+    _ctx.save();
+    _ctx.translate(offset.x, offset.y);
+  }
 
   const drawable = getOrCreateDrawable(expr, () =>
     rc.linearPath(points, options),
   );
 
   rc.draw(drawable);
+
+  if (offset.x !== 0 || offset.y !== 0) {
+    _ctx.restore();
+  }
 }
 
 /** Render arrow with arrowheads. [AC6] */
@@ -282,6 +292,12 @@ function renderArrow(
   if (expr.data.kind !== 'arrow') return;
   const { points, startArrowhead, endArrowhead } = expr.data;
   const options = mapStyleToRoughOptions(expr.style);
+  const offset = computePositionOffset(expr);
+
+  if (offset.x !== 0 || offset.y !== 0) {
+    ctx.save();
+    ctx.translate(offset.x, offset.y);
+  }
 
   const drawable = getOrCreateDrawable(expr, () =>
     rc.linearPath(points, options),
@@ -305,6 +321,10 @@ function renderArrow(
     const angle = Math.atan2(first[1] - second[1], first[0] - second[0]);
     renderArrowhead(ctx, first[0], first[1], angle, ARROWHEAD_SIZE);
   }
+
+  if (offset.x !== 0 || offset.y !== 0) {
+    ctx.restore();
+  }
 }
 
 // ── Non-Rough.js renderers ───────────────────────────────────
@@ -326,6 +346,13 @@ function renderFreehand(
 
   if (outlinePoints.length === 0) return;
 
+  const offset = computePositionOffset(expr);
+
+  if (offset.x !== 0 || offset.y !== 0) {
+    ctx.save();
+    ctx.translate(offset.x, offset.y);
+  }
+
   const path = new Path2D();
   const [first, ...rest] = outlinePoints;
   path.moveTo(first![0], first![1]);
@@ -336,6 +363,10 @@ function renderFreehand(
 
   ctx.fillStyle = expr.style.strokeColor;
   ctx.fill(path);
+
+  if (offset.x !== 0 || offset.y !== 0) {
+    ctx.restore();
+  }
 }
 
 /** Render text with word-wrap. [AC8] */
@@ -589,6 +620,58 @@ export function wrapText(
   }
 
   return lines;
+}
+
+// ── Position offset for point-based shapes ───────────────────
+
+/** Point-based expression kinds whose rendering uses data.points. */
+const POINT_BASED_KINDS = new Set(['line', 'arrow', 'freehand']);
+
+/**
+ * Compute the rendering offset for point-based expressions.
+ *
+ * During a transient drag, only `expr.position` is updated while
+ * `data.points` remain at their original absolute world coordinates.
+ * This function returns the delta between the current `position` and
+ * the bounding-box minimum of `data.points`, so the renderer can
+ * apply a `ctx.translate(offset)` to keep the shape visually in sync
+ * with the selection bounding box.
+ *
+ * For non-point-based shapes (rectangle, ellipse, etc.) this always
+ * returns `{ x: 0, y: 0 }` because they render directly from
+ * `expr.position`. [CLEAN-CODE]
+ */
+export function computePositionOffset(
+  expr: VisualExpression,
+): { x: number; y: number } {
+  if (!POINT_BASED_KINDS.has(expr.kind)) {
+    return { x: 0, y: 0 };
+  }
+
+  const data = expr.data as { points?: unknown[] };
+  if (!data.points || data.points.length === 0) {
+    return { x: 0, y: 0 };
+  }
+
+  let minX = Infinity;
+  let minY = Infinity;
+
+  for (const pt of data.points) {
+    const point = pt as number[];
+    const px = point[0];
+    const py = point[1];
+    if (px !== undefined && px < minX) minX = px;
+    if (py !== undefined && py < minY) minY = py;
+  }
+
+  if (!isFinite(minX) || !isFinite(minY)) {
+    return { x: 0, y: 0 };
+  }
+
+  return {
+    x: expr.position.x - minX,
+    y: expr.position.y - minY,
+  };
 }
 
 // ── Drawable cache helper ────────────────────────────────────
