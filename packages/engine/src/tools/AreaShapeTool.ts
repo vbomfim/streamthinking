@@ -38,6 +38,8 @@ export class AreaShapeTool implements ToolHandler {
   private startY = 0;
   private currentX = 0;
   private currentY = 0;
+  /** When true, constrain to equal width/height (square/circle). */
+  private constrain = false;
 
   constructor(kind: AreaShapeKind) {
     this.shapeKind = kind;
@@ -51,19 +53,21 @@ export class AreaShapeTool implements ToolHandler {
     this.currentY = worldY;
   }
 
-  onPointerMove(worldX: number, worldY: number, _event: PointerEvent): void {
+  onPointerMove(worldX: number, worldY: number, event: PointerEvent): void {
     if (!this.isDrawing) return;
     this.currentX = worldX;
     this.currentY = worldY;
+    this.constrain = event.ctrlKey || event.metaKey;
   }
 
-  onPointerUp(worldX: number, worldY: number, _event: PointerEvent): void {
+  onPointerUp(worldX: number, worldY: number, event: PointerEvent): void {
     if (!this.isDrawing) {
       return;
     }
 
     this.currentX = worldX;
     this.currentY = worldY;
+    this.constrain = event.ctrlKey || event.metaKey;
     this.isDrawing = false;
 
     const { x, y, width, height } = this.computeBounds();
@@ -121,12 +125,20 @@ export class AreaShapeTool implements ToolHandler {
     return { kind: this.shapeKind, x, y, width, height };
   }
 
-  /** Compute normalized bounds (handles negative drag). */
+  /** Compute normalized bounds (handles negative drag and Ctrl-constrain). */
   private computeBounds() {
+    let width = Math.abs(this.currentX - this.startX);
+    let height = Math.abs(this.currentY - this.startY);
+
+    // Ctrl/Cmd constrains to equal dimensions (square/circle/equilateral)
+    if (this.constrain) {
+      const side = Math.max(width, height);
+      width = side;
+      height = side;
+    }
+
     const x = Math.min(this.startX, this.currentX);
     const y = Math.min(this.startY, this.currentY);
-    const width = Math.abs(this.currentX - this.startX);
-    const height = Math.abs(this.currentY - this.startY);
     return { x, y, width, height };
   }
 
@@ -136,5 +148,6 @@ export class AreaShapeTool implements ToolHandler {
     this.startY = 0;
     this.currentX = 0;
     this.currentY = 0;
+    this.constrain = false;
   }
 }

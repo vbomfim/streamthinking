@@ -16,6 +16,9 @@
  * **Actions (with modifiers):**
  * - `Ctrl+Z` / `Cmd+Z` → Undo
  * - `Ctrl+Shift+Z` / `Cmd+Shift+Z` / `Ctrl+Y` → Redo
+ * - `Ctrl+C` / `Cmd+C` → Copy selected to internal clipboard
+ * - `Ctrl+V` / `Cmd+V` → Paste from internal clipboard (+20 offset)
+ * - `Ctrl+X` / `Cmd+X` → Cut selected (copy + delete)
  * - `Ctrl+D` / `Cmd+D` → Duplicate selected
  * - `Ctrl+A` / `Cmd+A` → Select all
  * - `Delete` / `Backspace` → Delete selected
@@ -32,13 +35,22 @@
 
 import { useEffect, useCallback, useState } from 'react';
 import { nanoid } from 'nanoid';
+import type { VisualExpression } from '@infinicanvas/protocol';
 import { useCanvasStore } from '../store/canvasStore.js';
 import type { ToolType } from '../types/index.js';
 
 // ── Constants ──────────────────────────────────────────────
 
-/** Duplicate offset in world units. */
+/** Duplicate / paste offset in world units. */
 const DUPLICATE_OFFSET = 20;
+
+// ── Internal clipboard ────────────────────────────────────
+
+/** Deep clones of copied expressions (module-scoped, internal only). */
+let clipboard: VisualExpression[] = [];
+
+/** Tracks how many times paste has been invoked since last copy. */
+let pasteCount = 0;
 
 /** Map of single keys (lowercase) to tool types. */
 const KEY_TO_TOOL: Readonly<Record<string, ToolType>> = {
@@ -175,6 +187,27 @@ export function useKeyboardShortcuts(
           return;
         }
 
+        // Ctrl+C / Cmd+C → copy selected to internal clipboard
+        if (keyLower === 'c') {
+          event.preventDefault();
+          copySelected();
+          return;
+        }
+
+        // Ctrl+V / Cmd+V → paste from internal clipboard
+        if (keyLower === 'v') {
+          event.preventDefault();
+          pasteFromClipboard();
+          return;
+        }
+
+        // Ctrl+X / Cmd+X → cut selected (copy + delete)
+        if (keyLower === 'x') {
+          event.preventDefault();
+          cutSelected();
+          return;
+        }
+
         // Other modifier combos — not handled, let browser process
         return;
       }
@@ -252,4 +285,90 @@ function duplicateSelected(): void {
 
   // Select the new duplicates
   useCanvasStore.getState().setSelectedIds(new Set(newIds));
+}
+
+// ── Clipboard operations (exported for testing) ────────────
+
+/**
+ * Copy all selected expressions to the internal clipboard.
+ *
+ * Stores deep clones so pasting is independent of future mutations.
+ * Resets the paste counter for offset tracking.
+ */
+export function copySelected(): void {
+  const { selectedIds, expressions } = useCanvasStore.getState();
+  if (selectedIds.size === 0) return;
+
+  clipboard = [];
+  for (const id of selectedIds) {
+    const expr = expressions[id];
+    if (!expr) continue;
+    clipboard.push(structuredClone(expr));
+  }
+  pasteCount = 0;
+}
+
+/**
+ * Paste expressions from the internal clipboard.
+ *
+ * Creates clones with new IDs. Each subsequent paste increases
+ * the offset by +20,+20 from the original positions.
+ */
+export function pasteFromClipboard(): void {
+  if (clipboard.length === 0) return;
+
+  pasteCount += 1;
+  const offset = pasteCount * DUPLICATE_OFFSET;
+  const newIds: string[] = [];
+
+  for (const original of clipboard) {
+    const newId = nanoid();
+    const clone = structuredClone(original);
+    clone.id = newId;
+    clone.position = {
+      x: original.position.x + offset,
+      y: original.position.y + offset,
+    };
+    const now = Date.now();
+    clone.meta = {
+      ...clone.meta,
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    useCanvasStore.getState().addExpression(clone);
+    newIds.push(newId);
+  }
+
+  useCanvasStore.getState().setSelectedIds(new Set(newIds));
+}
+
+/**
+ * Cut selected expressions: copy to clipboard, then delete originals.
+ *
+ * Locked expressions are excluded from deletion (same as Delete key).
+ */
+export function cutSelected(): void {
+  const { selectedIds, expressions } = useCanvasStore.getState();
+  if (selectedIds.size === 0) return;
+
+  // Copy to clipboard first
+  copySelected();
+
+  // Delete unlocked originals (same logic as Delete key handler)
+  const deletableIds = Array.from(selectedIds).filter(
+    (id) => !expressions[id]?.meta.locked,
+  );
+  if (deletableIds.length > 0) {
+    useCanvasStore.getState().deleteExpressions(deletableIds);
+  }
+}
+
+/**
+ * Reset clipboard state. Exported for test cleanup only.
+ * @internal
+ */
+export function _resetClipboard(): void {
+  clipboard = [];
+  pasteCount = 0;
 }
