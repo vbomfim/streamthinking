@@ -19,6 +19,8 @@ import { useSelectionInteraction } from '../hooks/useSelectionInteraction.js';
 import { useManipulationInteraction } from '../hooks/useManipulationInteraction.js';
 import { useDrawingInteraction } from '../hooks/useDrawingInteraction.js';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
+import { useTouchGestures } from '../hooks/useTouchGestures.js';
+import { useMetadataTooltip, formatRelativeTime } from '../hooks/useMetadataTooltip.js';
 import { useCanvasStore } from '../store/canvasStore.js';
 import { worldToScreen } from '../camera.js';
 import { createRenderLoop } from '../renderer/renderLoop.js';
@@ -38,6 +40,8 @@ function CanvasInner() {
   useSelectionInteraction(canvasRef);
   const { cursor: manipulationCursor } = useManipulationInteraction(canvasRef);
   const { getDrawPreview, textTool, cancelDraw } = useDrawingInteraction(canvasRef);
+  useTouchGestures(canvasRef);
+  const tooltip = useMetadataTooltip(canvasRef);
 
   // Track active tool for cursor and text overlay
   const activeTool = useCanvasStore((s) => s.activeTool);
@@ -46,10 +50,12 @@ function CanvasInner() {
   // Check text tool input position on each render
   const textInputPos = textTool.getInputPosition();
 
-  // Manipulation cursor takes priority, then drawing crosshair, then canvas default
+  // Manipulation cursor takes priority, then drawing crosshair/text, then canvas default
   let cursor = canvasCursor;
   if (manipulationCursor !== 'default') {
     cursor = manipulationCursor;
+  } else if (activeTool === 'text') {
+    cursor = 'text';
   } else if (activeTool !== 'select') {
     cursor = 'crosshair';
   }
@@ -189,6 +195,35 @@ function CanvasInner() {
       {/* Keyboard shortcuts help panel */}
       {showShortcutsHelp && (
         <ShortcutsHelpPanel onClose={() => setShowShortcutsHelp(false)} />
+      )}
+      {/* Metadata tooltip on expression hover */}
+      {tooltip && (
+        <div
+          data-testid="metadata-tooltip"
+          style={{
+            position: 'fixed',
+            left: tooltip.x + 12,
+            top: tooltip.y - 8,
+            padding: '6px 10px',
+            backgroundColor: 'var(--bg-toolbar, #ffffff)',
+            border: '1px solid var(--border, #e0e0e0)',
+            borderRadius: 6,
+            boxShadow: '0 2px 8px var(--shadow, rgba(0,0,0,0.12))',
+            fontSize: 12,
+            fontFamily: 'system-ui, -apple-system, sans-serif',
+            color: 'var(--text-primary, #333333)',
+            pointerEvents: 'none',
+            zIndex: 50,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <div style={{ fontWeight: 600, marginBottom: 2 }}>
+            {tooltip.data.kind}
+          </div>
+          <div style={{ color: 'var(--text-secondary, #666666)' }}>
+            {tooltip.data.authorName} · {formatRelativeTime(tooltip.data.createdAt)}
+          </div>
+        </div>
       )}
     </div>
   );

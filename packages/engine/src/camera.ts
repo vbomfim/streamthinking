@@ -11,7 +11,18 @@
  * @module
  */
 
+import type { VisualExpression } from '@infinicanvas/protocol';
 import type { Camera } from './types/index.js';
+
+/** User-facing zoom bounds for zoom controls. */
+export const MIN_ZOOM = 0.1;
+export const MAX_ZOOM = 5.0;
+
+/** Zoom increment per button press (20%). */
+export const ZOOM_STEP = 0.2;
+
+/** Padding fraction for fit-to-content (10% total = 5% each side). */
+const FIT_PADDING = 0.1;
 
 /**
  * Convert screen (pixel) coordinates to world coordinates.
@@ -88,5 +99,86 @@ export function zoomAtPoint(
     x: worldPoint.x - screenX / newZoom,
     y: worldPoint.y - screenY / newZoom,
     zoom: newZoom,
+  };
+}
+
+/**
+ * Clamp a zoom value within [MIN_ZOOM, MAX_ZOOM]. [CLEAN-CODE]
+ */
+export function clampZoom(zoom: number): number {
+  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
+}
+
+/**
+ * Compute camera to fit all expressions in the viewport.
+ *
+ * Centers the bounding box of all expressions and calculates
+ * zoom to fit with 10% padding. Returns origin at 100% zoom
+ * for empty canvas. [CLEAN-CODE]
+ *
+ * @param expressions - All expressions on the canvas
+ * @param expressionOrder - Z-ordered expression IDs
+ * @param viewportWidth - Viewport width in screen pixels
+ * @param viewportHeight - Viewport height in screen pixels
+ */
+export function computeFitToContent(
+  expressions: Record<string, VisualExpression>,
+  expressionOrder: string[],
+  viewportWidth: number,
+  viewportHeight: number,
+): Camera {
+  // Empty canvas → origin at 100%
+  if (expressionOrder.length === 0) {
+    return { x: 0, y: 0, zoom: 1 };
+  }
+
+  // Compute bounding box of all expressions
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  let count = 0;
+
+  for (const id of expressionOrder) {
+    const expr = expressions[id];
+    if (!expr) continue;
+
+    const left = expr.position.x;
+    const top = expr.position.y;
+    const right = expr.position.x + expr.size.width;
+    const bottom = expr.position.y + expr.size.height;
+
+    if (left < minX) minX = left;
+    if (top < minY) minY = top;
+    if (right > maxX) maxX = right;
+    if (bottom > maxY) maxY = bottom;
+    count++;
+  }
+
+  // All IDs were missing from expressions → treat as empty
+  if (count === 0) {
+    return { x: 0, y: 0, zoom: 1 };
+  }
+
+  const contentWidth = maxX - minX;
+  const contentHeight = maxY - minY;
+  const centerX = (minX + maxX) / 2;
+  const centerY = (minY + maxY) / 2;
+
+  // Effective viewport with padding
+  const effectiveWidth = viewportWidth * (1 - FIT_PADDING);
+  const effectiveHeight = viewportHeight * (1 - FIT_PADDING);
+
+  // Calculate zoom to fit content
+  const zoomX = effectiveWidth / contentWidth;
+  const zoomY = effectiveHeight / contentHeight;
+  const zoom = clampZoom(Math.min(zoomX, zoomY));
+
+  // Camera offset so center maps to viewport center
+  // screen_center = (center - camera) * zoom → camera = center - screen_center / zoom
+  return {
+    x: centerX - (viewportWidth / 2) / zoom,
+    y: centerY - (viewportHeight / 2) / zoom,
+    zoom,
   };
 }

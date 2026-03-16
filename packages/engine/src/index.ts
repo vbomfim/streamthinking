@@ -24,6 +24,11 @@ export {
   worldToScreen,
   applyTransform,
   zoomAtPoint,
+  clampZoom,
+  computeFitToContent,
+  MIN_ZOOM,
+  MAX_ZOOM,
+  ZOOM_STEP,
 } from './camera.js';
 
 // ── Renderers ──────────────────────────────────────────────
@@ -108,6 +113,8 @@ export type {
   HandleHit,
   PointerTarget,
 } from './interaction/manipulationHelpers.js';
+export { getCursorForToolState } from './interaction/cursorMapping.js';
+export type { HoverTarget } from './interaction/cursorMapping.js';
 
 // ── Drawing Tools ──────────────────────────────────────────
 export type { ToolHandler, DrawPreview, ToolHandlerRegistry } from './tools/BaseTool.js';
@@ -148,6 +155,14 @@ export { useManipulationInteraction } from './hooks/useManipulationInteraction.j
 export type { ManipulationInteraction } from './hooks/useManipulationInteraction.js';
 export { useDrawingInteraction } from './hooks/useDrawingInteraction.js';
 export type { DrawingInteraction } from './hooks/useDrawingInteraction.js';
+export { useTouchGestures } from './hooks/useTouchGestures.js';
+export {
+  computePinchDistance,
+  computeMidpoint,
+  computePanDelta,
+} from './hooks/useTouchGestures.js';
+export { useMetadataTooltip, formatRelativeTime, buildTooltipData } from './hooks/useMetadataTooltip.js';
+export type { TooltipInfo, TooltipData } from './hooks/useMetadataTooltip.js';
 export { subscribeAutoSave, DEBOUNCE_MS } from './hooks/useAutoSave.js';
 export { createGatewayConnection } from './hooks/useGatewayConnection.js';
 export type {

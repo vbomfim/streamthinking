@@ -9,7 +9,7 @@
  * @module
  */
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { Canvas, useCanvasStore, morphExpression } from '@infinicanvas/engine';
 import type { VisualExpression, ExpressionKind } from '@infinicanvas/protocol';
 import { Toolbar } from './components/toolbar/Toolbar.js';
@@ -20,12 +20,17 @@ import { AgentSidebar } from './components/sidebar/AgentSidebar.js';
 import { StylePanel } from './components/panels/StylePanel.js';
 import { ThemeToggle } from './components/panels/ThemeToggle.js';
 import { ExportMenu } from './components/panels/ExportMenu.js';
+import { ZoomControls } from './components/panels/ZoomControls.js';
+import { SettingsPanel } from './components/panels/SettingsPanel.js';
+import { WelcomeScreen } from './components/WelcomeScreen.js';
+import { Settings } from 'lucide-react';
 
 export function App() {
   const addExpression = useCanvasStore((s) => s.addExpression);
   const updateExpression = useCanvasStore((s) => s.updateExpression);
   const expressions = useCanvasStore((s) => s.expressions);
   const selectedIds = useCanvasStore((s) => s.selectedIds);
+  const [showSettings, setShowSettings] = useState(false);
 
   /** Get the list of selected expressions. */
   const selectedExpressions: VisualExpression[] = Array.from(selectedIds)
@@ -80,7 +85,10 @@ export function App() {
         onAction={handleAgentAction}
       />
       <AgentSidebar />
-      {/* Top-left action bar: theme toggle + export menu */}
+      <ZoomControls />
+      <WelcomeScreen />
+      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
+      {/* Top-left action bar: theme toggle + export menu + settings */}
       <div
         style={{
           position: 'fixed',
@@ -98,6 +106,27 @@ export function App() {
       >
         <ThemeToggle />
         <ExportMenu />
+        <button
+          type="button"
+          aria-label="Settings"
+          data-testid="settings-button"
+          onClick={() => setShowSettings(true)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 36,
+            height: 36,
+            border: 'none',
+            borderRadius: 6,
+            cursor: 'pointer',
+            backgroundColor: 'transparent',
+            color: 'var(--text-primary, #333333)',
+            transition: 'background-color 0.15s, color 0.15s',
+          }}
+        >
+          <Settings size={18} />
+        </button>
       </div>
     </>
   );
