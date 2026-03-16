@@ -9,7 +9,7 @@
  * @module
  */
 
-import type { VisualExpression, ExpressionStyle } from '@infinicanvas/protocol';
+import type { VisualExpression, ExpressionStyle, ArrowData } from '@infinicanvas/protocol';
 import type { RoughCanvas } from 'roughjs/bin/canvas.js';
 import type { Drawable } from 'roughjs/bin/core.js';
 import getStroke from 'perfect-freehand';
@@ -293,11 +293,12 @@ function renderArrow(
   expressions: Record<string, VisualExpression>,
 ): void {
   if (expr.data.kind !== 'arrow') return;
-  const { startArrowhead, endArrowhead } = expr.data;
+  const data = expr.data as ArrowData;
+  const { startArrowhead, endArrowhead } = data;
   const options = mapStyleToRoughOptions(expr.style);
   const offset = computePositionOffset(expr);
 
-  // Resolve binding positions for connected arrows [CLEAN-CODE]
+  // Resolve binding positions for connected arrows
   const points = resolveBindings(expr, expressions);
   if (points.length < 2) return;
 
@@ -306,27 +307,77 @@ function renderArrow(
     ctx.translate(offset.x, offset.y);
   }
 
-  const drawable = getOrCreateDrawable(expr, () =>
-    rc.linearPath(points, options),
-  );
+  // Self-loop detection: both ends bound to the same shape
+  const isSelfLoop = data.startBinding && data.endBinding &&
+    data.startBinding.expressionId === data.endBinding.expressionId;
 
-  rc.draw(drawable);
+  if (isSelfLoop) {
+    // Draw a curved self-referencing arrow
+    const start = points[0]!;
+    const end = points[points.length - 1]!;
+    const target = expressions[data.startBinding!.expressionId];
+    const loopSize = target ? Math.max(target.size.width, target.size.height) * 0.6 : 60;
 
-  // Draw arrowheads
-  ctx.fillStyle = expr.style.strokeColor;
+    // Compute control points — curve outward from the shape
+    const midX = (start[0] + end[0]) / 2;
+    const midY = (start[1] + end[1]) / 2;
+    const cx = target ? target.position.x + target.size.width / 2 : midX;
+    const cy = target ? target.position.y + target.size.height / 2 : midY;
 
-  if (endArrowhead && points.length >= 2) {
-    const last = points[points.length - 1]!;
-    const prev = points[points.length - 2]!;
-    const angle = Math.atan2(last[1] - prev[1], last[0] - prev[0]);
-    renderArrowhead(ctx, last[0], last[1], angle, ARROWHEAD_SIZE);
-  }
+    // Direction away from shape center
+    const dx = midX - cx;
+    const dy = midY - cy;
+    const dist = Math.hypot(dx, dy) || 1;
+    const nx = dx / dist;
+    const ny = dy / dist;
 
-  if (startArrowhead && points.length >= 2) {
-    const first = points[0]!;
-    const second = points[1]!;
-    const angle = Math.atan2(first[1] - second[1], first[0] - second[0]);
-    renderArrowhead(ctx, first[0], first[1], angle, ARROWHEAD_SIZE);
+    const cp1x = start[0] + nx * loopSize;
+    const cp1y = start[1] + ny * loopSize;
+    const cp2x = end[0] + nx * loopSize;
+    const cp2y = end[1] + ny * loopSize;
+
+    ctx.save();
+    ctx.strokeStyle = expr.style.strokeColor;
+    ctx.lineWidth = expr.style.strokeWidth;
+    ctx.globalAlpha = expr.style.opacity;
+    ctx.beginPath();
+    ctx.moveTo(start[0], start[1]);
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, end[0], end[1]);
+    ctx.stroke();
+    ctx.restore();
+
+    // Arrowheads for self-loop
+    ctx.fillStyle = expr.style.strokeColor;
+    if (endArrowhead) {
+      const angle = Math.atan2(end[1] - cp2y, end[0] - cp2x);
+      renderArrowhead(ctx, end[0], end[1], angle, ARROWHEAD_SIZE);
+    }
+    if (startArrowhead) {
+      const angle = Math.atan2(start[1] - cp1y, start[0] - cp1x);
+      renderArrowhead(ctx, start[0], start[1], angle, ARROWHEAD_SIZE);
+    }
+  } else {
+    // Normal straight arrow
+    const drawable = getOrCreateDrawable(expr, () =>
+      rc.linearPath(points, options),
+    );
+    rc.draw(drawable);
+
+    ctx.fillStyle = expr.style.strokeColor;
+
+    if (endArrowhead && points.length >= 2) {
+      const last = points[points.length - 1]!;
+      const prev = points[points.length - 2]!;
+      const angle = Math.atan2(last[1] - prev[1], last[0] - prev[0]);
+      renderArrowhead(ctx, last[0], last[1], angle, ARROWHEAD_SIZE);
+    }
+
+    if (startArrowhead && points.length >= 2) {
+      const first = points[0]!;
+      const second = points[1]!;
+      const angle = Math.atan2(first[1] - second[1], first[0] - second[0]);
+      renderArrowhead(ctx, first[0], first[1], angle, ARROWHEAD_SIZE);
+    }
   }
 
   if (offset.x !== 0 || offset.y !== 0) {
