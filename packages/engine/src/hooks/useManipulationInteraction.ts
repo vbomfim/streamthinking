@@ -204,25 +204,37 @@ export function useManipulationInteraction(
       });
     } else if (drag.kind === 'point-drag') {
       // ── Transient point-drag preview ────────────────────
+
+      // Check for snap during arrow endpoint drag
+      let snapTarget = worldPoint;
+      if (isDraggingArrowEndpoint) {
+        const snap = findSnapPointForDrag(worldPoint, useCanvasStore.getState().expressions, drag.handle.expressionId);
+        if (snap) {
+          snapTarget = snap.point;
+          currentDragSnapPoint = snap.point;
+        } else {
+          currentDragSnapPoint = null;
+        }
+      }
+
       const result = computePointDrag({
         pointIndex: drag.handle.pointIndex,
         originalPoints: drag.originalPoints,
-        newPointPosition: worldPoint,
+        newPointPosition: snapTarget,
       });
 
       useCanvasStore.setState((draft) => {
         const expr = draft.expressions[drag.handle.expressionId];
         if (expr && isPointBasedKind(expr.data.kind)) {
           const data = expr.data as { points: [number, number][] | [number, number, number][]; startBinding?: unknown; endBinding?: unknown };
-          // Update point — preserve pressure for freehand
           if (expr.data.kind === 'freehand') {
             const freehandPoints = data.points as [number, number, number][];
             const pressure = freehandPoints[drag.handle.pointIndex]?.[2] ?? 0.5;
             (data.points as [number, number, number][])[drag.handle.pointIndex] =
-              [worldPoint.x, worldPoint.y, pressure];
+              [snapTarget.x, snapTarget.y, pressure];
           } else {
             (data.points as [number, number][])[drag.handle.pointIndex] =
-              [worldPoint.x, worldPoint.y];
+              [snapTarget.x, snapTarget.y];
           }
 
           // Clear binding immediately so arrow detaches visually during drag
