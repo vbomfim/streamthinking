@@ -270,6 +270,7 @@ interface ResizeInput {
   originalPosition: { x: number; y: number };
   originalSize: { width: number; height: number };
   shiftKey: boolean;
+  ctrlKey: boolean;
 }
 
 interface ResizeResult {
@@ -285,7 +286,7 @@ interface ResizeResult {
  * Minimum size is enforced at MIN_SIZE × MIN_SIZE world units. [AC5]
  */
 export function computeResize(input: ResizeInput): ResizeResult {
-  const { handleType, deltaX, deltaY, originalPosition, originalSize, shiftKey } = input;
+  const { handleType, deltaX, deltaY, originalPosition, originalSize, shiftKey, ctrlKey } = input;
 
   let newX = originalPosition.x;
   let newY = originalPosition.y;
@@ -354,6 +355,23 @@ export function computeResize(input: ResizeInput): ResizeResult {
       newX = originalPosition.x + originalSize.width - newWidth;
     }
     // 'se' doesn't move the origin
+  }
+
+  // ── Ctrl/Cmd: force 1:1 aspect ratio (square/circle) on corner handles ──
+  if (ctrlKey && isCornerHandle(handleType)) {
+    const maxDim = Math.max(newWidth, newHeight);
+    newWidth = maxDim;
+    newHeight = maxDim;
+
+    // Re-adjust position for handles that move the origin
+    if (handleType === 'nw') {
+      newX = originalPosition.x + originalSize.width - newWidth;
+      newY = originalPosition.y + originalSize.height - newHeight;
+    } else if (handleType === 'ne') {
+      newY = originalPosition.y + originalSize.height - newHeight;
+    } else if (handleType === 'sw') {
+      newX = originalPosition.x + originalSize.width - newWidth;
+    }
   }
 
   // ── Enforce minimum size [AC5] ──

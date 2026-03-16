@@ -182,6 +182,7 @@ export function useManipulationInteraction(
         originalPosition: drag.originalPosition,
         originalSize: drag.originalSize,
         shiftKey: e.shiftKey,
+        ctrlKey: e.ctrlKey || e.metaKey,
       });
 
       useCanvasStore.setState((draft) => {
@@ -258,6 +259,7 @@ export function useManipulationInteraction(
           originalPosition: drag.originalPosition,
           originalSize: drag.originalSize,
           shiftKey: e.shiftKey,
+          ctrlKey: e.ctrlKey || e.metaKey,
         });
 
         state.transformExpression(
