@@ -208,15 +208,15 @@ export function useManipulationInteraction(
               ? { x: endTarget.position.x + endTarget.size.width / 2, y: endTarget.position.y + endTarget.size.height / 2 }
               : { x: points[points.length - 1]![0], y: points[points.length - 1]![1] };
 
-            // Smart anchor BOTH ends — each faces the other shape
+            // Smart anchor BOTH ends — only switch edge, keep ratio stable
             if (data.startBinding && startTarget) {
-              const best = findBestAnchorForDrag(startTarget, endRef);
+              const best = findBestAnchorForDrag(startTarget, endRef, data.startBinding.anchor, data.startBinding.ratio);
               data.startBinding.anchor = best.anchor as ArrowAnchor;
               data.startBinding.ratio = best.ratio;
               points[0] = [best.point.x, best.point.y];
             }
             if (data.endBinding && endTarget) {
-              const best = findBestAnchorForDrag(endTarget, startRef);
+              const best = findBestAnchorForDrag(endTarget, startRef, data.endBinding.anchor, data.endBinding.ratio);
               data.endBinding.anchor = best.anchor as ArrowAnchor;
               data.endBinding.ratio = best.ratio;
               points[points.length - 1] = [best.point.x, best.point.y];
@@ -479,6 +479,8 @@ export let isDraggingArrowEndpoint: boolean = false;
 function findBestAnchorForDrag(
   expr: VisualExpression,
   toward: { x: number; y: number },
+  currentAnchor?: string,
+  currentRatio?: number,
 ): { anchor: string; point: { x: number; y: number }; ratio: number } {
   const { x, y } = expr.position;
   const { width, height } = expr.size;
@@ -495,11 +497,12 @@ function findBestAnchorForDrag(
     anchor = dy > 0 ? 'bottom' : 'top';
   }
 
-  let ratio = 0.5;
-  if (anchor === 'top' || anchor === 'bottom') {
-    ratio = width > 0 ? Math.max(0.1, Math.min(0.9, (toward.x - x) / width)) : 0.5;
+  // Keep existing ratio if edge didn't change
+  let ratio: number;
+  if (anchor === currentAnchor && currentRatio !== undefined) {
+    ratio = currentRatio;
   } else {
-    ratio = height > 0 ? Math.max(0.1, Math.min(0.9, (toward.y - y) / height)) : 0.5;
+    ratio = 0.5;
   }
 
   const point = getAnchorPoint(expr, anchor, ratio);

@@ -196,16 +196,16 @@ function updateBoundArrows(
         ? { x: endTarget.position.x + endTarget.size.width / 2, y: endTarget.position.y + endTarget.size.height / 2 }
         : { x: points[points.length - 1]![0], y: points[points.length - 1]![1] };
 
-      // Smart anchor BOTH ends — each faces the other shape's center
+      // Smart anchor BOTH ends — only switch edge when needed, keep ratio stable
       if (data.startBinding && startTarget) {
-        const best = findBestAnchor(startTarget, endRef);
+        const best = findBestAnchor(startTarget, endRef, data.startBinding.anchor, data.startBinding.ratio);
         data.startBinding.anchor = best.anchor as ArrowAnchor;
         data.startBinding.ratio = best.ratio;
         points[0] = [best.point.x, best.point.y];
       }
 
       if (data.endBinding && endTarget) {
-        const best = findBestAnchor(endTarget, startRef);
+        const best = findBestAnchor(endTarget, startRef, data.endBinding.anchor, data.endBinding.ratio);
         data.endBinding.anchor = best.anchor as ArrowAnchor;
         data.endBinding.ratio = best.ratio;
         points[points.length - 1] = [best.point.x, best.point.y];
@@ -229,13 +229,15 @@ function updateBoundArrows(
 }
 
 /**
- * Find the best anchor point on a shape's edge facing toward a target point.
- * Projects the target onto each edge and picks the closest one that doesn't
- * require the arrow to cross through the shape.
+ * Find the best edge facing toward a target point.
+ * Only changes the edge (anchor) when the arrow would cross the shape.
+ * Preserves the original ratio — only resets to 0.5 when switching edges.
  */
 function findBestAnchor(
   expr: VisualExpression,
   toward: { x: number; y: number },
+  currentAnchor?: string,
+  currentRatio?: number,
 ): { anchor: string; point: { x: number; y: number }; ratio: number } {
   const { x, y } = expr.position;
   const { width, height } = expr.size;
@@ -254,12 +256,12 @@ function findBestAnchor(
     anchor = dy > 0 ? 'bottom' : 'top';
   }
 
-  // Project target onto the chosen edge for the ratio
-  let ratio = 0.5;
-  if (anchor === 'top' || anchor === 'bottom') {
-    ratio = width > 0 ? clampValue((toward.x - x) / width, 0.1, 0.9) : 0.5;
+  // Keep existing ratio if the edge didn't change
+  let ratio: number;
+  if (anchor === currentAnchor && currentRatio !== undefined) {
+    ratio = currentRatio;
   } else {
-    ratio = height > 0 ? clampValue((toward.y - y) / height, 0.1, 0.9) : 0.5;
+    ratio = 0.5; // Reset to center when switching edges
   }
 
   const point = getAnchorPoint(expr, anchor, ratio);
