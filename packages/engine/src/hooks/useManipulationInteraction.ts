@@ -21,15 +21,17 @@
  */
 
 import { useRef, useEffect, useCallback, useState } from 'react';
+import type { VisualExpression } from '@infinicanvas/protocol';
 import { useCanvasStore } from '../store/canvasStore.js';
 import { screenToWorld } from '../camera.js';
-import { isEditableTarget } from '../utils/isEditableTarget.js';
 import {
   detectPointerTarget,
   computeResize,
+  computePointDrag,
   getCursorForTarget,
+  isPointBasedKind,
 } from '../interaction/manipulationHelpers.js';
-import type { HandleHit } from '../interaction/manipulationHelpers.js';
+import type { HandleHit, PointHandleHit } from '../interaction/manipulationHelpers.js';
 
 export interface ManipulationInteraction {
   /** Current cursor style based on pointer target. */
@@ -51,6 +53,18 @@ type DragMode =
       /** Handle being dragged. */
       handle: HandleHit;
       /** Original expression bounds before resize. */
+      originalPosition: { x: number; y: number };
+      originalSize: { width: number; height: number };
+      /** World position where drag started. */
+      startWorld: { x: number; y: number };
+    }
+  | {
+      kind: 'point-drag';
+      /** Point handle being dragged. */
+      handle: PointHandleHit;
+      /** Original points array before drag started. */
+      originalPoints: [number, number][];
+      /** Original expression bounds before drag. */
       originalPosition: { x: number; y: number };
       originalSize: { width: number; height: number };
       /** World position where drag started. */
@@ -82,7 +96,25 @@ export function useManipulationInteraction(
     // Detect target: handle or body of a selected expression
     const target = detectPointerTarget(worldPoint, expressions, selectedIds, camera);
 
-    if (target.kind === 'handle') {
+    if (target.kind === 'point-handle') {
+      const expr = expressions[target.handle.expressionId];
+      if (!expr || expr.meta.locked) return; // AC8: locked guard
+
+      // Extract points from the expression data
+      const data = expr.data as { points: [number, number][] | [number, number, number][] };
+      const originalPoints: [number, number][] = data.points.map(
+        (p) => [p[0], p[1]] as [number, number],
+      );
+
+      dragModeRef.current = {
+        kind: 'point-drag',
+        handle: target.handle,
+        originalPoints,
+        originalPosition: { ...expr.position },
+        originalSize: { ...expr.size },
+        startWorld: worldPoint,
+      };
+    } else if (target.kind === 'handle') {
       const expr = expressions[target.handle.expressionId];
       if (!expr || expr.meta.locked) return; // AC8: locked guard
 
@@ -159,6 +191,32 @@ export function useManipulationInteraction(
           expr.size = resized.size;
         }
       });
+    } else if (drag.kind === 'point-drag') {
+      // ── Transient point-drag preview ────────────────────
+      const result = computePointDrag({
+        pointIndex: drag.handle.pointIndex,
+        originalPoints: drag.originalPoints,
+        newPointPosition: worldPoint,
+      });
+
+      useCanvasStore.setState((draft) => {
+        const expr = draft.expressions[drag.handle.expressionId];
+        if (expr && isPointBasedKind(expr.data.kind)) {
+          const data = expr.data as { points: [number, number][] | [number, number, number][] };
+          // Update point — preserve pressure for freehand
+          if (expr.data.kind === 'freehand') {
+            const freehandPoints = data.points as [number, number, number][];
+            const pressure = freehandPoints[drag.handle.pointIndex]?.[2] ?? 0.5;
+            (data.points as [number, number, number][])[drag.handle.pointIndex] =
+              [worldPoint.x, worldPoint.y, pressure];
+          } else {
+            (data.points as [number, number][])[drag.handle.pointIndex] =
+              [worldPoint.x, worldPoint.y];
+          }
+          expr.position = result.position;
+          expr.size = result.size;
+        }
+      });
     } else {
       // ── Hover cursor feedback (AC10) ────────────────────
       const target = detectPointerTarget(worldPoint, expressions, selectedIds, camera);
@@ -207,6 +265,42 @@ export function useManipulationInteraction(
           { position: drag.originalPosition, size: drag.originalSize },
           { position: resized.position, size: resized.size },
         );
+      }
+    } else if (drag.kind === 'point-drag') {
+      const dx = worldPoint.x - drag.startWorld.x;
+      const dy = worldPoint.y - drag.startWorld.y;
+
+      if (Math.abs(dx) > 0.001 || Math.abs(dy) > 0.001) {
+        const result = computePointDrag({
+          pointIndex: drag.handle.pointIndex,
+          originalPoints: drag.originalPoints,
+          newPointPosition: worldPoint,
+        });
+
+        // Build updated data payload preserving kind-specific fields
+        const expr = state.expressions[drag.handle.expressionId];
+        if (expr) {
+          let updatedData: Record<string, unknown>;
+
+          if (expr.data.kind === 'freehand') {
+            // Preserve pressure values for freehand
+            const freehandData = expr.data as { kind: 'freehand'; points: [number, number, number][] };
+            const newPoints: [number, number, number][] = freehandData.points.map(
+              (p) => [p[0], p[1], p[2]] as [number, number, number],
+            );
+            const pressure = newPoints[drag.handle.pointIndex]?.[2] ?? 0.5;
+            newPoints[drag.handle.pointIndex] = [worldPoint.x, worldPoint.y, pressure];
+            updatedData = { ...expr.data, points: newPoints };
+          } else {
+            updatedData = { ...expr.data, points: result.points };
+          }
+
+          state.updateExpression(drag.handle.expressionId, {
+            data: updatedData as unknown as VisualExpression['data'],
+            position: result.position,
+            size: result.size,
+          });
+        }
       }
     }
 

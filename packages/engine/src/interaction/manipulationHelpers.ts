@@ -11,6 +11,21 @@
 import type { VisualExpression } from '@infinicanvas/protocol';
 import type { Camera } from '../types/index.js';
 
+// ── Point-based kind guard ─────────────────────────────────────
+
+/** Expression kinds that use `data.points` for geometry. */
+export type PointBasedKind = 'line' | 'arrow' | 'freehand';
+
+/**
+ * Check if an expression kind uses point-based geometry.
+ *
+ * Lines, arrows, and freehand shapes store their geometry in
+ * `data.points` rather than using `position`/`size` alone. [CLEAN-CODE]
+ */
+export function isPointBasedKind(kind: string): kind is PointBasedKind {
+  return kind === 'line' || kind === 'arrow' || kind === 'freehand';
+}
+
 // ── Handle types ──────────────────────────────────────────────
 
 /** The 8 resize handle positions (4 corners + 4 edge midpoints). */
@@ -22,9 +37,16 @@ export interface HandleHit {
   expressionId: string;
 }
 
+/** Result of detecting a point handle (endpoint of a line/arrow/freehand). */
+export interface PointHandleHit {
+  pointIndex: number;
+  expressionId: string;
+}
+
 /** Result of detecting what the pointer is hovering over. */
 export type PointerTarget =
   | { kind: 'handle'; handle: HandleHit }
+  | { kind: 'point-handle'; handle: PointHandleHit }
   | { kind: 'body'; expressionId: string }
   | { kind: 'none' };
 
@@ -61,10 +83,12 @@ export function getHandlePositions(
 }
 
 /**
- * Detect which handle (if any) is at the given world point.
+ * Detect which bbox handle (if any) is at the given world point.
  *
- * Checks all selected expressions' handles. Returns the first hit
- * within HANDLE_TOLERANCE_PX screen pixels of the handle center.
+ * Checks all selected non-point-based expressions' handles. Returns the
+ * first hit within HANDLE_TOLERANCE_PX screen pixels of the handle center.
+ * Point-based shapes (line, arrow, freehand) are skipped — they use
+ * point handles instead.
  */
 export function detectHandle(
   worldPoint: { x: number; y: number },
@@ -77,6 +101,9 @@ export function detectHandle(
   for (const id of selectedIds) {
     const expr = expressions[id];
     if (!expr) continue;
+
+    // Point-based shapes use point handles, not bbox handles
+    if (isPointBasedKind(expr.data.kind)) continue;
 
     const handles = getHandlePositions(expr);
     for (const handle of handles) {
@@ -91,10 +118,81 @@ export function detectHandle(
   return null;
 }
 
+// ── Point-based handle detection ──────────────────────────────
+
+/**
+ * Compute point handle positions for a point-based expression.
+ *
+ * - Lines and arrows: returns a handle at each point in `data.points`.
+ * - Freehand: returns handles at first and last point only (not all points).
+ * - Non-point-based expressions: returns empty array.
+ *
+ * @returns Array of handle positions with their point index.
+ */
+export function getPointHandlePositions(
+  expr: VisualExpression,
+): Array<{ x: number; y: number; pointIndex: number }> {
+  if (!isPointBasedKind(expr.data.kind)) return [];
+
+  const data = expr.data as { points: [number, number][] | [number, number, number][] };
+  const { points } = data;
+
+  if (points.length === 0) return [];
+
+  if (expr.data.kind === 'freehand') {
+    // Freehand: first and last point only
+    const first = points[0]!;
+    const last = points[points.length - 1]!;
+    if (points.length === 1) {
+      return [{ x: first[0], y: first[1], pointIndex: 0 }];
+    }
+    return [
+      { x: first[0], y: first[1], pointIndex: 0 },
+      { x: last[0], y: last[1], pointIndex: points.length - 1 },
+    ];
+  }
+
+  // Lines and arrows: handle at each point
+  return points.map((p, i) => ({ x: p[0], y: p[1], pointIndex: i }));
+}
+
+/**
+ * Detect which point handle (if any) is at the given world point.
+ *
+ * Only checks point-based expressions (line, arrow, freehand).
+ * Returns the first hit within HANDLE_TOLERANCE_PX screen pixels.
+ */
+export function detectPointHandle(
+  worldPoint: { x: number; y: number },
+  expressions: Record<string, VisualExpression>,
+  selectedIds: Set<string>,
+  camera: Camera,
+): PointHandleHit | null {
+  const tolerance = HANDLE_TOLERANCE_PX / camera.zoom;
+
+  for (const id of selectedIds) {
+    const expr = expressions[id];
+    if (!expr || !isPointBasedKind(expr.data.kind)) continue;
+
+    const handles = getPointHandlePositions(expr);
+    for (const handle of handles) {
+      const dx = worldPoint.x - handle.x;
+      const dy = worldPoint.y - handle.y;
+      if (Math.abs(dx) <= tolerance && Math.abs(dy) <= tolerance) {
+        return { pointIndex: handle.pointIndex, expressionId: id };
+      }
+    }
+  }
+
+  return null;
+}
+
 /**
  * Detect what the pointer is targeting: a handle, a shape body, or nothing.
  *
- * Priority: handles first (so users can grab edges), then body.
+ * Priority: point handles (for point-based shapes) → bbox handles → body.
+ * Point-based shapes (line, arrow, freehand) use point handles instead
+ * of the 8 bounding-box handles.
  */
 export function detectPointerTarget(
   worldPoint: { x: number; y: number },
@@ -102,7 +200,13 @@ export function detectPointerTarget(
   selectedIds: Set<string>,
   camera: Camera,
 ): PointerTarget {
-  // Check handles first
+  // Check point handles first (for line/arrow/freehand)
+  const pointHandle = detectPointHandle(worldPoint, expressions, selectedIds, camera);
+  if (pointHandle) {
+    return { kind: 'point-handle', handle: pointHandle };
+  }
+
+  // Check bbox handles (only for non-point-based shapes)
   const handle = detectHandle(worldPoint, expressions, selectedIds, camera);
   if (handle) {
     return { kind: 'handle', handle };
@@ -148,6 +252,8 @@ export function getCursorForTarget(target: PointerTarget): string {
   switch (target.kind) {
     case 'handle':
       return HANDLE_CURSORS[target.handle.type];
+    case 'point-handle':
+      return 'crosshair';
     case 'body':
       return 'move';
     case 'none':
@@ -274,4 +380,58 @@ export function computeResize(input: ResizeInput): ResizeResult {
 /** Check if a handle is a corner handle (resizes both dimensions). */
 function isCornerHandle(type: HandleType): boolean {
   return type === 'nw' || type === 'ne' || type === 'se' || type === 'sw';
+}
+
+// ── Point drag computation ────────────────────────────────────
+
+interface PointDragInput {
+  /** Index of the point being dragged. */
+  pointIndex: number;
+  /** Original points array (not mutated). */
+  originalPoints: [number, number][];
+  /** New world position for the dragged point. */
+  newPointPosition: { x: number; y: number };
+}
+
+interface PointDragResult {
+  /** Updated points array with the dragged point moved. */
+  points: [number, number][];
+  /** Recalculated bounding-box position (top-left). */
+  position: { x: number; y: number };
+  /** Recalculated bounding-box size. Zero dimensions are clamped to 1. */
+  size: { width: number; height: number };
+}
+
+/**
+ * Compute the result of dragging a single point in a point-based shape.
+ *
+ * Updates the specific point, then recalculates the bounding box
+ * (position and size) from all points. Does not mutate the original
+ * points array. [CLEAN-CODE]
+ */
+export function computePointDrag(input: PointDragInput): PointDragResult {
+  const { pointIndex, originalPoints, newPointPosition } = input;
+
+  // Clone points and update the dragged point
+  const points: [number, number][] = originalPoints.map(
+    (p) => [p[0], p[1]] as [number, number],
+  );
+  points[pointIndex] = [newPointPosition.x, newPointPosition.y];
+
+  // Recalculate bounding box from all points
+  const xs = points.map((p) => p[0]);
+  const ys = points.map((p) => p[1]);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  const maxX = Math.max(...xs);
+  const maxY = Math.max(...ys);
+
+  return {
+    points,
+    position: { x: minX, y: minY },
+    size: {
+      width: maxX - minX || 1,
+      height: maxY - minY || 1,
+    },
+  };
 }

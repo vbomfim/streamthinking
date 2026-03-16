@@ -3,7 +3,9 @@
  *
  * Renders after all expressions in the render loop:
  * - Dashed bounding box in selection color (#4A90D9)
- * - 8 resize handles (4 corners + 4 edge midpoints)
+ * - For point-based shapes (line, arrow, freehand): circular handles
+ *   at each point (or first/last for freehand)
+ * - For other shapes: 8 resize handles (4 corners + 4 edge midpoints)
  *
  * Handle sizes are constant in screen pixels (8×8), scaled inversely
  * by zoom to maintain consistent visual size.
@@ -13,6 +15,10 @@
 
 import type { VisualExpression } from '@infinicanvas/protocol';
 import type { Camera } from '../types/index.js';
+import {
+  isPointBasedKind,
+  getPointHandlePositions,
+} from '../interaction/manipulationHelpers.js';
 
 /** Selection highlight color. */
 const SELECTION_COLOR = '#4A90D9';
@@ -26,8 +32,10 @@ const DASH_PATTERN = [4, 4];
 /**
  * Render selection UI for all selected expressions.
  *
- * For each selected expression: draws a dashed bounding box and
- * 8 resize handles (white squares with selection-colored borders).
+ * For point-based shapes (line, arrow, freehand): draws a dashed bounding
+ * box and circular handles at each data point.
+ * For other shapes: draws a dashed bounding box and 8 resize handles
+ * (white squares with selection-colored borders).
  *
  * @param ctx - Canvas 2D rendering context (with camera transform applied)
  * @param selectedIds - Set of currently selected expression IDs
@@ -62,29 +70,81 @@ export function renderSelection(
     ctx.setLineDash([]); // Reset dash
     ctx.restore();
 
-    // ── 8 resize handles ─────────────────────────────────────
-    const handlePoints = [
-      // Corners
-      { hx: x, hy: y },                             // top-left
-      { hx: x + width, hy: y },                     // top-right
-      { hx: x + width, hy: y + height },             // bottom-right
-      { hx: x, hy: y + height },                     // bottom-left
-      // Edge midpoints
-      { hx: x + width / 2, hy: y },                 // top-mid
-      { hx: x + width, hy: y + height / 2 },         // right-mid
-      { hx: x + width / 2, hy: y + height },         // bottom-mid
-      { hx: x, hy: y + height / 2 },                 // left-mid
-    ];
-
-    for (const { hx, hy } of handlePoints) {
-      // White fill
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(hx - halfHandle, hy - halfHandle, handleSize, handleSize);
-
-      // Selection-colored border
-      ctx.strokeStyle = SELECTION_COLOR;
-      ctx.lineWidth = 1 / camera.zoom;
-      ctx.strokeRect(hx - halfHandle, hy - halfHandle, handleSize, handleSize);
+    if (isPointBasedKind(expr.data.kind)) {
+      // ── Circular point handles for line/arrow/freehand ───
+      renderPointHandles(ctx, expr, camera, halfHandle);
+    } else {
+      // ── 8 resize handles for other shapes ───────────────
+      renderBboxHandles(ctx, expr, camera, handleSize, halfHandle);
     }
+  }
+}
+
+/**
+ * Render circular handles at each data point of a point-based expression.
+ *
+ * Handles are white circles with selection-colored borders, sized
+ * to match the standard handle size in screen pixels.
+ */
+function renderPointHandles(
+  ctx: CanvasRenderingContext2D,
+  expr: VisualExpression,
+  camera: Camera,
+  radius: number,
+): void {
+  const pointHandles = getPointHandlePositions(expr);
+
+  for (const { x: px, y: py } of pointHandles) {
+    ctx.beginPath();
+    ctx.arc(px, py, radius, 0, Math.PI * 2);
+
+    // White fill
+    ctx.fillStyle = '#ffffff';
+    ctx.fill();
+
+    // Selection-colored border
+    ctx.strokeStyle = SELECTION_COLOR;
+    ctx.lineWidth = 1 / camera.zoom;
+    ctx.stroke();
+  }
+}
+
+/**
+ * Render the 8 bounding-box resize handles (4 corners + 4 edge midpoints).
+ *
+ * Handles are white squares with selection-colored borders.
+ */
+function renderBboxHandles(
+  ctx: CanvasRenderingContext2D,
+  expr: VisualExpression,
+  camera: Camera,
+  handleSize: number,
+  halfHandle: number,
+): void {
+  const { x, y } = expr.position;
+  const { width, height } = expr.size;
+
+  const handlePoints = [
+    // Corners
+    { hx: x, hy: y },                             // top-left
+    { hx: x + width, hy: y },                     // top-right
+    { hx: x + width, hy: y + height },             // bottom-right
+    { hx: x, hy: y + height },                     // bottom-left
+    // Edge midpoints
+    { hx: x + width / 2, hy: y },                 // top-mid
+    { hx: x + width, hy: y + height / 2 },         // right-mid
+    { hx: x + width / 2, hy: y + height },         // bottom-mid
+    { hx: x, hy: y + height / 2 },                 // left-mid
+  ];
+
+  for (const { hx, hy } of handlePoints) {
+    // White fill
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(hx - halfHandle, hy - halfHandle, handleSize, handleSize);
+
+    // Selection-colored border
+    ctx.strokeStyle = SELECTION_COLOR;
+    ctx.lineWidth = 1 / camera.zoom;
+    ctx.strokeRect(hx - halfHandle, hy - halfHandle, handleSize, handleSize);
   }
 }
