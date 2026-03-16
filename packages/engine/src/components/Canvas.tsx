@@ -18,6 +18,7 @@ import { useCanvasInteraction } from '../hooks/useCanvasInteraction.js';
 import { useSelectionInteraction } from '../hooks/useSelectionInteraction.js';
 import { useManipulationInteraction } from '../hooks/useManipulationInteraction.js';
 import { useDrawingInteraction } from '../hooks/useDrawingInteraction.js';
+import { useInlineEditor } from '../hooks/useInlineEditor.js';
 import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts.js';
 import { useTouchGestures } from '../hooks/useTouchGestures.js';
 import { useMetadataTooltip, formatRelativeTime } from '../hooks/useMetadataTooltip.js';
@@ -25,6 +26,7 @@ import { useCanvasStore } from '../store/canvasStore.js';
 import { worldToScreen } from '../camera.js';
 import { createRenderLoop } from '../renderer/renderLoop.js';
 import type { RenderLoop } from '../renderer/renderLoop.js';
+import type { VisualExpression } from '@infinicanvas/protocol';
 
 /** Minimum canvas dimensions to prevent zero-size or negative canvas. */
 const MIN_WIDTH = 1;
@@ -40,6 +42,7 @@ function CanvasInner() {
   const { getMarquee } = useSelectionInteraction(canvasRef);
   const { cursor: manipulationCursor } = useManipulationInteraction(canvasRef);
   const { getDrawPreview, textTool, cancelDraw } = useDrawingInteraction(canvasRef);
+  const inlineEditor = useInlineEditor(canvasRef);
   useTouchGestures(canvasRef);
   const tooltip = useMetadataTooltip(canvasRef);
 
@@ -49,6 +52,11 @@ function CanvasInner() {
 
   // Check text tool input position on each render
   const textInputPos = textTool.getInputPosition();
+
+  // Inline editor: look up the expression being edited
+  const editingExpr = useCanvasStore((s) =>
+    inlineEditor.editingId ? s.expressions[inlineEditor.editingId] ?? null : null,
+  );
 
   // Manipulation cursor takes priority, then drawing crosshair/text, then canvas default
   let cursor = canvasCursor;
@@ -196,6 +204,20 @@ function CanvasInner() {
           }}
         />
       )}
+      {/* Inline edit overlay for double-click editing [#75, #79] */}
+      {editingExpr && (
+        <InlineEditOverlay
+          expression={editingExpr}
+          initialText={inlineEditor.getEditingText()}
+          camera={camera}
+          onCommit={(text) => {
+            inlineEditor.commitEdit(text);
+          }}
+          onCancel={() => {
+            inlineEditor.cancelEdit();
+          }}
+        />
+      )}
       {/* Keyboard shortcuts help panel */}
       {showShortcutsHelp && (
         <ShortcutsHelpPanel onClose={() => setShowShortcutsHelp(false)} />
@@ -296,6 +318,114 @@ function TextInputOverlay({ worldX, worldY, camera, onCommit, onCancel }: TextIn
         background: 'white',
         resize: 'both',
         zIndex: 10,
+      }}
+    />
+  );
+}
+
+// ── Inline Edit Overlay ────────────────────────────────────
+
+interface InlineEditOverlayProps {
+  expression: VisualExpression;
+  initialText: string;
+  camera: { x: number; y: number; zoom: number };
+  onCommit: (text: string) => void;
+  onCancel: () => void;
+}
+
+/**
+ * Textarea overlay for inline editing of text, sticky-note text, and shape labels.
+ *
+ * Positioned at the expression's world coordinates. Sized to match the expression.
+ * Enter commits, ESC cancels, blur commits. Auto-focuses and selects text on mount.
+ *
+ * [#75, #79]
+ */
+function InlineEditOverlay({ expression, initialText, camera, onCommit, onCancel }: InlineEditOverlayProps) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const committedRef = useRef(false);
+
+  // Convert world position to screen position
+  const screenPos = worldToScreen(
+    expression.position.x,
+    expression.position.y,
+    camera,
+  );
+
+  // Scale expression dimensions to screen
+  const screenWidth = expression.size.width * camera.zoom;
+  const screenHeight = expression.size.height * camera.zoom;
+
+  // Determine font size based on expression kind
+  const isText = expression.kind === 'text';
+  const isStickyNote = expression.kind === 'sticky-note';
+  const data = expression.data as Record<string, unknown>;
+  const baseFontSize = isText && typeof data.fontSize === 'number'
+    ? data.fontSize
+    : isStickyNote ? 14 : 14;
+  const scaledFontSize = baseFontSize * camera.zoom;
+
+  useEffect(() => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.focus();
+      textarea.select();
+    }
+  }, []);
+
+  const doCommit = () => {
+    if (committedRef.current) return;
+    committedRef.current = true;
+    onCommit(textareaRef.current?.value ?? '');
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      doCommit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      committedRef.current = true; // Prevent blur from also committing
+      onCancel();
+    }
+  };
+
+  const handleBlur = () => {
+    doCommit();
+  };
+
+  return (
+    <textarea
+      ref={textareaRef}
+      data-testid="inline-edit-overlay"
+      defaultValue={initialText}
+      onKeyDown={handleKeyDown}
+      onBlur={handleBlur}
+      style={{
+        position: 'absolute',
+        left: `${screenPos.x}px`,
+        top: `${screenPos.y}px`,
+        width: `${Math.max(screenWidth, 100)}px`,
+        height: `${Math.max(screenHeight, 32)}px`,
+        padding: '4px 8px',
+        border: '2px solid #4A90D9',
+        borderRadius: '4px',
+        outline: 'none',
+        fontSize: `${scaledFontSize}px`,
+        fontFamily: isText && typeof data.fontFamily === 'string'
+          ? data.fontFamily
+          : 'sans-serif',
+        textAlign: (isText && typeof data.textAlign === 'string'
+          ? data.textAlign
+          : 'center') as React.CSSProperties['textAlign'],
+        background: isStickyNote && typeof data.color === 'string'
+          ? data.color
+          : 'white',
+        resize: 'none',
+        zIndex: 10,
+        boxSizing: 'border-box',
+        overflow: 'hidden',
+        lineHeight: 1.4,
       }}
     />
   );
