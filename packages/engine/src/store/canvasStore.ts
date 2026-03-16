@@ -170,7 +170,6 @@ function updateBoundArrows(
 
     const arrowIds = findBoundArrows(targetId, state.expressions);
     for (const arrowId of arrowIds) {
-      // Skip if the arrow itself was part of the move
       if (movedIds.has(arrowId)) continue;
 
       const arrow = state.expressions[arrowId];
@@ -178,23 +177,30 @@ function updateBoundArrows(
 
       const data = arrow.data as ArrowData;
       const points = data.points;
-      if (points.length === 0) continue;
+      if (points.length < 2) continue;
 
       let changed = false;
 
       if (data.startBinding?.expressionId === targetId) {
-        const anchorPt = getAnchorPoint(target, data.startBinding.anchor, data.startBinding.ratio ?? 0.5);
-        points[0] = [anchorPt.x, anchorPt.y];
+        // Smart anchor: pick the edge closest to the OTHER end (last point)
+        const otherEnd = { x: points[points.length - 1]![0], y: points[points.length - 1]![1] };
+        const best = findBestAnchor(target, otherEnd);
+        data.startBinding.anchor = best.anchor as ArrowAnchor;
+        data.startBinding.ratio = best.ratio;
+        points[0] = [best.point.x, best.point.y];
         changed = true;
       }
 
       if (data.endBinding?.expressionId === targetId) {
-        const anchorPt = getAnchorPoint(target, data.endBinding.anchor, data.endBinding.ratio ?? 0.5);
-        points[points.length - 1] = [anchorPt.x, anchorPt.y];
+        // Smart anchor: pick the edge closest to the OTHER end (first point)
+        const otherEnd = { x: points[0]![0], y: points[0]![1] };
+        const best = findBestAnchor(target, otherEnd);
+        data.endBinding.anchor = best.anchor as ArrowAnchor;
+        data.endBinding.ratio = best.ratio;
+        points[points.length - 1] = [best.point.x, best.point.y];
         changed = true;
       }
 
-      // Update the arrow's bounding box to reflect new point positions
       if (changed) {
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         for (const [px, py] of points) {
@@ -211,6 +217,48 @@ function updateBoundArrows(
       }
     }
   }
+}
+
+/**
+ * Find the best anchor point on a shape's edge facing toward a target point.
+ * Projects the target onto each edge and picks the closest one that doesn't
+ * require the arrow to cross through the shape.
+ */
+function findBestAnchor(
+  expr: VisualExpression,
+  toward: { x: number; y: number },
+): { anchor: string; point: { x: number; y: number }; ratio: number } {
+  const { x, y } = expr.position;
+  const { width, height } = expr.size;
+  const cx = x + width / 2;
+  const cy = y + height / 2;
+
+  // Direction from shape center to the target point
+  const dx = toward.x - cx;
+  const dy = toward.y - cy;
+
+  // Pick the edge that faces the target — use the dominant axis
+  let anchor: string;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    anchor = dx > 0 ? 'right' : 'left';
+  } else {
+    anchor = dy > 0 ? 'bottom' : 'top';
+  }
+
+  // Project target onto the chosen edge for the ratio
+  let ratio = 0.5;
+  if (anchor === 'top' || anchor === 'bottom') {
+    ratio = width > 0 ? clampValue((toward.x - x) / width, 0.1, 0.9) : 0.5;
+  } else {
+    ratio = height > 0 ? clampValue((toward.y - y) / height, 0.1, 0.9) : 0.5;
+  }
+
+  const point = getAnchorPoint(expr, anchor, ratio);
+  return { anchor, point, ratio };
+}
+
+function clampValue(v: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, v));
 }
 
 export const useCanvasStore = create<CanvasState & CanvasActions>()(

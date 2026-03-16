@@ -21,7 +21,7 @@
  */
 
 import { useRef, useEffect, useCallback, useState } from 'react';
-import type { VisualExpression, ArrowBinding, ArrowData } from '@infinicanvas/protocol';
+import type { VisualExpression, ArrowBinding, ArrowData, ArrowAnchor } from '@infinicanvas/protocol';
 import { useCanvasStore } from '../store/canvasStore.js';
 import { screenToWorld } from '../camera.js';
 import { findSnapPoint, findBoundArrows, getAnchorPoint } from '../interaction/connectorHelpers.js';
@@ -199,13 +199,20 @@ export function useManipulationInteraction(
 
             let changed = false;
             if (data.startBinding?.expressionId === targetId) {
-              const pt = getAnchorPoint(target, data.startBinding.anchor, data.startBinding.ratio ?? 0.5);
-              points[0] = [pt.x, pt.y];
+              // Smart anchor: pick edge facing the other end
+              const otherEnd = { x: points[points.length - 1]![0], y: points[points.length - 1]![1] };
+              const best = findBestAnchorForDrag(target, otherEnd);
+              data.startBinding.anchor = best.anchor as ArrowAnchor;
+              data.startBinding.ratio = best.ratio;
+              points[0] = [best.point.x, best.point.y];
               changed = true;
             }
             if (data.endBinding?.expressionId === targetId) {
-              const pt = getAnchorPoint(target, data.endBinding.anchor, data.endBinding.ratio ?? 0.5);
-              points[points.length - 1] = [pt.x, pt.y];
+              const otherEnd = { x: points[0]![0], y: points[0]![1] };
+              const best = findBestAnchorForDrag(target, otherEnd);
+              data.endBinding.anchor = best.anchor as ArrowAnchor;
+              data.endBinding.ratio = best.ratio;
+              points[points.length - 1] = [best.point.x, best.point.y];
               changed = true;
             }
 
@@ -463,3 +470,34 @@ export let currentDragSnapPoint: { x: number; y: number } | null = null;
 
 /** Whether an arrow endpoint drag is in progress. */
 export let isDraggingArrowEndpoint: boolean = false;
+
+/** Find the best anchor on a shape facing toward a target point (smart routing). */
+function findBestAnchorForDrag(
+  expr: VisualExpression,
+  toward: { x: number; y: number },
+): { anchor: string; point: { x: number; y: number }; ratio: number } {
+  const { x, y } = expr.position;
+  const { width, height } = expr.size;
+  const cx = x + width / 2;
+  const cy = y + height / 2;
+
+  const dx = toward.x - cx;
+  const dy = toward.y - cy;
+
+  let anchor: string;
+  if (Math.abs(dx) > Math.abs(dy)) {
+    anchor = dx > 0 ? 'right' : 'left';
+  } else {
+    anchor = dy > 0 ? 'bottom' : 'top';
+  }
+
+  let ratio = 0.5;
+  if (anchor === 'top' || anchor === 'bottom') {
+    ratio = width > 0 ? Math.max(0.1, Math.min(0.9, (toward.x - x) / width)) : 0.5;
+  } else {
+    ratio = height > 0 ? Math.max(0.1, Math.min(0.9, (toward.y - y) / height)) : 0.5;
+  }
+
+  const point = getAnchorPoint(expr, anchor, ratio);
+  return { anchor, point, ratio };
+}
