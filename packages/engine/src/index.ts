@@ -151,6 +151,8 @@ export type {
 } from './hooks/useKeyboardShortcuts.js';
 export { useSelectionInteraction } from './hooks/useSelectionInteraction.js';
 export type { SelectionInteraction, MarqueeRect } from './hooks/useSelectionInteraction.js';
+export { useInlineEditor, EDITABLE_KINDS } from './hooks/useInlineEditor.js';
+export type { InlineEditorState } from './hooks/useInlineEditor.js';
 export { useManipulationInteraction } from './hooks/useManipulationInteraction.js';
 export type { ManipulationInteraction } from './hooks/useManipulationInteraction.js';
 export { useDrawingInteraction } from './hooks/useDrawingInteraction.js';
