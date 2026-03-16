@@ -187,9 +187,6 @@ function getBestEdge(
   return dy > 0 ? 'bottom' : 'top';
 }
 
-  return points;
-}
-
 /**
  * Find all arrows bound to a given expression ID.
  *
