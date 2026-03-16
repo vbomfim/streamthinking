@@ -1,9 +1,11 @@
 /**
- * StylePanel — style controls for selected expressions.
+ * StylePanel — style controls for selected expressions and pre-draw defaults.
  *
- * Appears when one or more expressions are selected. Provides controls
- * for stroke color, fill color, stroke width, fill style, roughness,
- * and opacity. Changes apply immediately via `styleExpressions`.
+ * Works in two modes:
+ * 1. **Selection mode** — when expressions are selected, shows/edits their styles
+ *    via `styleExpressions`.
+ * 2. **Drawing mode** — when a drawing tool is active and nothing is selected,
+ *    shows/edits `lastUsedStyle` so users can pick styles before drawing.
  *
  * @module
  */
@@ -128,26 +130,37 @@ function radioLabelStyle(isActive: boolean): React.CSSProperties {
 
 // ── Component ──────────────────────────────────────────────
 
-/** Style panel for editing selected expression styles. */
+/** Style panel for editing selected expression styles or pre-draw defaults. */
 export function StylePanel() {
   const selectedIds = useCanvasStore((s) => s.selectedIds);
   const expressions = useCanvasStore((s) => s.expressions);
   const styleExpressions = useCanvasStore((s) => s.styleExpressions);
+  const activeTool = useCanvasStore((s) => s.activeTool);
+  const lastUsedStyle = useCanvasStore((s) => s.lastUsedStyle);
+  const setLastUsedStyle = useCanvasStore((s) => s.setLastUsedStyle);
 
-  // Hide when nothing is selected
-  if (selectedIds.size === 0) return null;
+  // Drawing mode: tool active + nothing selected → show lastUsedStyle
+  const isDrawingMode = selectedIds.size === 0 && activeTool !== 'select';
+
+  // Hide when Select tool active and nothing selected
+  if (selectedIds.size === 0 && activeTool === 'select') return null;
 
   // Get the style of the first selected expression as reference
-  const firstSelectedId = [...selectedIds][0]!;
-  const firstExpr = expressions[firstSelectedId];
-  if (!firstExpr) return null;
+  const firstSelectedId = selectedIds.size > 0 ? [...selectedIds][0]! : undefined;
+  const firstExpr = firstSelectedId ? expressions[firstSelectedId] : undefined;
 
-  const currentStyle = firstExpr.style;
-  const ids = [...selectedIds];
+  // In selection mode, bail if expression not found
+  if (!isDrawingMode && !firstExpr) return null;
 
-  /** Apply a partial style to all selected expressions. */
+  const currentStyle = isDrawingMode ? lastUsedStyle : firstExpr!.style;
+
+  /** Apply a partial style — routes to correct handler per mode. */
   function applyStyle(style: Partial<ExpressionStyle>) {
-    styleExpressions(ids, style);
+    if (isDrawingMode) {
+      setLastUsedStyle(style);
+    } else {
+      styleExpressions([...selectedIds], style);
+    }
   }
 
   return (

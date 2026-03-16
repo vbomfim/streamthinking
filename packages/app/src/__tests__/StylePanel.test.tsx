@@ -53,7 +53,8 @@ describe('StylePanel', () => {
 
   // ── Visibility ──
 
-  it('is hidden when no expressions are selected', () => {
+  it('is hidden when Select tool active and nothing selected', () => {
+    // activeTool defaults to 'select', selectedIds is empty
     const { container } = render(<StylePanel />);
     const panel = container.querySelector('[data-testid="style-panel"]');
     expect(panel).toBeNull();
@@ -61,6 +62,13 @@ describe('StylePanel', () => {
 
   it('is visible when expressions are selected', () => {
     setupWithSelectedExpression();
+    const { container } = render(<StylePanel />);
+    const panel = container.querySelector('[data-testid="style-panel"]');
+    expect(panel).not.toBeNull();
+  });
+
+  it('is visible when drawing tool active and nothing selected', () => {
+    useCanvasStore.setState({ activeTool: 'rectangle' });
     const { container } = render(<StylePanel />);
     const panel = container.querySelector('[data-testid="style-panel"]');
     expect(panel).not.toBeNull();
@@ -216,5 +224,79 @@ describe('StylePanel', () => {
 
     const thickRadio = container.querySelector('[name="strokeWidth"][value="4"]') as HTMLInputElement;
     expect(thickRadio?.checked).toBe(true);
+  });
+
+  // ── Drawing mode (pre-draw style) ──
+
+  it('shows lastUsedStyle values in drawing mode', () => {
+    useCanvasStore.setState({
+      activeTool: 'rectangle',
+      lastUsedStyle: { ...DEFAULT_EXPRESSION_STYLE, strokeColor: '#e03131', strokeWidth: 4 },
+    });
+    const { container } = render(<StylePanel />);
+
+    // Stroke color swatch for red should be pressed
+    const redSwatch = container.querySelector(
+      '[data-testid="stroke-color-swatch"][data-color="#e03131"]',
+    );
+    expect(redSwatch?.getAttribute('aria-pressed')).toBe('true');
+
+    // Stroke width thick radio should be checked
+    const thickRadio = container.querySelector('[name="strokeWidth"][value="4"]') as HTMLInputElement;
+    expect(thickRadio?.checked).toBe(true);
+  });
+
+  it('changing color in drawing mode updates lastUsedStyle (not expressions)', () => {
+    useCanvasStore.setState({ activeTool: 'rectangle' });
+    const { container } = render(<StylePanel />);
+
+    const blueSwatch = container.querySelector(
+      '[data-testid="stroke-color-swatch"][data-color="#1971c2"]',
+    );
+    fireEvent.click(blueSwatch!);
+
+    // lastUsedStyle should be updated
+    expect(useCanvasStore.getState().lastUsedStyle.strokeColor).toBe('#1971c2');
+
+    // No expressions should have been modified (there are none)
+    expect(Object.keys(useCanvasStore.getState().expressions)).toHaveLength(0);
+  });
+
+  it('changing fill in drawing mode updates lastUsedStyle', () => {
+    useCanvasStore.setState({ activeTool: 'ellipse' });
+    const { container } = render(<StylePanel />);
+
+    const greenSwatch = container.querySelector(
+      '[data-testid="fill-color-swatch"][data-color="#2f9e44"]',
+    );
+    fireEvent.click(greenSwatch!);
+
+    expect(useCanvasStore.getState().lastUsedStyle.backgroundColor).toBe('#2f9e44');
+  });
+
+  it('changing stroke width in drawing mode updates lastUsedStyle', () => {
+    useCanvasStore.setState({ activeTool: 'line' });
+    const { container } = render(<StylePanel />);
+
+    const thickRadio = container.querySelector('[name="strokeWidth"][value="4"]');
+    fireEvent.click(thickRadio!);
+
+    expect(useCanvasStore.getState().lastUsedStyle.strokeWidth).toBe(4);
+  });
+
+  it('still shows selected expression style when in selection mode', () => {
+    // Both selection and a non-select tool shouldn't happen normally,
+    // but selection mode takes precedence when selectedIds > 0
+    const expr = makeRectangle('rect-1');
+    useCanvasStore.getState().addExpression(expr);
+    useCanvasStore.getState().styleExpressions(['rect-1'], { strokeColor: '#9c36b5' });
+    useCanvasStore.setState({ selectedIds: new Set(['rect-1']) });
+
+    const { container } = render(<StylePanel />);
+
+    const purpleSwatch = container.querySelector(
+      '[data-testid="stroke-color-swatch"][data-color="#9c36b5"]',
+    );
+    expect(purpleSwatch?.getAttribute('aria-pressed')).toBe('true');
   });
 });
