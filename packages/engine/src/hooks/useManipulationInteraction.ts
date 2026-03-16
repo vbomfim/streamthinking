@@ -213,7 +213,7 @@ export function useManipulationInteraction(
       useCanvasStore.setState((draft) => {
         const expr = draft.expressions[drag.handle.expressionId];
         if (expr && isPointBasedKind(expr.data.kind)) {
-          const data = expr.data as { points: [number, number][] | [number, number, number][] };
+          const data = expr.data as { points: [number, number][] | [number, number, number][]; startBinding?: unknown; endBinding?: unknown };
           // Update point — preserve pressure for freehand
           if (expr.data.kind === 'freehand') {
             const freehandPoints = data.points as [number, number, number][];
@@ -224,6 +224,15 @@ export function useManipulationInteraction(
             (data.points as [number, number][])[drag.handle.pointIndex] =
               [worldPoint.x, worldPoint.y];
           }
+
+          // Clear binding immediately so arrow detaches visually during drag
+          if (expr.data.kind === 'arrow') {
+            const isStart = drag.handle.pointIndex === 0;
+            const isEnd = drag.handle.pointIndex === (drag.originalPoints.length - 1);
+            if (isStart) data.startBinding = undefined;
+            if (isEnd) data.endBinding = undefined;
+          }
+
           expr.position = result.position;
           expr.size = result.size;
         }
