@@ -131,23 +131,61 @@ export function resolveBindings(
     (p) => [p[0], p[1]] as [number, number],
   );
 
-  if (points.length === 0) return points;
+  if (points.length < 2) return points;
 
-  // Resolve start binding
-  if (arrowData.startBinding) {
-    const resolved = resolveBinding(arrowData.startBinding, expressions);
-    if (resolved) {
-      points[0] = [resolved.x, resolved.y];
-    }
+  // Get both bound shapes
+  const startShape = arrowData.startBinding ? expressions[arrowData.startBinding.expressionId] : null;
+  const endShape = arrowData.endBinding ? expressions[arrowData.endBinding.expressionId] : null;
+
+  // Use shape centers as routing references
+  const startCenter = startShape
+    ? { x: startShape.position.x + startShape.size.width / 2, y: startShape.position.y + startShape.size.height / 2 }
+    : null;
+  const endCenter = endShape
+    ? { x: endShape.position.x + endShape.size.width / 2, y: endShape.position.y + endShape.size.height / 2 }
+    : null;
+
+  // Resolve start binding — smart route facing the other end
+  if (arrowData.startBinding && startShape) {
+    const toward = endCenter ?? { x: points[points.length - 1]![0], y: points[points.length - 1]![1] };
+    const bestEdge = getBestEdge(startShape, toward);
+    // Use stored ratio if edge matches, otherwise center
+    const ratio = bestEdge === arrowData.startBinding.anchor
+      ? (arrowData.startBinding.ratio ?? 0.5)
+      : 0.5;
+    const pt = getAnchorPoint(startShape, bestEdge, ratio);
+    points[0] = [pt.x, pt.y];
   }
 
-  // Resolve end binding
-  if (arrowData.endBinding) {
-    const resolved = resolveBinding(arrowData.endBinding, expressions);
-    if (resolved) {
-      points[points.length - 1] = [resolved.x, resolved.y];
-    }
+  // Resolve end binding — smart route facing the other end
+  if (arrowData.endBinding && endShape) {
+    const toward = startCenter ?? { x: points[0]![0], y: points[0]![1] };
+    const bestEdge = getBestEdge(endShape, toward);
+    const ratio = bestEdge === arrowData.endBinding.anchor
+      ? (arrowData.endBinding.ratio ?? 0.5)
+      : 0.5;
+    const pt = getAnchorPoint(endShape, bestEdge, ratio);
+    points[points.length - 1] = [pt.x, pt.y];
   }
+
+  return points;
+}
+
+/** Determine which edge of a shape faces a target point. */
+function getBestEdge(
+  expr: VisualExpression,
+  toward: { x: number; y: number },
+): string {
+  const cx = expr.position.x + expr.size.width / 2;
+  const cy = expr.position.y + expr.size.height / 2;
+  const dx = toward.x - cx;
+  const dy = toward.y - cy;
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    return dx > 0 ? 'right' : 'left';
+  }
+  return dy > 0 ? 'bottom' : 'top';
+}
 
   return points;
 }
