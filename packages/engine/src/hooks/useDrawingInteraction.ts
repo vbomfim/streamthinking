@@ -92,12 +92,18 @@ export function useDrawingInteraction(
   const handlePointerMove = useCallback(
     (e: PointerEvent) => {
       const handler = activeDrawHandlerRef.current;
-      if (!handler) return;
-
-      const { camera } = useCanvasStore.getState();
+      const { camera, activeTool } = useCanvasStore.getState();
       const world = screenToWorld(e.offsetX, e.offsetY, camera);
 
-      handler.onPointerMove(world.x, world.y, e);
+      if (handler) {
+        handler.onPointerMove(world.x, world.y, e);
+      } else if (activeTool === 'arrow' || activeTool === 'line') {
+        // Forward hover moves for snap preview even when not drawing
+        const tool = toolHandlers[activeTool];
+        if (tool) {
+          tool.onPointerMove(world.x, world.y, e);
+        }
+      }
     },
     [],
   );
