@@ -43,6 +43,11 @@ export function findSnapPoint(
     return null; // Too far from shape
   }
 
+  // No snap from inside the shape — only from outside or on the border
+  const isInside = worldPoint.x > x && worldPoint.x < x + width &&
+                   worldPoint.y > y && worldPoint.y < y + height;
+  if (isInside) return null;
+
   // Find closest point on the shape's perimeter
   const cx = x + width / 2;
   const cy = y + height / 2;
