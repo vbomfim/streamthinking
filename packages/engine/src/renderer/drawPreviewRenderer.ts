@@ -61,6 +61,21 @@ export function renderDrawPreview(
   }
 
   ctx.restore();
+
+  // ── Snap indicator: blue circle at snap point ──
+  if (preview.snapPoint) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(preview.snapPoint.x, preview.snapPoint.y, 6, 0, Math.PI * 2);
+    ctx.fillStyle = '#4A90D9';
+    ctx.globalAlpha = 0.8;
+    ctx.fill();
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([]);
+    ctx.stroke();
+    ctx.restore();
+  }
 }
 
 /** Render rectangle preview as dashed outline with light fill. */

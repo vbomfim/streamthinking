@@ -29,27 +29,47 @@ export function findSnapPoint(
   if (snapDistance <= 0) return null;
   if (!BINDABLE_KINDS.has(targetExpression.kind)) return null;
 
-  const anchors: Array<{ anchor: string; point: { x: number; y: number } }> =
-    getAnchorPoints(targetExpression);
-
-  // Check if point is inside the shape's bounding box — if so, snap to nearest edge
   const { x, y } = targetExpression.position;
   const { width, height } = targetExpression.size;
-  const isInside = worldPoint.x >= x && worldPoint.x <= x + width &&
-                   worldPoint.y >= y && worldPoint.y <= y + height;
+
+  // Check if point is within snap range of the shape's bounding box
+  const expandedLeft = x - snapDistance;
+  const expandedRight = x + width + snapDistance;
+  const expandedTop = y - snapDistance;
+  const expandedBottom = y + height + snapDistance;
+
+  if (worldPoint.x < expandedLeft || worldPoint.x > expandedRight ||
+      worldPoint.y < expandedTop || worldPoint.y > expandedBottom) {
+    return null; // Too far from shape
+  }
+
+  // Find closest point on the shape's perimeter
+  const cx = x + width / 2;
+  const cy = y + height / 2;
+
+  // Project cursor to nearest point on each edge, pick closest
+  const edgePoints: Array<{ anchor: string; point: { x: number; y: number } }> = [
+    { anchor: 'top', point: { x: clamp(worldPoint.x, x, x + width), y } },
+    { anchor: 'bottom', point: { x: clamp(worldPoint.x, x, x + width), y: y + height } },
+    { anchor: 'left', point: { x, y: clamp(worldPoint.y, y, y + height) } },
+    { anchor: 'right', point: { x: x + width, y: clamp(worldPoint.y, y, y + height) } },
+  ];
 
   let closest: { anchor: string; point: { x: number; y: number }; dist: number } | null = null;
 
-  for (const { anchor, point } of anchors) {
+  for (const { anchor, point } of edgePoints) {
     const dist = Math.hypot(worldPoint.x - point.x, worldPoint.y - point.y);
-    const threshold = isInside ? Infinity : snapDistance; // Always snap when inside
-    if (dist <= threshold && (closest === null || dist < closest.dist)) {
+    if (closest === null || dist < closest.dist) {
       closest = { anchor, point, dist };
     }
   }
 
   if (!closest) return null;
   return { point: closest.point, anchor: closest.anchor };
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
 }
 
 /**
