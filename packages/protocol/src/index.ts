@@ -17,6 +17,8 @@ export type {
   DiamondData,
   LineData,
   ArrowData,
+  ArrowBinding,
+  ArrowAnchor,
   FreehandData,
   TextData,
   StickyNoteData,

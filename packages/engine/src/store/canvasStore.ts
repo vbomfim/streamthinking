@@ -41,6 +41,12 @@ import { invalidateLayoutCache as invalidateFlowchartCache } from '../renderer/c
 import { invalidateLayoutCache as invalidateSequenceCache } from '../renderer/composites/sequenceDiagramRenderer.js';
 import { invalidateLayoutCache as invalidateMindMapCache } from '../renderer/composites/mindMapRenderer.js';
 import { invalidateLayoutCache as invalidateReasoningCache } from '../renderer/composites/reasoningChainRenderer.js';
+import {
+  findBoundArrows,
+  getAnchorPoint,
+  clearBindingsForDeletedExpression,
+} from '../interaction/connectorHelpers.js';
+import type { ArrowData } from '@infinicanvas/protocol';
 
 // Enable immer support for Set/Map (used by selectedIds: Set<string>)
 enableMapSet();
@@ -139,6 +145,66 @@ function translateExpressionPoints(
     for (const point of points) {
       point[0] += dx;
       point[1] += dy;
+    }
+  }
+}
+
+/**
+ * Update all arrows bound to the given expression IDs.
+ *
+ * After moving or resizing a shape, finds all arrows that reference
+ * it via startBinding or endBinding and recalculates the bound
+ * endpoint to the current anchor position. [CLEAN-CODE]
+ */
+function updateBoundArrows(
+  state: CanvasState,
+  movedIds: Set<string>,
+): void {
+  for (const targetId of movedIds) {
+    const target = state.expressions[targetId];
+    if (!target) continue;
+
+    const arrowIds = findBoundArrows(targetId, state.expressions);
+    for (const arrowId of arrowIds) {
+      // Skip if the arrow itself was part of the move
+      if (movedIds.has(arrowId)) continue;
+
+      const arrow = state.expressions[arrowId];
+      if (!arrow || arrow.data.kind !== 'arrow') continue;
+
+      const data = arrow.data as ArrowData;
+      const points = data.points;
+      if (points.length === 0) continue;
+
+      let changed = false;
+
+      if (data.startBinding?.expressionId === targetId) {
+        const anchorPt = getAnchorPoint(target, data.startBinding.anchor);
+        points[0] = [anchorPt.x, anchorPt.y];
+        changed = true;
+      }
+
+      if (data.endBinding?.expressionId === targetId) {
+        const anchorPt = getAnchorPoint(target, data.endBinding.anchor);
+        points[points.length - 1] = [anchorPt.x, anchorPt.y];
+        changed = true;
+      }
+
+      // Update the arrow's bounding box to reflect new point positions
+      if (changed) {
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const [px, py] of points) {
+          if (px < minX) minX = px;
+          if (py < minY) minY = py;
+          if (px > maxX) maxX = px;
+          if (py > maxY) maxY = py;
+        }
+        arrow.position = { x: minX, y: minY };
+        arrow.size = {
+          width: Math.max(maxX - minX, 1),
+          height: Math.max(maxY - minY, 1),
+        };
+      }
     }
   }
 }
@@ -300,6 +366,21 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
 
       set((state) => {
         const idSet = new Set(existingIds);
+
+        // Clear bindings in surviving arrows that reference deleted shapes [CLEAN-CODE]
+        for (const deletedId of existingIds) {
+          for (const [arrowId, expr] of Object.entries(state.expressions)) {
+            if (idSet.has(arrowId)) continue; // skip if this arrow is also being deleted
+            if (expr.data.kind !== 'arrow') continue;
+            const updated = clearBindingsForDeletedExpression(
+              expr.data as ArrowData,
+              deletedId,
+            );
+            if (updated) {
+              expr.data = updated;
+            }
+          }
+        }
 
         for (const id of existingIds) {
           delete state.expressions[id];
@@ -649,6 +730,10 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
           }
         }
 
+        // Update arrows bound to the moved shapes [CLEAN-CODE]
+        const movedIds = new Set(moves.map((m) => m.id));
+        updateBoundArrows(state, movedIds);
+
         for (const move of moves) {
           const operation = createOperation('move', {
             type: 'move',
@@ -687,6 +772,9 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
 
         expr.position = { ...final.position };
         expr.size = { ...final.size };
+
+        // Update arrows bound to the resized shape [CLEAN-CODE]
+        updateBoundArrows(state, new Set([id]));
 
         const operation = createOperation('transform', {
           type: 'transform',

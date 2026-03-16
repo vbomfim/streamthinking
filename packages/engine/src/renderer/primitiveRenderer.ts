@@ -19,6 +19,7 @@ import { isVisible } from './viewportCulling.js';
 import { createDrawableCache } from './drawableCache.js';
 import type { DrawableCache } from './drawableCache.js';
 import { getCompositeRenderer } from './compositeRegistry.js';
+import { resolveBindings } from '../interaction/connectorHelpers.js';
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -120,7 +121,7 @@ export function renderExpressions(
     ctx.save();
     ctx.globalAlpha = expr.style.opacity;
 
-    renderPrimitive(ctx, roughCanvas, expr);
+    renderPrimitive(ctx, roughCanvas, expr, expressions);
 
     ctx.restore();
   }
@@ -135,6 +136,7 @@ function renderPrimitive(
   ctx: CanvasRenderingContext2D,
   roughCanvas: RoughCanvas,
   expr: VisualExpression,
+  expressions: Record<string, VisualExpression>,
 ): void {
   const { kind } = expr;
 
@@ -152,7 +154,7 @@ function renderPrimitive(
       renderLine(ctx, roughCanvas, expr);
       break;
     case 'arrow':
-      renderArrow(ctx, roughCanvas, expr);
+      renderArrow(ctx, roughCanvas, expr, expressions);
       break;
     case 'freehand':
       renderFreehand(ctx, expr);
@@ -283,16 +285,21 @@ function renderLine(
   }
 }
 
-/** Render arrow with arrowheads. [AC6] */
+/** Render arrow with arrowheads and connector bindings. [AC6] */
 function renderArrow(
   ctx: CanvasRenderingContext2D,
   rc: RoughCanvas,
   expr: VisualExpression,
+  expressions: Record<string, VisualExpression>,
 ): void {
   if (expr.data.kind !== 'arrow') return;
-  const { points, startArrowhead, endArrowhead } = expr.data;
+  const { startArrowhead, endArrowhead } = expr.data;
   const options = mapStyleToRoughOptions(expr.style);
   const offset = computePositionOffset(expr);
+
+  // Resolve binding positions for connected arrows [CLEAN-CODE]
+  const points = resolveBindings(expr, expressions);
+  if (points.length < 2) return;
 
   if (offset.x !== 0 || offset.y !== 0) {
     ctx.save();

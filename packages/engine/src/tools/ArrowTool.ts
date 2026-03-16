@@ -1,19 +1,24 @@
 /**
- * Arrow drawing tool.
+ * Arrow drawing tool with connector binding support.
  *
- * Same as LineTool but creates arrows with endArrowhead: true.
+ * Creates arrows with endArrowhead: true. When drawing starts or ends
+ * near a shape edge, the arrow binds to that shape so it follows on move.
  * Minimum distance: 5px. Auto-switches to Select after creation.
  *
  * @module
  */
 
 import { nanoid } from 'nanoid';
-import type { VisualExpression } from '@infinicanvas/protocol';
+import type { VisualExpression, ArrowBinding } from '@infinicanvas/protocol';
 import type { ToolHandler, DrawPreview } from './BaseTool.js';
 import { useCanvasStore } from '../store/canvasStore.js';
+import { findSnapPoint } from '../interaction/connectorHelpers.js';
 
 /** Minimum arrow length in world units. */
 const MIN_ARROW_LENGTH = 5;
+
+/** Snap distance in world units for connector binding. */
+const SNAP_DISTANCE = 20;
 
 /** Human author for locally-drawn expressions. */
 const LOCAL_AUTHOR = {
@@ -29,6 +34,9 @@ export class ArrowTool implements ToolHandler {
   private startY = 0;
   private endX = 0;
   private endY = 0;
+  private startBinding: ArrowBinding | undefined = undefined;
+  private currentSnapPoint: { x: number; y: number } | undefined = undefined;
+  private currentSnapTargetId: string | undefined = undefined;
 
   onPointerDown(worldX: number, worldY: number, _event: PointerEvent): void {
     this.isDrawing = true;
@@ -36,12 +44,35 @@ export class ArrowTool implements ToolHandler {
     this.startY = worldY;
     this.endX = worldX;
     this.endY = worldY;
+
+    // Check for start binding [CLEAN-CODE]
+    const snap = this.findNearestSnap(worldX, worldY);
+    if (snap) {
+      this.startBinding = {
+        expressionId: snap.targetId,
+        anchor: snap.anchor as ArrowBinding['anchor'],
+      };
+      this.startX = snap.point.x;
+      this.startY = snap.point.y;
+    } else {
+      this.startBinding = undefined;
+    }
   }
 
   onPointerMove(worldX: number, worldY: number, _event: PointerEvent): void {
     if (!this.isDrawing) return;
     this.endX = worldX;
     this.endY = worldY;
+
+    // Check for end snap indicator [CLEAN-CODE]
+    const snap = this.findNearestSnap(worldX, worldY);
+    if (snap) {
+      this.currentSnapPoint = snap.point;
+      this.currentSnapTargetId = snap.targetId;
+    } else {
+      this.currentSnapPoint = undefined;
+      this.currentSnapTargetId = undefined;
+    }
   }
 
   onPointerUp(worldX: number, worldY: number, _event: PointerEvent): void {
@@ -50,6 +81,18 @@ export class ArrowTool implements ToolHandler {
     this.endX = worldX;
     this.endY = worldY;
     this.isDrawing = false;
+
+    // Check for end binding [CLEAN-CODE]
+    let endBinding: ArrowBinding | undefined;
+    const snap = this.findNearestSnap(worldX, worldY);
+    if (snap) {
+      endBinding = {
+        expressionId: snap.targetId,
+        anchor: snap.anchor as ArrowBinding['anchor'],
+      };
+      this.endX = snap.point.x;
+      this.endY = snap.point.y;
+    }
 
     const length = Math.hypot(this.endX - this.startX, this.endY - this.startY);
     if (length < MIN_ARROW_LENGTH) {
@@ -85,6 +128,8 @@ export class ArrowTool implements ToolHandler {
         points,
         startArrowhead: false,
         endArrowhead: true,
+        ...(this.startBinding && { startBinding: this.startBinding }),
+        ...(endBinding && { endBinding }),
       },
     };
 
@@ -118,6 +163,8 @@ export class ArrowTool implements ToolHandler {
       width: size.width,
       height: size.height,
       points,
+      snapPoint: this.currentSnapPoint,
+      snapTargetId: this.currentSnapTargetId,
     };
   }
 
@@ -126,10 +173,40 @@ export class ArrowTool implements ToolHandler {
     this.startY = 0;
     this.endX = 0;
     this.endY = 0;
+    this.startBinding = undefined;
+    this.currentSnapPoint = undefined;
+    this.currentSnapTargetId = undefined;
+  }
+
+  /**
+   * Find the nearest snap target among all canvas expressions.
+   *
+   * Iterates all expressions and returns the closest snap point
+   * within SNAP_DISTANCE, or null if none found. [SRP]
+   */
+  private findNearestSnap(
+    worldX: number,
+    worldY: number,
+  ): { point: { x: number; y: number }; anchor: string; targetId: string } | null {
+    const { expressions } = useCanvasStore.getState();
+    let best: { point: { x: number; y: number }; anchor: string; targetId: string; dist: number } | null = null;
+
+    for (const [id, expr] of Object.entries(expressions)) {
+      const snap = findSnapPoint({ x: worldX, y: worldY }, expr, SNAP_DISTANCE);
+      if (snap) {
+        const dist = Math.hypot(worldX - snap.point.x, worldY - snap.point.y);
+        if (!best || dist < best.dist) {
+          best = { point: snap.point, anchor: snap.anchor, targetId: id, dist };
+        }
+      }
+    }
+
+    return best ? { point: best.point, anchor: best.anchor, targetId: best.targetId } : null;
   }
 }
 
-/** Compute axis-aligned bounding box from a set of points. */
+/** Compute axis-aligned bounding box from a set of points.
+ * Ensures minimum size of 1 to satisfy Zod positive() constraint. */
 function computeBoundingBox(points: [number, number][]) {
   let minX = Infinity;
   let minY = Infinity;
@@ -145,6 +222,9 @@ function computeBoundingBox(points: [number, number][]) {
 
   return {
     position: { x: minX, y: minY },
-    size: { width: maxX - minX, height: maxY - minY },
+    size: {
+      width: Math.max(maxX - minX, 1),
+      height: Math.max(maxY - minY, 1),
+    },
   };
 }

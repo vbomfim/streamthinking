@@ -107,11 +107,18 @@ export const lineDataSchema = z.object({
   points: z.array(point2dSchema).min(2),
 });
 
+const arrowBindingSchema = z.object({
+  expressionId: z.string().min(1),
+  anchor: z.enum(['center', 'top', 'right', 'bottom', 'left', 'auto']),
+});
+
 export const arrowDataSchema = z.object({
   kind: z.literal('arrow'),
   points: z.array(point2dSchema).min(2),
   startArrowhead: z.boolean().optional(),
   endArrowhead: z.boolean().optional(),
+  startBinding: arrowBindingSchema.optional(),
+  endBinding: arrowBindingSchema.optional(),
 });
 
 const point3dSchema = z.tuple([z.number(), z.number(), z.number()]);

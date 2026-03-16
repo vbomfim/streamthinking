@@ -31,6 +31,10 @@ export interface DrawPreview {
   height: number;
   /** Points for line/arrow/freehand previews. */
   points?: [number, number][];
+  /** Snap point for connector preview (arrow tool). */
+  snapPoint?: { x: number; y: number };
+  /** ID of the shape being snapped to (arrow tool). */
+  snapTargetId?: string;
 }
 
 /**

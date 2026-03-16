@@ -31,6 +31,17 @@ export interface LineData {
   points: [number, number][];
 }
 
+/** Anchor position on a shape's edge for arrow binding. */
+export type ArrowAnchor = 'center' | 'top' | 'right' | 'bottom' | 'left' | 'auto';
+
+/** Binding that connects an arrow endpoint to a shape. */
+export interface ArrowBinding {
+  /** ID of the bound shape expression. */
+  expressionId: string;
+  /** Where on the shape the arrow attaches. */
+  anchor: ArrowAnchor;
+}
+
 /** Data for an arrow expression with optional arrowheads. */
 export interface ArrowData {
   kind: 'arrow';
@@ -40,6 +51,10 @@ export interface ArrowData {
   startArrowhead?: boolean;
   /** Whether to render an arrowhead at the end. */
   endArrowhead?: boolean;
+  /** Binding for the start endpoint to a shape. */
+  startBinding?: ArrowBinding;
+  /** Binding for the end endpoint to a shape. */
+  endBinding?: ArrowBinding;
 }
 
 /** Data for a freehand drawing expression. */
