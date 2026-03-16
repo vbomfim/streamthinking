@@ -40,6 +40,8 @@ export interface MarqueeRect {
 export interface SelectionInteraction {
   /** Current marquee rectangle in screen coordinates (null when not dragging). */
   marquee: MarqueeRect | null;
+  /** Get the current marquee rectangle (live read from ref — safe for per-frame use). */
+  getMarquee: () => MarqueeRect | null;
   /** Render the marquee overlay onto the given canvas context. */
   renderMarquee: (ctx: CanvasRenderingContext2D) => void;
 }
@@ -226,8 +228,11 @@ export function useSelectionInteraction(
     ctx.restore();
   }, []);
 
+  const getMarquee = useCallback(() => marqueeRef.current, []);
+
   return {
     marquee: marqueeRef.current,
+    getMarquee,
     renderMarquee,
   };
 }

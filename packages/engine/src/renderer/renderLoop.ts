@@ -17,6 +17,11 @@ import { renderExpressions } from './primitiveRenderer.js';
 import { renderSelection } from './selectionRenderer.js';
 import { renderDrawPreview } from './drawPreviewRenderer.js';
 
+/** Marquee overlay visual styles (matches useSelectionInteraction constants). */
+const MARQUEE_STROKE_COLOR = '#4A90D9';
+const MARQUEE_FILL_COLOR = 'rgba(74, 144, 217, 0.1)';
+const MARQUEE_DASH_PATTERN: readonly number[] = [6, 3];
+
 export interface RenderLoop {
   start(): void;
   stop(): void;
@@ -43,6 +48,12 @@ export interface DrawPreviewProvider {
   getDrawPreview(): DrawPreview | null;
 }
 
+/** Callback that returns the current marquee rectangle for rendering. */
+export interface MarqueeProvider {
+  /** Screen-space marquee rectangle during drag, or null when idle. */
+  getMarquee(): { x: number; y: number; width: number; height: number } | null;
+}
+
 /**
  * Create a render loop bound to a canvas context.
  *
@@ -65,6 +76,7 @@ export function createRenderLoop(
   selectionProvider?: SelectionProvider,
   drawPreviewProvider?: DrawPreviewProvider,
   dpr: number = 1,
+  marqueeProvider?: MarqueeProvider,
 ): RenderLoop {
   let width = initialWidth;
   let height = initialHeight;
@@ -114,6 +126,21 @@ export function createRenderLoop(
       const preview = drawPreviewProvider.getDrawPreview();
       if (preview) {
         renderDrawPreview(ctx, preview);
+      }
+    }
+
+    // 7. Render marquee overlay (screen-space, after all world-space rendering)
+    if (marqueeProvider) {
+      const marquee = marqueeProvider.getMarquee();
+      if (marquee) {
+        ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        ctx.fillStyle = MARQUEE_FILL_COLOR;
+        ctx.fillRect(marquee.x, marquee.y, marquee.width, marquee.height);
+        ctx.strokeStyle = MARQUEE_STROKE_COLOR;
+        ctx.lineWidth = 1;
+        ctx.setLineDash(MARQUEE_DASH_PATTERN as number[]);
+        ctx.strokeRect(marquee.x, marquee.y, marquee.width, marquee.height);
+        ctx.setLineDash([]);
       }
     }
 
