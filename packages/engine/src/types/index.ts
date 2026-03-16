@@ -109,4 +109,32 @@ export interface CanvasActions {
    * UI-only — does NOT emit operations.
    */
   setLastUsedStyle: (style: Partial<ExpressionStyle>) => void;
+  /**
+   * Group multiple expressions under a new group ID.
+   * Sets `parentId` on each expression and emits a `group` ProtocolOperation.
+   * Requires at least 2 valid (existing) expression IDs.
+   * Returns the generated group ID, or empty string if grouping was skipped.
+   */
+  groupExpressions: (ids: string[]) => string;
+  /**
+   * Ungroup all expressions belonging to the given group.
+   * Clears `parentId` on each member and emits an `ungroup` ProtocolOperation.
+   * No-op if no expressions have the given parentId.
+   */
+  ungroupExpressions: (groupId: string) => void;
+  /**
+   * Get all expression IDs that share the given parentId (group members).
+   * Returns an empty array if no expressions belong to the group.
+   */
+  getGroupMembers: (groupId: string) => string[];
+  /**
+   * Expand a selection set to include all group members.
+   * For each selected expression with a parentId, adds all siblings to the set.
+   */
+  expandSelectionToGroups: (ids: Set<string>) => Set<string>;
+  /**
+   * Duplicate a set of expressions, preserving group structure with new IDs.
+   * Returns the IDs of the newly created expressions.
+   */
+  duplicateGrouped: (ids: Set<string>) => string[];
 }

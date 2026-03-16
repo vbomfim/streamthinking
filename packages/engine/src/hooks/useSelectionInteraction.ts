@@ -44,6 +44,8 @@ export interface SelectionInteraction {
   getMarquee: () => MarqueeRect | null;
   /** Render the marquee overlay onto the given canvas context. */
   renderMarquee: (ctx: CanvasRenderingContext2D) => void;
+  /** ID of the group currently "entered" via double-click, or null. */
+  enteredGroupId: string | null;
 }
 
 /**
@@ -58,6 +60,7 @@ export function useSelectionInteraction(
   const marqueeRef = useRef<MarqueeRect | null>(null);
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef<{ sx: number; sy: number } | null>(null);
+  const enteredGroupIdRef = useRef<string | null>(null);
 
   // ── Pointer handlers ───────────────────────────────────────
 
@@ -164,11 +167,14 @@ export function useSelectionInteraction(
         setSelectedIds(new Set(hitIds));
       }
     } else {
-      // ── Click selection ──────────────────────────────────
+      // ── Click selection (group-aware) ────────────────────
       const worldPoint = screenToWorld(e.offsetX, e.offsetY, camera);
       const hitId = findExpressionAtPoint(worldPoint, expressions, expressionOrder, worldTolerance);
 
       if (hitId) {
+        const hitExpr = expressions[hitId];
+        const hitParentId = hitExpr?.parentId;
+
         if (e.shiftKey) {
           // Shift+click: toggle in selection
           const newIds = new Set(selectedIds);
@@ -178,14 +184,25 @@ export function useSelectionInteraction(
             newIds.add(hitId);
           }
           setSelectedIds(newIds);
-        } else {
-          // Click: select only this expression
+        } else if (hitParentId && enteredGroupIdRef.current === hitParentId) {
+          // Already inside this group — select only this member
           setSelectedIds(new Set([hitId]));
+        } else if (hitParentId) {
+          // Click on grouped expression — select ALL group members
+          const groupMembers = state.getGroupMembers(hitParentId);
+          setSelectedIds(new Set(groupMembers));
+          // Exit any entered group since we're selecting a full group
+          enteredGroupIdRef.current = null;
+        } else {
+          // Click on ungrouped expression — select only this one
+          setSelectedIds(new Set([hitId]));
+          enteredGroupIdRef.current = null;
         }
       } else {
-        // Click on empty space: deselect all
+        // Click on empty space: deselect all and exit entered group
         if (!e.shiftKey) {
           setSelectedIds(new Set());
+          enteredGroupIdRef.current = null;
         }
       }
     }
@@ -200,6 +217,27 @@ export function useSelectionInteraction(
     target.releasePointerCapture(e.pointerId);
   }, []);
 
+  // ── Double-click: enter group ────────────────────────────────
+
+  const handleDblClick = useCallback((e: MouseEvent) => {
+    const state = useCanvasStore.getState();
+    if (state.activeTool !== 'select') return;
+
+    const { camera, expressions, expressionOrder } = state;
+    const worldTolerance = HIT_TOLERANCE_PX / camera.zoom;
+    const worldPoint = screenToWorld(e.offsetX, e.offsetY, camera);
+    const hitId = findExpressionAtPoint(worldPoint, expressions, expressionOrder, worldTolerance);
+
+    if (!hitId) return;
+
+    const hitExpr = expressions[hitId];
+    if (!hitExpr?.parentId) return;
+
+    // Enter the group — select only this individual member
+    enteredGroupIdRef.current = hitExpr.parentId;
+    state.setSelectedIds(new Set([hitId]));
+  }, []);
+
   // ── Effect: attach/detach event listeners ──────────────────
 
   useEffect(() => {
@@ -209,13 +247,15 @@ export function useSelectionInteraction(
     canvas.addEventListener('pointerdown', handlePointerDown);
     canvas.addEventListener('pointermove', handlePointerMove);
     canvas.addEventListener('pointerup', handlePointerUp);
+    canvas.addEventListener('dblclick', handleDblClick);
 
     return () => {
       canvas.removeEventListener('pointerdown', handlePointerDown);
       canvas.removeEventListener('pointermove', handlePointerMove);
       canvas.removeEventListener('pointerup', handlePointerUp);
+      canvas.removeEventListener('dblclick', handleDblClick);
     };
-  }, [canvasRef, handlePointerDown, handlePointerMove, handlePointerUp]);
+  }, [canvasRef, handlePointerDown, handlePointerMove, handlePointerUp, handleDblClick]);
 
   // ── Marquee rendering ──────────────────────────────────────
 
@@ -248,5 +288,6 @@ export function useSelectionInteraction(
     marquee: marqueeRef.current,
     getMarquee,
     renderMarquee,
+    enteredGroupId: enteredGroupIdRef.current,
   };
 }

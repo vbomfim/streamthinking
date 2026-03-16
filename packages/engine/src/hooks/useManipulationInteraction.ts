@@ -126,15 +126,18 @@ export function useManipulationInteraction(
         startWorld: worldPoint,
       };
     } else if (target.kind === 'body') {
-      // Check if ALL selected expressions are locked
-      const allLocked = Array.from(selectedIds).every(
+      // Expand selection to include all group members
+      const expandedIds = useCanvasStore.getState().expandSelectionToGroups(selectedIds);
+
+      // Check if ALL expanded expressions are locked
+      const allLocked = Array.from(expandedIds).every(
         (id) => expressions[id]?.meta.locked,
       );
       if (allLocked) return; // AC8: locked guard
 
-      // Capture original positions of all selected (unlocked) expressions
+      // Capture original positions of all expanded (unlocked) expressions
       const originalPositions = new Map<string, { x: number; y: number }>();
-      for (const id of selectedIds) {
+      for (const id of expandedIds) {
         const expr = expressions[id];
         if (expr && !expr.meta.locked) {
           originalPositions.set(id, { ...expr.position });

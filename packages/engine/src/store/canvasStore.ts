@@ -30,6 +30,8 @@ import type {
   MovePayload,
   TransformPayload,
   StylePayload,
+  GroupPayload,
+  UngroupPayload,
   ExpressionStyle,
 } from '@infinicanvas/protocol';
 import type { CanvasState, CanvasActions, ToolType, Camera } from '../types/index.js';
@@ -500,6 +502,27 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
             break;
           }
 
+          case 'group': {
+            const p = op.payload as GroupPayload;
+            for (const id of p.expressionIds) {
+              const existing = state.expressions[id];
+              if (existing) {
+                existing.parentId = p.groupId;
+              }
+            }
+            break;
+          }
+
+          case 'ungroup': {
+            const p = op.payload as UngroupPayload;
+            for (const [, existing] of Object.entries(state.expressions)) {
+              if (existing.parentId === p.groupId) {
+                delete existing.parentId;
+              }
+            }
+            break;
+          }
+
           default:
             // Unsupported operation types are silently ignored
             break;
@@ -719,6 +742,140 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
       set((state) => {
         state.lastUsedStyle = { ...state.lastUsedStyle, ...style } as ExpressionStyle;
       });
+    },
+
+    // ── Group/Ungroup actions (#71) ─────────────────────────────
+
+    groupExpressions: (ids: string[]): string => {
+      const currentState = get();
+
+      // Filter to only IDs that actually exist
+      const validIds = ids.filter((id) => currentState.expressions[id]);
+      if (validIds.length < 2) return '';
+
+      // Push snapshot BEFORE mutation for undo support
+      historyManager.pushSnapshot(captureSnapshot(currentState));
+
+      const groupId = nanoid();
+
+      set((state) => {
+        for (const id of validIds) {
+          const expr = state.expressions[id];
+          if (expr) {
+            expr.parentId = groupId;
+          }
+        }
+
+        const operation = createOperation('group', {
+          type: 'group',
+          expressionIds: [...validIds],
+          groupId,
+        });
+        pushOperation(state.operationLog, operation);
+
+        state.canUndo = historyManager.canUndo();
+        state.canRedo = historyManager.canRedo();
+      });
+
+      return groupId;
+    },
+
+    ungroupExpressions: (groupId: string) => {
+      const currentState = get();
+
+      // Find all expressions with this parentId
+      const memberIds = Object.keys(currentState.expressions).filter(
+        (id) => currentState.expressions[id]?.parentId === groupId,
+      );
+      if (memberIds.length === 0) return;
+
+      // Push snapshot BEFORE mutation for undo support
+      historyManager.pushSnapshot(captureSnapshot(currentState));
+
+      set((state) => {
+        for (const id of memberIds) {
+          const expr = state.expressions[id];
+          if (expr) {
+            delete expr.parentId;
+          }
+        }
+
+        const operation = createOperation('ungroup', {
+          type: 'ungroup',
+          groupId,
+        });
+        pushOperation(state.operationLog, operation);
+
+        state.canUndo = historyManager.canUndo();
+        state.canRedo = historyManager.canRedo();
+      });
+    },
+
+    getGroupMembers: (groupId: string): string[] => {
+      const { expressions } = get();
+      return Object.keys(expressions).filter(
+        (id) => expressions[id]?.parentId === groupId,
+      );
+    },
+
+    expandSelectionToGroups: (ids: Set<string>): Set<string> => {
+      const { expressions } = get();
+      const expanded = new Set(ids);
+
+      for (const id of ids) {
+        const parentId = expressions[id]?.parentId;
+        if (!parentId) continue;
+
+        // Add all siblings in the same group
+        for (const [otherId, otherExpr] of Object.entries(expressions)) {
+          if (otherExpr.parentId === parentId) {
+            expanded.add(otherId);
+          }
+        }
+      }
+
+      return expanded;
+    },
+
+    duplicateGrouped: (ids: Set<string>): string[] => {
+      const currentState = get();
+      const { expressions } = currentState;
+      const OFFSET = 20;
+
+      // Map old groupId → new groupId for preserving group structure
+      const groupMapping = new Map<string, string>();
+      const newIds: string[] = [];
+
+      for (const id of ids) {
+        const expr = expressions[id];
+        if (!expr) continue;
+
+        const newId = nanoid();
+        const duplicate = structuredClone(expr) as VisualExpression;
+        duplicate.id = newId;
+        duplicate.position = {
+          x: expr.position.x + OFFSET,
+          y: expr.position.y + OFFSET,
+        };
+        duplicate.meta = {
+          ...duplicate.meta,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        };
+
+        // Preserve group structure with new groupId
+        if (expr.parentId) {
+          if (!groupMapping.has(expr.parentId)) {
+            groupMapping.set(expr.parentId, nanoid());
+          }
+          duplicate.parentId = groupMapping.get(expr.parentId);
+        }
+
+        useCanvasStore.getState().addExpression(duplicate);
+        newIds.push(newId);
+      }
+
+      return newIds;
     },
   })),
 );

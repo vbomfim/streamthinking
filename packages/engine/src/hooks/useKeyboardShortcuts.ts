@@ -21,6 +21,8 @@
  * - `Ctrl+X` / `Cmd+X` → Cut selected (copy + delete)
  * - `Ctrl+D` / `Cmd+D` → Duplicate selected
  * - `Ctrl+A` / `Cmd+A` → Select all
+ * - `Ctrl+G` / `Cmd+G` → Group selected expressions
+ * - `Ctrl+Shift+G` / `Cmd+Shift+G` → Ungroup selected expressions
  * - `Delete` / `Backspace` → Delete selected
  * - `Escape` → Cancel current operation / deselect
  * - `?` → Toggle shortcuts help panel
@@ -208,11 +210,25 @@ export function useKeyboardShortcuts(
           return;
         }
 
+        // Ctrl+Shift+G / Cmd+Shift+G → ungroup selected (check shift FIRST)
+        if (keyLower === 'g' && event.shiftKey) {
+          event.preventDefault();
+          ungroupSelected();
+          return;
+        }
+
+        // Ctrl+G / Cmd+G → group selected
+        if (keyLower === 'g' && !event.shiftKey) {
+          event.preventDefault();
+          groupSelected();
+          return;
+        }
+
         // Other modifier combos — not handled, let browser process
         return;
       }
 
-      // ── Delete / Backspace → delete selected ──
+      // ── Delete / Backspace → delete selected (group-aware) ──
       if (key === 'Delete' || key === 'Backspace') {
         const state = useCanvasStore.getState();
         if (state.activeTool !== 'select') return;
@@ -221,7 +237,9 @@ export function useKeyboardShortcuts(
         if (selectedIds.size === 0) return;
 
         event.preventDefault();
-        const deletableIds = Array.from(selectedIds).filter(
+        // Expand selection to include all group members
+        const expandedIds = state.expandSelectionToGroups(selectedIds);
+        const deletableIds = Array.from(expandedIds).filter(
           (id) => !expressions[id]?.meta.locked,
         );
         if (deletableIds.length > 0) {
@@ -254,34 +272,19 @@ export function useKeyboardShortcuts(
 
 /**
  * Duplicate all selected (unlocked) expressions with a +20,+20 offset.
- * Selects the new duplicates after creation.
+ * Group-aware: expands selection to include all group members and
+ * preserves group structure in the duplicates with new group IDs.
  */
 function duplicateSelected(): void {
-  const { selectedIds, expressions } = useCanvasStore.getState();
+  const state = useCanvasStore.getState();
+  const { selectedIds } = state;
   if (selectedIds.size === 0) return;
 
-  const newIds: string[] = [];
+  // Expand selection to include all group members
+  const expandedIds = state.expandSelectionToGroups(selectedIds);
 
-  for (const id of selectedIds) {
-    const expr = expressions[id];
-    if (!expr) continue;
-
-    const newId = nanoid();
-    const duplicate = structuredClone(expr);
-    duplicate.id = newId;
-    duplicate.position = {
-      x: expr.position.x + DUPLICATE_OFFSET,
-      y: expr.position.y + DUPLICATE_OFFSET,
-    };
-    duplicate.meta = {
-      ...duplicate.meta,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-
-    useCanvasStore.getState().addExpression(duplicate);
-    newIds.push(newId);
-  }
+  // Use group-aware duplication from the store
+  const newIds = state.duplicateGrouped(expandedIds);
 
   // Select the new duplicates
   useCanvasStore.getState().setSelectedIds(new Set(newIds));
@@ -345,18 +348,21 @@ export function pasteFromClipboard(): void {
 
 /**
  * Cut selected expressions: copy to clipboard, then delete originals.
+ * Group-aware: expands selection to include all group members.
  *
  * Locked expressions are excluded from deletion (same as Delete key).
  */
 export function cutSelected(): void {
-  const { selectedIds, expressions } = useCanvasStore.getState();
+  const state = useCanvasStore.getState();
+  const { selectedIds, expressions } = state;
   if (selectedIds.size === 0) return;
 
   // Copy to clipboard first
   copySelected();
 
-  // Delete unlocked originals (same logic as Delete key handler)
-  const deletableIds = Array.from(selectedIds).filter(
+  // Expand selection to include all group members, then delete
+  const expandedIds = state.expandSelectionToGroups(selectedIds);
+  const deletableIds = Array.from(expandedIds).filter(
     (id) => !expressions[id]?.meta.locked,
   );
   if (deletableIds.length > 0) {
@@ -371,4 +377,46 @@ export function cutSelected(): void {
 export function _resetClipboard(): void {
   clipboard = [];
   pasteCount = 0;
+}
+
+// ── Group/Ungroup helpers (#71) ────────────────────────────
+
+/**
+ * Group all currently selected expressions.
+ *
+ * Requires at least 2 selected expressions. Creates a new group and
+ * assigns a shared `parentId` to all members.
+ */
+function groupSelected(): void {
+  const { selectedIds } = useCanvasStore.getState();
+  if (selectedIds.size < 2) return;
+
+  const ids = Array.from(selectedIds);
+  useCanvasStore.getState().groupExpressions(ids);
+}
+
+/**
+ * Ungroup selected expressions if they all share the same parentId.
+ *
+ * Only ungroups when every selected expression belongs to the same group.
+ * Mixed selections (multiple groups or ungrouped items) are skipped.
+ */
+function ungroupSelected(): void {
+  const { selectedIds, expressions } = useCanvasStore.getState();
+  if (selectedIds.size === 0) return;
+
+  // Collect all parentIds from selected expressions
+  const parentIds = new Set<string>();
+  for (const id of selectedIds) {
+    const parentId = expressions[id]?.parentId;
+    if (parentId) {
+      parentIds.add(parentId);
+    }
+  }
+
+  // Only ungroup if there's exactly one shared group
+  if (parentIds.size !== 1) return;
+
+  const groupId = [...parentIds][0]!;
+  useCanvasStore.getState().ungroupExpressions(groupId);
 }

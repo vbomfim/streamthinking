@@ -23,6 +23,12 @@ import {
 /** Selection highlight color. */
 const SELECTION_COLOR = '#4A90D9';
 
+/** Group bounding box color — subtle, lighter than selection. */
+const GROUP_BORDER_COLOR = '#aaaaaa';
+
+/** Group bounding box dash pattern (wider dots for dotted look). */
+const GROUP_DASH_PATTERN = [3, 3];
+
 /** Handle size in screen pixels. */
 const HANDLE_SIZE_PX = 8;
 
@@ -49,6 +55,9 @@ export function renderSelection(
   camera: Camera,
 ): void {
   if (selectedIds.size === 0) return;
+
+  // ── Group bounding boxes (rendered before individual selection) ──
+  renderGroupBoundingBoxes(ctx, selectedIds, expressions, camera);
 
   // Handle size in world coordinates (constant screen size)
   const handleSize = HANDLE_SIZE_PX / camera.zoom;
@@ -160,5 +169,67 @@ function renderBboxHandles(
     ctx.strokeStyle = SELECTION_COLOR;
     ctx.lineWidth = 1 / camera.zoom;
     ctx.strokeRect(hx - halfHandle, hy - halfHandle, handleSize, handleSize);
+  }
+}
+
+/**
+ * Render dotted bounding boxes around groups when any member is selected.
+ *
+ * Collects unique group IDs from selected expressions, computes the
+ * bounding box of all members in each group, and draws a subtle dotted
+ * border (#aaa) around the group extent.
+ */
+function renderGroupBoundingBoxes(
+  ctx: CanvasRenderingContext2D,
+  selectedIds: Set<string>,
+  expressions: Record<string, VisualExpression>,
+  camera: Camera,
+): void {
+  // Collect unique group IDs from selected expressions
+  const groupIds = new Set<string>();
+  for (const id of selectedIds) {
+    const parentId = expressions[id]?.parentId;
+    if (parentId) groupIds.add(parentId);
+  }
+
+  if (groupIds.size === 0) return;
+
+  // For each group, find ALL members (not just selected) and compute bounding box
+  for (const groupId of groupIds) {
+    const members = Object.values(expressions).filter(
+      (expr) => expr.parentId === groupId,
+    );
+    if (members.length < 2) continue;
+
+    // Compute bounding box of all group members
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    for (const member of members) {
+      const { x, y } = member.position;
+      const { width, height } = member.size;
+      minX = Math.min(minX, x);
+      minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x + width);
+      maxY = Math.max(maxY, y + height);
+    }
+
+    // Add small padding (4px screen) around group bounding box
+    const padding = 4 / camera.zoom;
+    minX -= padding;
+    minY -= padding;
+    maxX += padding;
+    maxY += padding;
+
+    // Draw dotted border
+    ctx.save();
+    ctx.strokeStyle = GROUP_BORDER_COLOR;
+    ctx.lineWidth = 1 / camera.zoom;
+    ctx.setLineDash(GROUP_DASH_PATTERN.map((d) => d / camera.zoom));
+    ctx.strokeRect(minX, minY, maxX - minX, maxY - minY);
+    ctx.setLineDash([]);
+    ctx.restore();
   }
 }
