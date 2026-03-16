@@ -228,3 +228,192 @@ describe('useCanvasInteraction — zoom [AC2]', () => {
     expect(zoom).toBeLessThanOrEqual(5.0);
   });
 });
+
+// ── #70: Middle-click drag pan ──────────────────────────────
+
+describe('useCanvasInteraction — middle-click pan (#70)', () => {
+  beforeEach(() => {
+    resetStore();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('sets cursor to grabbing on middle-click mousedown', () => {
+    const { getByTestId } = render(<TestCanvas />);
+    const canvas = getByTestId('canvas');
+
+    act(() => {
+      canvas.dispatchEvent(new MouseEvent('mousedown', {
+        button: 1, clientX: 100, clientY: 100, bubbles: true,
+      }));
+    });
+
+    expect(canvas.getAttribute('data-cursor')).toBe('grabbing');
+  });
+
+  it('pans camera on middle-click drag', () => {
+    useCanvasStore.setState({ camera: { x: 0, y: 0, zoom: 1 } });
+
+    const { getByTestId } = render(<TestCanvas />);
+    const canvas = getByTestId('canvas');
+
+    act(() => {
+      canvas.dispatchEvent(new MouseEvent('mousedown', {
+        button: 1, clientX: 100, clientY: 100, bubbles: true,
+      }));
+    });
+
+    act(() => {
+      canvas.dispatchEvent(new MouseEvent('mousemove', {
+        clientX: 200, clientY: 150, bubbles: true,
+      }));
+    });
+
+    // Delta is (200-100, 150-100) = (100, 50)
+    // Divided by zoom 1: camera moves by (-100, -50)
+    const camera = useCanvasStore.getState().camera;
+    expect(camera.x).toBeCloseTo(-100, 5);
+    expect(camera.y).toBeCloseTo(-50, 5);
+  });
+
+  it('divides middle-click pan delta by zoom for consistent speed', () => {
+    useCanvasStore.setState({ camera: { x: 0, y: 0, zoom: 2 } });
+
+    const { getByTestId } = render(<TestCanvas />);
+    const canvas = getByTestId('canvas');
+
+    act(() => {
+      canvas.dispatchEvent(new MouseEvent('mousedown', {
+        button: 1, clientX: 100, clientY: 100, bubbles: true,
+      }));
+    });
+
+    act(() => {
+      canvas.dispatchEvent(new MouseEvent('mousemove', {
+        clientX: 200, clientY: 150, bubbles: true,
+      }));
+    });
+
+    // Delta (100, 50) / zoom 2 = (-50, -25)
+    const camera = useCanvasStore.getState().camera;
+    expect(camera.x).toBeCloseTo(-50, 5);
+    expect(camera.y).toBeCloseTo(-25, 5);
+  });
+
+  it('resets cursor to default on mouseup after middle-click pan', () => {
+    const { getByTestId } = render(<TestCanvas />);
+    const canvas = getByTestId('canvas');
+
+    act(() => {
+      canvas.dispatchEvent(new MouseEvent('mousedown', {
+        button: 1, clientX: 100, clientY: 100, bubbles: true,
+      }));
+    });
+
+    expect(canvas.getAttribute('data-cursor')).toBe('grabbing');
+
+    act(() => {
+      canvas.dispatchEvent(new MouseEvent('mouseup', {
+        clientX: 200, clientY: 150, bubbles: true,
+      }));
+    });
+
+    expect(canvas.getAttribute('data-cursor')).toBe('default');
+  });
+
+  it('does not start middle-click pan on right-click (button 2)', () => {
+    const { getByTestId } = render(<TestCanvas />);
+    const canvas = getByTestId('canvas');
+
+    act(() => {
+      canvas.dispatchEvent(new MouseEvent('mousedown', {
+        button: 2, clientX: 100, clientY: 100, bubbles: true,
+      }));
+    });
+
+    // Cursor should remain default — no pan started
+    expect(canvas.getAttribute('data-cursor')).toBe('default');
+  });
+});
+
+// ── #70: Shift+scroll horizontal pan ────────────────────────
+
+describe('useCanvasInteraction — shift+scroll pan (#70)', () => {
+  beforeEach(() => {
+    resetStore();
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('pans horizontally on shift+wheel', () => {
+    useCanvasStore.setState({ camera: { x: 0, y: 0, zoom: 1 } });
+
+    const { getByTestId } = render(<TestCanvas />);
+    const canvas = getByTestId('canvas');
+
+    act(() => {
+      canvas.dispatchEvent(new WheelEvent('wheel', {
+        deltaY: 100, shiftKey: true, clientX: 400, clientY: 300, bubbles: true,
+      }));
+    });
+
+    const camera = useCanvasStore.getState().camera;
+    // deltaY=100 / zoom=1 → camera.x shifts by 100
+    // Pan direction: subtracting deltaY moves content left (positive camera.x means viewing further right)
+    expect(camera.x).not.toBe(0);
+    expect(camera.y).toBe(0); // Y should NOT change
+  });
+
+  it('does not change zoom on shift+wheel', () => {
+    useCanvasStore.setState({ camera: { x: 0, y: 0, zoom: 1 } });
+
+    const { getByTestId } = render(<TestCanvas />);
+    const canvas = getByTestId('canvas');
+
+    act(() => {
+      canvas.dispatchEvent(new WheelEvent('wheel', {
+        deltaY: 100, shiftKey: true, clientX: 400, clientY: 300, bubbles: true,
+      }));
+    });
+
+    const camera = useCanvasStore.getState().camera;
+    expect(camera.zoom).toBe(1); // Zoom should remain unchanged
+  });
+
+  it('divides shift+scroll pan by zoom for consistent speed', () => {
+    useCanvasStore.setState({ camera: { x: 0, y: 0, zoom: 2 } });
+
+    const { getByTestId } = render(<TestCanvas />);
+    const canvas = getByTestId('canvas');
+
+    act(() => {
+      canvas.dispatchEvent(new WheelEvent('wheel', {
+        deltaY: 100, shiftKey: true, clientX: 400, clientY: 300, bubbles: true,
+      }));
+    });
+
+    const camera = useCanvasStore.getState().camera;
+    // deltaY=100 / zoom=2 = 50 world units
+    expect(Math.abs(camera.x)).toBeCloseTo(50, 5);
+  });
+
+  it('still zooms on wheel without shift (regression)', () => {
+    useCanvasStore.setState({ camera: { x: 0, y: 0, zoom: 1 } });
+
+    const { getByTestId } = render(<TestCanvas />);
+    const canvas = getByTestId('canvas');
+
+    act(() => {
+      canvas.dispatchEvent(new WheelEvent('wheel', {
+        deltaY: -100, clientX: 400, clientY: 300, bubbles: true,
+      }));
+    });
+
+    const camera = useCanvasStore.getState().camera;
+    expect(camera.zoom).toBeGreaterThan(1); // Should have zoomed in
+  });
+});

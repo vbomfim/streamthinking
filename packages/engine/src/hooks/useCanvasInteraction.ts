@@ -1,8 +1,9 @@
 /**
  * Canvas interaction hook — pan and zoom.
  *
- * Pan: Space + drag. Cursor changes to grab / grabbing. [AC1]
+ * Pan: Space + drag or middle-click drag. Cursor changes to grab / grabbing. [AC1]
  * Zoom: Mouse scroll wheel, centered on cursor position. [AC2]
+ * Horizontal pan: Shift + scroll wheel. [#70]
  * Pan delta divided by zoom for consistent speed at all levels. [AC7]
  *
  * @module
@@ -35,6 +36,7 @@ export function useCanvasInteraction(): CanvasInteraction {
   // Mutable refs to avoid stale closures in event handlers
   const spaceHeldRef = useRef(false);
   const isPanningRef = useRef(false);
+  const isMiddlePanningRef = useRef(false);
   const lastMouseRef = useRef({ x: 0, y: 0 });
 
   // ── Pan: Space + drag [AC1] ──────────────────────────────
@@ -66,11 +68,17 @@ export function useCanvasInteraction(): CanvasInteraction {
       isPanningRef.current = true;
       lastMouseRef.current = { x: e.clientX, y: e.clientY };
       setCursor('grabbing');
+    } else if (e.button === 1) {
+      // Middle-click pan — same behavior as Space+drag
+      e.preventDefault();
+      isMiddlePanningRef.current = true;
+      lastMouseRef.current = { x: e.clientX, y: e.clientY };
+      setCursor('grabbing');
     }
   }, []);
 
   const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isPanningRef.current) return;
+    if (!isPanningRef.current && !isMiddlePanningRef.current) return;
 
     const dx = e.clientX - lastMouseRef.current.x;
     const dy = e.clientY - lastMouseRef.current.y;
@@ -90,6 +98,10 @@ export function useCanvasInteraction(): CanvasInteraction {
       isPanningRef.current = false;
       setCursor(spaceHeldRef.current ? 'grab' : 'default');
     }
+    if (isMiddlePanningRef.current) {
+      isMiddlePanningRef.current = false;
+      setCursor('default');
+    }
   }, []);
 
   // ── Zoom: scroll wheel [AC2] ─────────────────────────────
@@ -98,6 +110,16 @@ export function useCanvasInteraction(): CanvasInteraction {
     e.preventDefault();
 
     const { camera, setCamera } = useCanvasStore.getState();
+
+    // Shift+scroll → horizontal pan instead of zoom
+    if (e.shiftKey) {
+      setCamera({
+        x: camera.x + e.deltaY / camera.zoom,
+        y: camera.y,
+        zoom: camera.zoom,
+      });
+      return;
+    }
 
     // Calculate new zoom level
     const zoomDelta = -e.deltaY * ZOOM_SENSITIVITY;

@@ -49,7 +49,12 @@ function createMockCtx() {
     beginPath: vi.fn(),
     arc: vi.fn(),
     fill: vi.fn(),
+    fillRect: vi.fn(),
+    strokeRect: vi.fn(),
+    setLineDash: vi.fn(),
     fillStyle: '',
+    strokeStyle: '',
+    lineWidth: 1,
     canvas: { width: 800, height: 600 },
   } as unknown as CanvasRenderingContext2D;
 }
@@ -183,6 +188,122 @@ describe('createRenderLoop', () => {
       expect.any(Number),
       expect.any(Number),
     );
+    loop.stop();
+  });
+});
+
+// ── #68: Marquee rendering in render loop ────────────────────
+
+describe('createRenderLoop — marquee rendering (#68)', () => {
+  let raf: ReturnType<typeof createRafMock>;
+
+  beforeEach(() => {
+    raf = createRafMock();
+    vi.stubGlobal('requestAnimationFrame', raf.requestAnimationFrame);
+    vi.stubGlobal('cancelAnimationFrame', raf.cancelAnimationFrame);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('calls marqueeProvider.getMarquee() each frame', () => {
+    const ctx = createMockCtx();
+    const getCamera = (): Camera => ({ x: 0, y: 0, zoom: 1 });
+    const marqueeProvider = { getMarquee: vi.fn().mockReturnValue(null) };
+
+    const loop = createRenderLoop(
+      ctx, getCamera, 800, 600,
+      undefined, undefined, undefined, undefined,
+      1, marqueeProvider,
+    );
+
+    loop.start();
+    raf.tick();
+    expect(marqueeProvider.getMarquee).toHaveBeenCalledOnce();
+
+    raf.tick();
+    expect(marqueeProvider.getMarquee).toHaveBeenCalledTimes(2);
+    loop.stop();
+  });
+
+  it('renders marquee fill and stroke when marquee is non-null', () => {
+    const ctx = createMockCtx();
+    const getCamera = (): Camera => ({ x: 0, y: 0, zoom: 1 });
+    const marqueeProvider = {
+      getMarquee: vi.fn().mockReturnValue({ x: 10, y: 20, width: 100, height: 50 }),
+    };
+
+    const loop = createRenderLoop(
+      ctx, getCamera, 800, 600,
+      undefined, undefined, undefined, undefined,
+      1, marqueeProvider,
+    );
+
+    loop.start();
+    raf.tick();
+
+    // Should have drawn filled rect
+    expect(ctx.fillRect).toHaveBeenCalledWith(10, 20, 100, 50);
+    // Should have drawn stroked rect
+    expect(ctx.strokeRect).toHaveBeenCalledWith(10, 20, 100, 50);
+    // Should have set dashed line
+    expect(ctx.setLineDash).toHaveBeenCalledWith([6, 3]);
+    // Should have cleared dash pattern after
+    expect(ctx.setLineDash).toHaveBeenCalledWith([]);
+    loop.stop();
+  });
+
+  it('does not render marquee when getMarquee returns null', () => {
+    const ctx = createMockCtx();
+    const getCamera = (): Camera => ({ x: 0, y: 0, zoom: 1 });
+    const marqueeProvider = {
+      getMarquee: vi.fn().mockReturnValue(null),
+    };
+
+    const loop = createRenderLoop(
+      ctx, getCamera, 800, 600,
+      undefined, undefined, undefined, undefined,
+      1, marqueeProvider,
+    );
+
+    loop.start();
+    raf.tick();
+
+    // fillRect is called once for clearRect; marquee should NOT add another fillRect
+    // strokeRect should NOT be called at all (no grid/expressions = no world-space strokes)
+    expect(ctx.strokeRect).not.toHaveBeenCalled();
+    expect(ctx.setLineDash).not.toHaveBeenCalled();
+    loop.stop();
+  });
+
+  it('renders marquee in DPR-scaled screen coordinates', () => {
+    const ctx = createMockCtx();
+    const getCamera = (): Camera => ({ x: 0, y: 0, zoom: 1 });
+    const dpr = 2;
+    const marqueeProvider = {
+      getMarquee: vi.fn().mockReturnValue({ x: 5, y: 10, width: 200, height: 100 }),
+    };
+
+    const loop = createRenderLoop(
+      ctx, getCamera, 800, 600,
+      undefined, undefined, undefined, undefined,
+      dpr, marqueeProvider,
+    );
+
+    loop.start();
+    raf.tick();
+
+    // The setTransform call before marquee should use DPR-scaled identity
+    const setTransformCalls = (ctx.setTransform as ReturnType<typeof vi.fn>).mock.calls;
+    // Last setTransform before marquee drawing should be DPR identity: (2, 0, 0, 2, 0, 0)
+    // Find the call that sets DPR identity for marquee (should be after camera transform)
+    const dprIdentityCalls = setTransformCalls.filter(
+      (args: number[]) => args[0] === dpr && args[1] === 0 && args[2] === 0
+        && args[3] === dpr && args[4] === 0 && args[5] === 0,
+    );
+    // At least 2: one for clear, one for marquee
+    expect(dprIdentityCalls.length).toBeGreaterThanOrEqual(2);
     loop.stop();
   });
 });

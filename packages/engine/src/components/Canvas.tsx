@@ -37,7 +37,7 @@ function CanvasInner() {
   const containerRef = useRef<HTMLDivElement>(null);
   const renderLoopRef = useRef<RenderLoop | null>(null);
   const { canvasRef, cursor: canvasCursor } = useCanvasInteraction();
-  useSelectionInteraction(canvasRef);
+  const { getMarquee } = useSelectionInteraction(canvasRef);
   const { cursor: manipulationCursor } = useManipulationInteraction(canvasRef);
   const { getDrawPreview, textTool, cancelDraw } = useDrawingInteraction(canvasRef);
   useTouchGestures(canvasRef);
@@ -118,8 +118,11 @@ function CanvasInner() {
     const drawPreviewProvider = {
       getDrawPreview,
     };
+    const marqueeProvider = {
+      getMarquee,
+    };
     const dpr = window.devicePixelRatio || 1;
-    const loop = createRenderLoop(ctx, getCamera, width, height, roughCanvas, expressionProvider, selectionProvider, drawPreviewProvider, dpr);
+    const loop = createRenderLoop(ctx, getCamera, width, height, roughCanvas, expressionProvider, selectionProvider, drawPreviewProvider, dpr, marqueeProvider);
 
     renderLoopRef.current = loop;
     loop.start();
