@@ -76,20 +76,19 @@ export function renderSelection(
     const { x, y } = expr.position;
     const { width, height } = expr.size;
 
-    // ── Dashed bounding box ──────────────────────────────────
-    ctx.save();
-    ctx.strokeStyle = SELECTION_COLOR;
-    ctx.lineWidth = 1 / camera.zoom; // 1px screen width
-    ctx.setLineDash(DASH_PATTERN.map((d) => d / camera.zoom));
-    ctx.strokeRect(x, y, width, height);
-    ctx.setLineDash([]); // Reset dash
-    ctx.restore();
-
     if (isPointBasedKind(expr.data.kind)) {
-      // ── Circular point handles for line/arrow/freehand ───
+      // ── Point-based shapes: only show endpoint circles, no bounding box ──
       renderPointHandles(ctx, expr, camera, halfHandle);
     } else {
-      // ── 8 resize handles for other shapes ───────────────
+      // ── Dashed bounding box + 8 resize handles ──────────────
+      ctx.save();
+      ctx.strokeStyle = SELECTION_COLOR;
+      ctx.lineWidth = 1 / camera.zoom;
+      ctx.setLineDash(DASH_PATTERN.map((d) => d / camera.zoom));
+      ctx.strokeRect(x, y, width, height);
+      ctx.setLineDash([]);
+      ctx.restore();
+
       renderBboxHandles(ctx, expr, camera, handleSize, halfHandle);
     }
   }
