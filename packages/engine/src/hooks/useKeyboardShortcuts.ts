@@ -264,7 +264,7 @@ export function useKeyboardShortcuts(
                 expr.kind === 'ellipse' || expr.kind === 'diamond' || 
                 expr.kind === 'sticky-note')) {
               event.preventDefault();
-              options.startEditing(id);
+              options.startEditing(id, key);
               return;
             }
           }

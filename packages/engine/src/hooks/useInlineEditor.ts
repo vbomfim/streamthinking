@@ -48,8 +48,8 @@ export const EDITABLE_KINDS: Record<string, EditableKindConfig> = {
 export interface InlineEditorState {
   /** ID of the expression currently being edited, or null. */
   editingId: string | null;
-  /** Begin editing an expression by ID. No-op if kind is not editable or locked. */
-  startEditing: (id: string) => void;
+  /** Begin editing an expression by ID. Optionally seed with an initial character. */
+  startEditing: (id: string, initialChar?: string) => void;
   /** Commit the current edit with the given text. Clears editing state. */
   commitEdit: (newText: string) => void;
   /** Cancel the current edit without modifying the expression. */
@@ -68,26 +68,23 @@ export function useInlineEditor(
   canvasRef: React.RefObject<HTMLCanvasElement>,
 ): InlineEditorState {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [initialChar, setInitialChar] = useState<string>('');
 
-  // Ref keeps editingId in sync for stable callbacks [CLEAN-CODE]
+  // Ref keeps editingId in sync for stable callbacks
   const editingIdRef = useRef<string | null>(null);
   editingIdRef.current = editingId;
 
   // ── Start editing ──────────────────────────────────────────
 
-  const startEditing = useCallback((id: string) => {
+  const startEditing = useCallback((id: string, seedChar?: string) => {
     const state = useCanvasStore.getState();
     const expression = state.expressions[id];
 
-    // Guard: expression must exist
     if (!expression) return;
-
-    // Guard: expression must not be locked [S5-3]
     if (expression.meta.locked) return;
-
-    // Guard: expression kind must be editable
     if (!EDITABLE_KINDS[expression.kind]) return;
 
+    setInitialChar(seedChar ?? '');
     setEditingId(id);
   }, []);
 
@@ -106,8 +103,10 @@ export function useInlineEditor(
 
     const data = expression.data as Record<string, unknown>;
     const value = data[config.field];
-    return typeof value === 'string' ? value : '';
-  }, []);
+    const existingText = typeof value === 'string' ? value : '';
+    // Append initial character for type-to-edit (first keypress that triggered editing)
+    return existingText || initialChar;
+  }, [initialChar]);
 
   // ── Commit edit ────────────────────────────────────────────
 
