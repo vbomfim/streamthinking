@@ -422,7 +422,7 @@ function InlineEditOverlay({ expression, initialText, camera, onCommit, onCancel
         top: `${screenPos.y}px`,
         width: `${Math.max(screenWidth, 100)}px`,
         height: `${Math.max(screenHeight, 32)}px`,
-        padding: '4px 8px',
+        padding: `${Math.max((Math.max(screenHeight, 32) - scaledFontSize * 1.4) / 2, 4)}px 8px`,
         border: '2px solid #4A90D9',
         borderRadius: '4px',
         outline: 'none',
@@ -431,7 +431,7 @@ function InlineEditOverlay({ expression, initialText, camera, onCommit, onCancel
         textAlign: 'center' as React.CSSProperties['textAlign'],
         background: expression.kind === 'sticky-note' && typeof data.color === 'string'
           ? data.color
-          : 'white',
+          : 'transparent',
         resize: 'none',
         zIndex: 10,
         boxSizing: 'border-box',
