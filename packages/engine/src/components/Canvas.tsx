@@ -427,7 +427,7 @@ function InlineEditOverlay({ expression, initialText, camera, onCommit, onCancel
         fontSize: `${scaledFontSize}px`,
         fontFamily: fontFamily,
         textAlign: 'center' as React.CSSProperties['textAlign'],
-        background: isStickyNote && typeof data.color === 'string'
+        background: expression.kind === 'sticky-note' && typeof data.color === 'string'
           ? data.color
           : 'white',
         resize: 'none',
