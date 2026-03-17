@@ -313,8 +313,9 @@ function TextInputOverlay({ worldX, worldY, camera, onCommit, onCancel }: TextIn
         border: '2px solid #4A90D9',
         borderRadius: '4px',
         outline: 'none',
-        fontSize: '16px',
-        fontFamily: 'sans-serif',
+        fontSize: `${scaledFontSize}px`,
+        fontFamily: fontFamily,
+        color: expression.style.strokeColor,
         background: 'white',
         resize: 'both',
         zIndex: 10,
@@ -356,13 +357,14 @@ function InlineEditOverlay({ expression, initialText, camera, onCommit, onCancel
   const screenWidth = expression.size.width * camera.zoom;
   const screenHeight = expression.size.height * camera.zoom;
 
-  // Determine font size based on expression kind
+  // Determine font from expression style
+  const fontFamily = expression.style.fontFamily ?? 'sans-serif';
   const isText = expression.kind === 'text';
   const isStickyNote = expression.kind === 'sticky-note';
   const data = expression.data as Record<string, unknown>;
   const baseFontSize = isText && typeof data.fontSize === 'number'
     ? data.fontSize
-    : isStickyNote ? 14 : 14;
+    : expression.style.fontSize ?? 16;
   const scaledFontSize = baseFontSize * camera.zoom;
 
   useEffect(() => {
