@@ -357,8 +357,9 @@ function InlineEditOverlay({ expression, initialText, camera, onCommit, onCancel
   const screenWidth = expression.size.width * camera.zoom;
   const screenHeight = expression.size.height * camera.zoom;
 
-  // Determine font from expression style
-  const fontFamily = expression.style.fontFamily ?? 'sans-serif';
+  // Determine font from expression style, falling back to lastUsedStyle
+  const lastUsedStyle = useCanvasStore.getState().lastUsedStyle;
+  const fontFamily = expression.style.fontFamily ?? lastUsedStyle.fontFamily ?? 'sans-serif';
   const isText = expression.kind === 'text';
   const isStickyNote = expression.kind === 'sticky-note';
   const data = expression.data as Record<string, unknown>;
