@@ -369,7 +369,9 @@ function InlineEditOverlay({ expression, initialText, camera, onCommit, onCancel
     const textarea = textareaRef.current;
     if (textarea) {
       textarea.focus();
-      textarea.select();
+      // Place cursor at end, don't select all (preserves initial char from type-to-edit)
+      const len = textarea.value.length;
+      textarea.setSelectionRange(len, len);
     }
   }, []);
 
