@@ -107,7 +107,6 @@ export class AreaShapeTool implements ToolHandler {
       data,
     };
 
-    const store = useCanvasStore.getState();
     store.addExpression(expression);
     store.setSelectedIds(new Set([id]));
 
