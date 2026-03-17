@@ -612,7 +612,7 @@ export function renderLabel(
   if (style.fontSize) {
     fontSize = style.fontSize;
   } else {
-    const autoSize = Math.min(height * 0.3, width / (label.length * 0.6));
+    const autoSize = Math.min(height * 0.18, width / (label.length * 0.6));
     fontSize = Math.max(8, Math.min(autoSize, 72));
   }
 
