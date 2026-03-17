@@ -605,14 +605,45 @@ export function renderLabel(
 ): void {
   if (!label) return;
 
-  const fontSize = style.fontSize ?? DEFAULT_FONT_SIZE;
   const fontFamily = style.fontFamily ?? DEFAULT_FONT_FAMILY;
+
+  // Font size proportional to shape — fits nicely inside
+  const autoSize = Math.min(height * 0.3, width / (label.length * 0.6));
+  const fontSize = Math.max(8, Math.min(autoSize, 72));
 
   ctx.font = `${fontSize}px ${fontFamily}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillStyle = style.strokeColor;
-  ctx.fillText(label, x + width / 2, y + height / 2);
+
+  // Word-wrap if text is wider than the shape
+  const maxWidth = width * 0.85;
+  const measured = ctx.measureText(label);
+  if (measured.width <= maxWidth) {
+    ctx.fillText(label, x + width / 2, y + height / 2);
+  } else {
+    // Simple word wrap
+    const words = label.split(' ');
+    const lines: string[] = [];
+    let currentLine = '';
+    for (const word of words) {
+      const test = currentLine ? `${currentLine} ${word}` : word;
+      if (ctx.measureText(test).width > maxWidth && currentLine) {
+        lines.push(currentLine);
+        currentLine = word;
+      } else {
+        currentLine = test;
+      }
+    }
+    if (currentLine) lines.push(currentLine);
+
+    const lineHeight = fontSize * 1.3;
+    const totalHeight = lines.length * lineHeight;
+    const startY = y + height / 2 - totalHeight / 2 + lineHeight / 2;
+    for (let i = 0; i < lines.length; i++) {
+      ctx.fillText(lines[i]!, x + width / 2, startY + i * lineHeight);
+    }
+  }
 }
 
 /**
