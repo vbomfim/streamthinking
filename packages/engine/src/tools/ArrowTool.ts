@@ -124,7 +124,10 @@ export class ArrowTool implements ToolHandler {
       position,
       size,
       angle: 0,
-      style: { ...useCanvasStore.getState().lastUsedStyle },
+      style: (() => {
+        const s = useCanvasStore.getState();
+        return { ...s.lastUsedStyle, strokeWidth: s.lastUsedStyle.strokeWidth / s.camera.zoom };
+      })(),
       meta: {
         author: LOCAL_AUTHOR,
         createdAt: now,
