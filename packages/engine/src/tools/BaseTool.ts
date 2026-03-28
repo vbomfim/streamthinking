@@ -75,5 +75,6 @@ export function createToolHandlerRegistry(): ToolHandlerRegistry {
     arrow: undefined,
     freehand: undefined,
     text: undefined,
+    'sticky-note': undefined,
   };
 }

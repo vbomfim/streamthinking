@@ -58,6 +58,9 @@ export function renderDrawPreview(
     case 'freehand':
       renderFreehandPreview(ctx, preview);
       break;
+    case 'sticky-note':
+      renderStickyNotePreview(ctx, preview);
+      break;
   }
 
   ctx.restore();
@@ -177,4 +180,12 @@ function renderFreehandPreview(ctx: CanvasRenderingContext2D, p: DrawPreview): v
     ctx.lineTo(px, py);
   }
   ctx.stroke();
+}
+
+/** Render sticky note preview as a warm-tinted rectangle. */
+function renderStickyNotePreview(ctx: CanvasRenderingContext2D, p: DrawPreview): void {
+  ctx.fillStyle = 'rgba(255, 224, 130, 0.3)';
+  ctx.fillRect(p.x, p.y, p.width, p.height);
+  ctx.strokeStyle = '#FFB300';
+  ctx.strokeRect(p.x, p.y, p.width, p.height);
 }

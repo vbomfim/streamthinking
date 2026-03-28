@@ -22,6 +22,7 @@ import {
   ArrowRight,
   Pencil,
   Type,
+  StickyNote,
   Group,
   Ungroup,
   Trash2,
@@ -45,6 +46,7 @@ const TOOLS: ToolDefinition[] = [
   { type: 'arrow', icon: ArrowRight, label: 'Arrow (A)' },
   { type: 'freehand', icon: Pencil, label: 'Pen (P)' },
   { type: 'text', icon: Type, label: 'Text (T)' },
+  { type: 'sticky-note', icon: StickyNote, label: 'Sticky Note (N)' },
 ];
 
 /** Toolbar button size in pixels. */

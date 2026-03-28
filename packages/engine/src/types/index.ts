@@ -15,7 +15,8 @@ export type ToolType =
   | 'line'
   | 'arrow'
   | 'freehand'
-  | 'text';
+  | 'text'
+  | 'sticky-note';
 
 /** Camera state for viewport panning and zooming. */
 export interface Camera {

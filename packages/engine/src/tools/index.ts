@@ -14,3 +14,4 @@ export { LineTool } from './LineTool.js';
 export { ArrowTool } from './ArrowTool.js';
 export { FreehandTool } from './FreehandTool.js';
 export { TextTool } from './TextTool.js';
+export { StickyNoteTool } from './StickyNoteTool.js';

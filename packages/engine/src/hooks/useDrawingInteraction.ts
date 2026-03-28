@@ -19,6 +19,7 @@ import { LineTool } from '../tools/LineTool.js';
 import { ArrowTool } from '../tools/ArrowTool.js';
 import { FreehandTool } from '../tools/FreehandTool.js';
 import { TextTool } from '../tools/TextTool.js';
+import { StickyNoteTool } from '../tools/StickyNoteTool.js';
 import type { ToolHandler, DrawPreview } from '../tools/BaseTool.js';
 
 export interface DrawingInteraction {
@@ -50,6 +51,7 @@ export function useDrawingInteraction(
       arrow: new ArrowTool(),
       freehand: new FreehandTool(),
       text: textTool,
+      'sticky-note': new StickyNoteTool(),
     } as Record<string, ToolHandler>;
   }, []);
 
