@@ -49,12 +49,19 @@ export async function startServer(
     );
   }
 
-  const server = createMcpServer(gatewayClient);
+  const mcpServer = createMcpServer(gatewayClient);
 
   // Connect stdio transport unless testing
   if (!options.skipTransport) {
     const transport = new StdioServerTransport();
-    await server.connect(transport);
+    await mcpServer.connect(transport);
+
+    // After MCP init handshake, update agent name with CLI client info
+    const clientInfo = mcpServer.server.getClientVersion();
+    if (clientInfo && gatewayClient.isConnected()) {
+      const agentName = clientInfo.name || 'Unknown CLI';
+      gatewayClient.updateAgentName(agentName);
+    }
   }
 
   /** Cleanup function — disconnects gateway and prepares for shutdown. */

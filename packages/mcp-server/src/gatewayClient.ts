@@ -137,6 +137,8 @@ export interface IGatewayClient {
   getState(): VisualExpression[];
   /** Get and clear all pending agent requests from human users. */
   getPendingRequests(): PendingAgentRequest[];
+  /** Update the agent display name and re-identify with the gateway. */
+  updateAgentName(name: string): void;
 }
 
 /**
@@ -153,7 +155,7 @@ export class GatewayClient implements IGatewayClient {
   private readonly url: string;
   private readonly apiKey: string;
   private readonly initialSessionId: string | undefined;
-  private readonly author: AuthorInfo;
+  private author: AuthorInfo;
 
   /** Maximum pending requests to queue (prevents unbounded growth). */
   private static readonly MAX_PENDING_REQUESTS = 50;
@@ -238,6 +240,13 @@ export class GatewayClient implements IGatewayClient {
       type: 'identify',
       agent: this.author,
     });
+  }
+
+  updateAgentName(name: string): void {
+    this.author = { ...this.author, name };
+    if (this.isConnected()) {
+      this.sendIdentify();
+    }
   }
 
   getSessionId(): string | null {
