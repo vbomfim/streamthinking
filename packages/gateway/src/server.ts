@@ -154,10 +154,15 @@ function handleMessage(
         clientSessions.delete(ws);
       }
 
-      const state = sessionManager.joinSession(message.sessionId, ws);
+      // Auto-create the session if it doesn't exist (enables well-known session IDs)
+      let state = sessionManager.joinSession(message.sessionId, ws);
       if (!state) {
-        sendError(ws, 'SESSION_NOT_FOUND', 'Session not found');
-        return;
+        sessionManager.createSessionWithId(message.sessionId);
+        state = sessionManager.joinSession(message.sessionId, ws);
+        if (!state) {
+          sendError(ws, 'SESSION_NOT_FOUND', 'Failed to create session');
+          return;
+        }
       }
       clientSessions.set(ws, message.sessionId);
       send(ws, {

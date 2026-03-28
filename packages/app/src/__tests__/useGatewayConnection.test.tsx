@@ -116,6 +116,7 @@ describe('useGatewayConnection', () => {
       expect(createGatewayConnection).toHaveBeenCalledWith({
         url: 'ws://localhost:3001',
         apiKey: 'sk-test-123',
+        sessionId: 'local-dev',
       });
     });
 
@@ -208,6 +209,7 @@ describe('useGatewayConnection', () => {
       expect(createGatewayConnection).toHaveBeenLastCalledWith({
         url: 'ws://localhost:4001',
         apiKey: 'sk-key-2',
+        sessionId: 'local-dev',
       });
     });
 

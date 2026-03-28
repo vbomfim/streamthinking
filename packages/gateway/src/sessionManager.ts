@@ -46,6 +46,13 @@ export class SessionManager {
   /** Create a new session and return its ID. */
   createSession(): string {
     const id = nanoid();
+    this.createSessionWithId(id);
+    return id;
+  }
+
+  /** Create a session with a specific ID (for well-known session IDs). */
+  createSessionWithId(id: string): void {
+    if (this.sessions.has(id)) return; // already exists
     const session: Session = {
       id,
       expressions: {},
@@ -57,7 +64,6 @@ export class SessionManager {
     };
     this.sessions.set(id, session);
     log('session_created', { sessionId: id });
-    return id;
   }
 
   /** Get a session by ID, or undefined if not found. */

@@ -106,6 +106,7 @@ export function useGatewayConnection(): GatewayConnectionState {
       const conn = createGatewayConnection({
         url: settings.gatewayUrl,
         apiKey: settings.apiKey,
+        sessionId: 'local-dev',
       });
       connectionRef.current = conn;
     }

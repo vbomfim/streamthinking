@@ -8,7 +8,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "INFINICANVAS_API_KEY=local-dev concurrently -n gateway,app -c blue,green \"npm run start -w @infinicanvas/gateway\" \"npm run dev -w @infinicanvas/app\"",
+    "dev": "INFINICANVAS_API_KEY=local-dev INFINICANVAS_SESSION_ID=local-dev concurrently -n gateway,app -c blue,green \"npm run start -w @infinicanvas/gateway\" \"npm run dev -w @infinicanvas/app\"",
     "build": "npm run build --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",

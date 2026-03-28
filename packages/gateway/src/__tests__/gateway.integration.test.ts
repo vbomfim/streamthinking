@@ -469,22 +469,23 @@ describe('Gateway Integration', () => {
   });
 
   // ─────────────────────────────────────────────────────────
-  // 8. Non-existent session join → SESSION_NOT_FOUND
+  // 8. Non-existent session join → auto-creates session
   // ─────────────────────────────────────────────────────────
-  describe('Session Not Found', () => {
-    it('returns SESSION_NOT_FOUND when joining non-existent session', async () => {
+  describe('Auto-create Session on Join', () => {
+    it('auto-creates session when joining with unknown session ID', async () => {
       const client = await connectClient();
 
       send(client, {
         type: 'join',
-        sessionId: 'nonexistent-session-id',
+        sessionId: 'new-session-id',
         auth: { apiKey: TEST_API_KEY },
       });
 
       const msg = await waitForMessage(client);
-      expect(msg.type).toBe('error');
-      if (msg.type === 'error') {
-        expect(msg.code).toBe('SESSION_NOT_FOUND');
+      expect(msg.type).toBe('state-sync');
+      if (msg.type === 'state-sync') {
+        expect(msg.sessionId).toBe('new-session-id');
+        expect(msg.expressions).toEqual([]);
       }
 
       client.close();
