@@ -49,7 +49,7 @@ describe('MCP server integration [CONTRACT]', () => {
   });
 
   describe('startServer + createMcpServer integration [AC #32]', () => {
-    it('[AC-1][CONTRACT] creates MCP server with all 19 registered tools', async () => {
+    it('[AC-1][CONTRACT] creates MCP server with all registered tools', async () => {
       const mockClient = createMockGatewayClient();
       const { startServer } = await import('../main.js');
       const { createMcpServer } = await import('../server.js');

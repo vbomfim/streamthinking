@@ -57,4 +57,12 @@ export {
 } from './tools/annotationTools.js';
 
 // ── Management tools ───────────────────────────────────────
-export { formatCanvasState } from './tools/managementTools.js';
+export { formatCanvasState, formatStructuredState, getExpressionLabel } from './tools/managementTools.js';
+
+// ── Query tools ────────────────────────────────────────────
+export {
+  executeCanvasQuery,
+  executeGetExpression,
+  intersects,
+} from './tools/queryTools.js';
+export type { CanvasQueryParams, GetExpressionParams } from './tools/queryTools.js';

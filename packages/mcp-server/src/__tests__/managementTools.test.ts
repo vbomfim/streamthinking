@@ -12,6 +12,7 @@ import type { VisualExpression } from '@infinicanvas/protocol';
 import type { IGatewayClient } from '../gatewayClient.js';
 import {
   formatCanvasState,
+  formatStructuredState,
   executeGetState,
   executeClear,
   executeMorph,
@@ -135,6 +136,41 @@ describe('formatCanvasState', () => {
 
     const result = formatCanvasState(expressions);
     expect(result).toContain('3 elements');
+  });
+});
+
+// ── formatStructuredState ──────────────────────────────────
+
+describe('formatStructuredState', () => {
+  it('returns JSON with count and expressions array', () => {
+    const expressions = [
+      createExpression({
+        id: 'r1', kind: 'rectangle',
+        data: { kind: 'rectangle', label: 'Box' },
+        position: { x: 100, y: 200 },
+        size: { width: 300, height: 150 },
+      }),
+    ];
+
+    const result = formatStructuredState(expressions);
+    const parsed = JSON.parse(result);
+
+    expect(parsed.count).toBe(1);
+    expect(parsed.expressions).toHaveLength(1);
+    expect(parsed.expressions[0].id).toBe('r1');
+    expect(parsed.expressions[0].kind).toBe('rectangle');
+    expect(parsed.expressions[0].position).toEqual({ x: 100, y: 200 });
+    expect(parsed.expressions[0].size).toEqual({ width: 300, height: 150 });
+    expect(parsed.expressions[0].label).toBe('Box');
+    expect(parsed.expressions[0].tags).toEqual([]);
+  });
+
+  it('returns empty JSON for empty canvas', () => {
+    const result = formatStructuredState([]);
+    const parsed = JSON.parse(result);
+
+    expect(parsed.count).toBe(0);
+    expect(parsed.expressions).toHaveLength(0);
   });
 });
 

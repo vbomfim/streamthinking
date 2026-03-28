@@ -39,7 +39,7 @@ export function formatCanvasState(expressions: VisualExpression[]): string {
 }
 
 /** Extract a human-readable label from an expression's data. */
-function getExpressionLabel(expr: VisualExpression): string | undefined {
+export function getExpressionLabel(expr: VisualExpression): string | undefined {
   const data = expr.data;
 
   switch (data.kind) {
@@ -72,6 +72,20 @@ function getExpressionLabel(expr: VisualExpression): string | undefined {
     default:
       return undefined;
   }
+}
+
+/** Format canvas state as structured JSON for machine consumption. */
+export function formatStructuredState(expressions: VisualExpression[]): string {
+  const summaries = expressions.map((expr) => ({
+    id: expr.id,
+    kind: expr.kind,
+    position: expr.position,
+    size: expr.size,
+    label: getExpressionLabel(expr),
+    tags: expr.meta.tags,
+  }));
+
+  return JSON.stringify({ count: expressions.length, expressions: summaries });
 }
 
 // ── Tool executors ─────────────────────────────────────────

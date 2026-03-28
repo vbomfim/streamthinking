@@ -50,7 +50,12 @@ import {
   executeGetState,
   executeClear,
   executeMorph,
+  formatStructuredState,
 } from './tools/managementTools.js';
+import {
+  executeCanvasQuery,
+  executeGetExpression,
+} from './tools/queryTools.js';
 
 // ── Zod schemas for tool parameters ────────────────────────
 
@@ -384,8 +389,14 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
     'Get the current state of the canvas — lists all expressions with their IDs, kinds, positions, and labels. Use to inspect what is currently on the canvas before making changes.',
     {},
     async () => {
-      const result = await executeGetState(gatewayClient);
-      return { content: [{ type: 'text' as const, text: result }] };
+      const textResult = await executeGetState(gatewayClient);
+      const structuredResult = formatStructuredState(gatewayClient.getState());
+      return {
+        content: [
+          { type: 'text' as const, text: textResult },
+          { type: 'text' as const, text: structuredResult },
+        ],
+      };
     },
   );
 
@@ -416,6 +427,40 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
         elementId: params.elementId,
         toKind: params.toKind,
       });
+      return { content: [{ type: 'text' as const, text: result }] };
+    },
+  );
+
+  // ── Query tools ──────────────────────────────────────────
+
+  server.tool(
+    'canvas_query',
+    'Query the canvas for expressions matching filters. Use to find specific elements by kind, position, tags, or label text.',
+    {
+      kind: z.string().optional().describe('Filter by expression kind (e.g. "rectangle", "text", "flowchart")'),
+      bounds: z.object({
+        x: z.number().describe('Left edge of the query region'),
+        y: z.number().describe('Top edge of the query region'),
+        width: z.number().positive().describe('Width of the query region'),
+        height: z.number().positive().describe('Height of the query region'),
+      }).optional().describe('Bounding box to filter expressions by overlap (not strict containment)'),
+      tags: z.array(z.string()).optional().describe('Filter expressions that have ALL of these tags'),
+      labelContains: z.string().optional().describe('Filter expressions whose label contains this text (case-insensitive)'),
+    },
+    async (params) => {
+      const result = await executeCanvasQuery(gatewayClient, params);
+      return { content: [{ type: 'text' as const, text: result }] };
+    },
+  );
+
+  server.tool(
+    'canvas_get_expression',
+    'Get full details of a specific canvas expression by ID. Use after canvas_query to inspect complete data.',
+    {
+      expressionId: z.string().min(1).describe('ID of the expression to retrieve'),
+    },
+    async (params) => {
+      const result = await executeGetExpression(gatewayClient, params);
       return { content: [{ type: 'text' as const, text: result }] };
     },
   );
