@@ -59,20 +59,18 @@ export async function startServer(
 
     // After MCP init handshake, update agent name with CLI client info
     const shortId = MCP_AUTHOR.id.slice(-4);
+    const buildName = () => `copilot-${shortId}`;
     const clientInfo = mcpServer.server.getClientVersion();
     if (clientInfo && gatewayClient.isConnected()) {
-      const agentName = `${clientInfo.name} (${shortId})`;
-      gatewayClient.updateAgentName(agentName);
+      gatewayClient.updateAgentName(buildName());
     } else if (!clientInfo) {
-      // clientInfo may not be available yet if connect() returns before init completes.
-      // Poll briefly for it.
       let attempts = 0;
       const poll = setInterval(() => {
         attempts++;
         const info = mcpServer.server.getClientVersion();
         if (info && gatewayClient.isConnected()) {
           clearInterval(poll);
-          gatewayClient.updateAgentName(`${info.name} (${shortId})`);
+          gatewayClient.updateAgentName(buildName());
         } else if (attempts >= 20) {
           clearInterval(poll);
         }
