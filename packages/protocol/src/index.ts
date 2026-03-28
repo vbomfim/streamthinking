@@ -23,6 +23,7 @@ export type {
   TextData,
   StickyNoteData,
   ImageData,
+  StencilData,
   PrimitiveData,
 } from './schema/primitives.js';
 
@@ -107,6 +108,7 @@ export {
   textDataSchema,
   stickyNoteDataSchema,
   imageDataSchema,
+  stencilDataSchema,
   flowchartDataSchema,
   sequenceDiagramDataSchema,
   wireframeDataSchema,

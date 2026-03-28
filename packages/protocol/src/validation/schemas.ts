@@ -152,6 +152,13 @@ export const imageDataSchema = z.object({
   alt: z.string().max(500).optional(),
 });
 
+export const stencilDataSchema = z.object({
+  kind: z.literal('stencil'),
+  stencilId: z.string().min(1).max(100),
+  category: z.string().min(1).max(100),
+  label: z.string().max(200).optional(),
+});
+
 // ── Composite Data Schemas ─────────────────────────────────
 
 const flowNodeSchema = z.object({
@@ -378,6 +385,7 @@ export const expressionDataSchema = z.discriminatedUnion('kind', [
   textDataSchema,
   stickyNoteDataSchema,
   imageDataSchema,
+  stencilDataSchema,
   // Composites
   flowchartDataSchema,
   sequenceDiagramDataSchema,

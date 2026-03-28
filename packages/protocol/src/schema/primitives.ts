@@ -92,6 +92,17 @@ export interface ImageData {
   alt?: string;
 }
 
+/** Data for a stencil expression (icon from the stencil catalog). */
+export interface StencilData {
+  kind: 'stencil';
+  /** ID of the stencil entry in the catalog. */
+  stencilId: string;
+  /** Category grouping for the stencil (e.g. 'network', 'kubernetes'). */
+  category: string;
+  /** Optional display label rendered below the icon. */
+  label?: string;
+}
+
 /** Union of all primitive expression data types. */
 export type PrimitiveData =
   | RectangleData
@@ -102,4 +113,5 @@ export type PrimitiveData =
   | FreehandData
   | TextData
   | StickyNoteData
-  | ImageData;
+  | ImageData
+  | StencilData;

@@ -81,6 +81,16 @@ export { renderSlide } from './renderer/composites/slideRenderer.js';
 export { renderCollaborationDiagram } from './renderer/composites/collaborationDiagramRenderer.js';
 export { renderDecisionTree } from './renderer/composites/decisionTreeRenderer.js';
 
+// ── Stencil catalog ────────────────────────────────────────
+export type { StencilEntry } from './renderer/stencils/index.js';
+export {
+  STENCIL_CATALOG,
+  getStencil,
+  getStencilsByCategory,
+  getAllCategories,
+  svgToDataUri,
+} from './renderer/stencils/index.js';
+
 // ── Interaction ────────────────────────────────────────────
 export {
   hitTestRectangle,
@@ -92,6 +102,7 @@ export {
   hitTestText,
   hitTestStickyNote,
   hitTestImage,
+  hitTestStencil,
   hitTestExpression,
 } from './interaction/hitTest.js';
 export type { WorldPoint } from './interaction/hitTest.js';

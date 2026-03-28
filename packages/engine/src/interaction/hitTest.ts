@@ -264,6 +264,18 @@ export function hitTestImage(
 }
 
 /**
+ * Hit test a stencil expression.
+ *
+ * Bounding box only — no tolerance margin.
+ */
+export function hitTestStencil(
+  point: WorldPoint,
+  expression: VisualExpression,
+): boolean {
+  return hitTestBoundingBox(point, expression);
+}
+
+/**
  * Dispatch hit test by expression kind.
  *
  * Routes to the correct shape-specific hit test function based on
@@ -293,6 +305,8 @@ export function hitTestExpression(
       return hitTestStickyNote(point, expression);
     case 'image':
       return hitTestImage(point, expression);
+    case 'stencil':
+      return hitTestStencil(point, expression);
     default:
       // Composite and unknown kinds: fall back to bounding-box hit test
       return hitTestBoundingBox(point, expression);

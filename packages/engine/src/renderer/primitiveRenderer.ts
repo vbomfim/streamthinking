@@ -20,6 +20,7 @@ import { createDrawableCache } from './drawableCache.js';
 import type { DrawableCache } from './drawableCache.js';
 import { getCompositeRenderer } from './compositeRegistry.js';
 import { resolveBindings } from '../interaction/connectorHelpers.js';
+import { getStencil, svgToDataUri } from './stencils/index.js';
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -167,6 +168,9 @@ function renderPrimitive(
       break;
     case 'image':
       renderImage(ctx, expr);
+      break;
+    case 'stencil':
+      renderStencil(ctx, expr);
       break;
     default: {
       // Check composite renderer registry before falling back
@@ -525,6 +529,61 @@ function renderImage(
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('⚠', x + width / 2, y + height / 2);
+  }
+}
+
+/** Label font size for stencil labels (px). */
+const STENCIL_LABEL_FONT_SIZE = 12;
+
+/** Gap between stencil icon bottom and label text (px). */
+const STENCIL_LABEL_GAP = 4;
+
+/** Render stencil icon from catalog with optional label. */
+function renderStencil(
+  ctx: CanvasRenderingContext2D,
+  expr: VisualExpression,
+): void {
+  if (expr.data.kind !== 'stencil') return;
+  const { stencilId, label } = expr.data;
+  const { x, y } = expr.position;
+  const { width, height } = expr.size;
+
+  const entry = getStencil(stencilId);
+
+  if (!entry) {
+    // Unknown stencil — render labeled placeholder box
+    renderPlaceholder(ctx, expr);
+    return;
+  }
+
+  // Convert SVG to data URI and use the image cache pattern
+  const dataUri = svgToDataUri(entry.svgContent);
+  const img = getCachedImage(dataUri);
+
+  if (img) {
+    // Compute icon area — leave room for label if present
+    const iconHeight = label ? height - STENCIL_LABEL_FONT_SIZE - STENCIL_LABEL_GAP : height;
+    ctx.drawImage(img, x, y, width, iconHeight);
+  } else {
+    // Loading placeholder
+    ctx.fillStyle = '#e0e0e0';
+    ctx.fillRect(x, y, width, height);
+
+    ctx.fillStyle = '#666666';
+    ctx.font = `${Math.min(width, height) * 0.3}px sans-serif`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('⏳', x + width / 2, y + height / 2);
+  }
+
+  // Draw label below the icon if present
+  if (label) {
+    const fontFamily = expr.style.fontFamily ?? DEFAULT_FONT_FAMILY;
+    ctx.font = `${STENCIL_LABEL_FONT_SIZE}px ${fontFamily}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillStyle = expr.style.strokeColor;
+    ctx.fillText(label, x + width / 2, y + height);
   }
 }
 
