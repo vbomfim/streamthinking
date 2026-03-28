@@ -56,6 +56,11 @@ import {
   executeCanvasQuery,
   executeGetExpression,
 } from './tools/queryTools.js';
+import {
+  executeCanvasSave,
+  executeCanvasLoad,
+  executeCanvasListSaves,
+} from './tools/persistenceTools.js';
 
 // ── Zod schemas for tool parameters ────────────────────────
 
@@ -505,6 +510,40 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
         }],
       };
     },
+  );
+
+  // ── Persistence tools ──────────────────────────────────────
+
+  server.tool(
+    'canvas_save',
+    'Save the current canvas state to a named file. Use to preserve diagrams for later restoration.',
+    {
+      name: z.string().min(1).describe('Name for the saved diagram (e.g., "architecture-v1")'),
+      description: z.string().optional().describe('Optional description of what this diagram shows'),
+    },
+    async (args) => ({
+      content: [{ type: 'text' as const, text: executeCanvasSave(gatewayClient, args) }],
+    }),
+  );
+
+  server.tool(
+    'canvas_load',
+    'Load a previously saved canvas diagram by name. Restores all expressions onto the canvas.',
+    {
+      name: z.string().min(1).describe('Name of the saved diagram to load'),
+    },
+    async (args) => ({
+      content: [{ type: 'text' as const, text: await executeCanvasLoad(gatewayClient, args) }],
+    }),
+  );
+
+  server.tool(
+    'canvas_list_saves',
+    'List all saved canvas diagrams. Use to discover available diagrams before loading.',
+    {},
+    async () => ({
+      content: [{ type: 'text' as const, text: executeCanvasListSaves() }],
+    }),
   );
 
   return server;
