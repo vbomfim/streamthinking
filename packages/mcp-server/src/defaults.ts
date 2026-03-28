@@ -56,10 +56,13 @@ export const LAYOUT = {
   padding: 40,
 } as const;
 
+/** Short unique ID for this MCP server instance. */
+const SHORT_ID = nanoid(4);
+
 /** MCP server author info — identifies operations as coming from the MCP tool server. */
 export const MCP_AUTHOR = {
   type: 'agent' as const,
-  id: `mcp-${nanoid(6)}`,
-  name: `Copilot MCP (${nanoid(4)})`,
+  id: `mcp-${SHORT_ID}`,
+  name: `copilot-${SHORT_ID}`,
   provider: 'mcp',
 };

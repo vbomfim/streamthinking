@@ -56,27 +56,6 @@ export async function startServer(
   if (!options.skipTransport) {
     const transport = new StdioServerTransport();
     await mcpServer.connect(transport);
-
-    // After MCP init handshake, update agent name with short ID
-    const shortId = MCP_AUTHOR.id.slice(-4);
-    const targetName = `copilot-${shortId}`;
-    
-    // Poll until clientInfo is available (init handshake may be async)
-    let attempts = 0;
-    const poll = setInterval(() => {
-      attempts++;
-      const info = mcpServer.server.getClientVersion();
-      if (info && gatewayClient.isConnected()) {
-        clearInterval(poll);
-        gatewayClient.updateAgentName(targetName);
-      } else if (attempts >= 20) {
-        clearInterval(poll);
-        // Fallback: update name even without clientInfo confirmation
-        if (gatewayClient.isConnected()) {
-          gatewayClient.updateAgentName(targetName);
-        }
-      }
-    }, 250);
   }
 
   /** Cleanup function — disconnects gateway and prepares for shutdown. */
