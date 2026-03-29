@@ -24,6 +24,7 @@ import { useTouchGestures } from '../hooks/useTouchGestures.js';
 import { useMetadataTooltip, formatRelativeTime } from '../hooks/useMetadataTooltip.js';
 import { useCanvasStore } from '../store/canvasStore.js';
 import { worldToScreen, screenToWorld } from '../camera.js';
+import { resolveTextConfig } from '../text/textConfig.js';
 import { createRenderLoop } from '../renderer/renderLoop.js';
 import type { RenderLoop } from '../renderer/renderLoop.js';
 import type { VisualExpression } from '@infinicanvas/protocol';
@@ -49,12 +50,16 @@ function CanvasInner() {
   useTouchGestures(canvasRef);
   const tooltip = useMetadataTooltip(canvasRef);
 
+  // Ref to expose editingId to the render loop without stale closures
+  const editingIdRef = useRef<string | null>(null);
+  editingIdRef.current = inlineEditor.editingId;
+
+  // Wire TextTool → inline editor so text tool creates expression + starts editing
+  textTool.setStartEditing(inlineEditor.startEditing);
+
   // Track active tool for cursor and text overlay
   const activeTool = useCanvasStore((s) => s.activeTool);
   const camera = useCanvasStore((s) => s.camera);
-
-  // Check text tool input position on each render
-  const textInputPos = textTool.getInputPosition();
 
   // Inline editor: look up the expression being edited
   const editingExpr = useCanvasStore((s) =>
@@ -132,8 +137,11 @@ function CanvasInner() {
     const marqueeProvider = {
       getMarquee,
     };
+    const editingProvider = {
+      getEditingId: () => editingIdRef.current,
+    };
     const dpr = window.devicePixelRatio || 1;
-    const loop = createRenderLoop(ctx, getCamera, width, height, roughCanvas, expressionProvider, selectionProvider, drawPreviewProvider, dpr, marqueeProvider);
+    const loop = createRenderLoop(ctx, getCamera, width, height, roughCanvas, expressionProvider, selectionProvider, drawPreviewProvider, dpr, marqueeProvider, editingProvider);
 
     renderLoopRef.current = loop;
     loop.start();
@@ -234,23 +242,9 @@ function CanvasInner() {
           cursor,
         }}
       />
-      {/* Text input overlay for text tool */}
-      {textInputPos && (
-        <TextInputOverlay
-          worldX={textInputPos.x}
-          worldY={textInputPos.y}
-          camera={camera}
-          onCommit={(text) => {
-            textTool.commitText(text);
-          }}
-          onCancel={() => {
-            textTool.onCancel();
-          }}
-        />
-      )}
-      {/* Inline edit overlay for double-click editing [#75, #79] */}
+      {/* Unified text editor for both new text creation and inline editing */}
       {editingExpr && (
-        <InlineEditOverlay
+        <TextEditor
           expression={editingExpr}
           initialText={inlineEditor.getEditingText()}
           camera={camera}
@@ -308,69 +302,9 @@ export function Canvas() {
   );
 }
 
-// ── Text Input Overlay ─────────────────────────────────────
+// ── Unified Text Editor ────────────────────────────────────
 
-interface TextInputOverlayProps {
-  worldX: number;
-  worldY: number;
-  camera: { x: number; y: number; zoom: number };
-  onCommit: (text: string) => void;
-  onCancel: () => void;
-}
-
-/**
- * Textarea overlay positioned at a world coordinate for the text tool.
- *
- * Enter commits the text, ESC cancels. Auto-focuses on mount.
- */
-function TextInputOverlay({ worldX, worldY, camera, onCommit, onCancel }: TextInputOverlayProps) {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  // Convert world position to screen position
-  const screenPos = worldToScreen(worldX, worldY, camera);
-
-  useEffect(() => {
-    textareaRef.current?.focus();
-  }, []);
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      onCommit(textareaRef.current?.value ?? '');
-    } else if (e.key === 'Escape') {
-      e.preventDefault();
-      onCancel();
-    }
-  };
-
-  return (
-    <textarea
-      ref={textareaRef}
-      onKeyDown={handleKeyDown}
-      style={{
-        position: 'absolute',
-        left: `${screenPos.x}px`,
-        top: `${screenPos.y}px`,
-        minWidth: '200px',
-        minHeight: '40px',
-        padding: '4px 8px',
-        border: '2px solid #4A90D9',
-        borderRadius: '4px',
-        outline: 'none',
-        fontSize: `${16 * camera.zoom}px`,
-        fontFamily: 'Architects Daughter, cursive',
-        color: '#1e1e1e',
-        background: 'white',
-        resize: 'both',
-        zIndex: 10,
-      }}
-    />
-  );
-}
-
-// ── Inline Edit Overlay ────────────────────────────────────
-
-interface InlineEditOverlayProps {
+interface TextEditorProps {
   expression: VisualExpression;
   initialText: string;
   camera: { x: number; y: number; zoom: number };
@@ -379,54 +313,52 @@ interface InlineEditOverlayProps {
 }
 
 /**
- * Textarea overlay for inline editing of text, sticky-note text, and shape labels.
+ * Unified textarea overlay for editing text on ANY expression.
  *
- * Positioned at the expression's world coordinates. Sized to match the expression.
- * Enter commits, ESC cancels, blur commits. Auto-focuses and selects text on mount.
+ * Uses resolveTextConfig() to match the renderer's exact font, size,
+ * color, alignment, and position — ensuring WYSIWYG editing.
  *
- * [#75, #79]
+ * Replaces the former TextInputOverlay (text tool) and InlineEditOverlay
+ * (double-click editing) with a single component.
+ *
+ * [DRY] One component, one code path for all text editing.
+ * [CLEAN-CODE] Single Responsibility — renders textarea matching rendered text.
  */
-function InlineEditOverlay({ expression, initialText, camera, onCommit, onCancel }: InlineEditOverlayProps) {
+function TextEditor({ expression, initialText, camera, onCommit, onCancel }: TextEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const committedRef = useRef(false);
 
+  const config = resolveTextConfig(expression);
+
   // Convert world position to screen position
-  const screenPos = worldToScreen(
-    expression.position.x,
-    expression.position.y,
-    camera,
-  );
+  const screenPos = config
+    ? worldToScreen(config.worldX, config.worldY, camera)
+    : worldToScreen(expression.position.x, expression.position.y, camera);
 
-  // Scale expression dimensions to screen
-  const screenWidth = expression.size.width * camera.zoom;
-  const screenHeight = expression.size.height * camera.zoom;
+  // Scale to screen dimensions
+  const screenWidth = config
+    ? config.worldWidth * camera.zoom
+    : expression.size.width * camera.zoom;
+  const screenHeight = config
+    ? config.worldHeight * camera.zoom
+    : expression.size.height * camera.zoom;
 
-  // Determine font from expression style, falling back to defaults
-  const fontFamily = expression.style.fontFamily ?? 'Architects Daughter, cursive';
-  const isText = expression.kind === 'text';
-  const data = expression.data as Record<string, unknown>;
-  const currentLabel = typeof data.label === 'string' ? data.label : (typeof data.text === 'string' ? data.text : '');
+  // Font scaled to screen
+  const scaledFontSize = config
+    ? config.fontSize * camera.zoom
+    : 16 * camera.zoom;
 
-  // For text expressions, use the data fontSize. For shapes with labels, auto-scale to shape size.
-  let baseFontSize: number;
-  if (isText && typeof data.fontSize === 'number') {
-    baseFontSize = data.fontSize;
-  } else if (expression.style.fontSize) {
-    baseFontSize = expression.style.fontSize;
-  } else {
-    // Match the renderer's auto-scale: 18% of height, capped by text width
-    const { width, height } = expression.size;
-    const labelLen = Math.max(currentLabel.length, 1);
-    const autoSize = height * 0.2;
-    baseFontSize = Math.max(8, Math.min(autoSize, 72));
-  }
-  const scaledFontSize = baseFontSize * camera.zoom;
+  const fontFamily = config?.fontFamily ?? 'Architects Daughter, cursive';
+  const textAlign = config?.textAlign ?? 'center';
+  const color = config?.color ?? '#000000';
+  const background = config?.background ?? 'transparent';
+  const verticalAlign = config?.verticalAlign ?? 'middle';
 
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
       textarea.focus();
-      // Place cursor at end, don't select all (preserves initial char from type-to-edit)
+      // Place cursor at end (preserves initial char from type-to-edit)
       const len = textarea.value.length;
       textarea.setSelectionRange(len, len);
     }
@@ -453,9 +385,10 @@ function InlineEditOverlay({ expression, initialText, camera, onCommit, onCancel
     doCommit();
   };
 
-  // For stencils, position the edit overlay below the icon (where the label renders)
-  const isStencil = expression.kind === 'stencil';
-  const stencilLabelOffset = isStencil ? (expression.size.height + 4) * camera.zoom : 0;
+  // Compute vertical padding for middle-aligned text (shape labels)
+  const verticalPadding = verticalAlign === 'middle'
+    ? Math.max((Math.max(screenHeight, 32) - scaledFontSize * 1.4) / 2, 4)
+    : 4;
 
   return (
     <textarea
@@ -466,22 +399,19 @@ function InlineEditOverlay({ expression, initialText, camera, onCommit, onCancel
       onBlur={handleBlur}
       style={{
         position: 'absolute',
-        left: `${isStencil ? screenPos.x - 20 : screenPos.x}px`,
-        top: `${screenPos.y + stencilLabelOffset}px`,
-        width: `${isStencil ? Math.max(screenWidth + 40, 120) : Math.max(screenWidth, 100)}px`,
-        height: `${isStencil ? 28 : Math.max(screenHeight, 32)}px`,
-        padding: isStencil ? '4px 8px' : `${Math.max((Math.max(screenHeight, 32) - scaledFontSize * 1.4) / 2, 4)}px 8px`,
-        border: '2px solid #4A90D9',
-        borderRadius: '4px',
+        left: `${screenPos.x}px`,
+        top: `${screenPos.y}px`,
+        width: `${Math.max(screenWidth, 100)}px`,
+        height: `${Math.max(screenHeight, 32)}px`,
+        padding: `${verticalPadding}px 8px`,
+        border: '1px dashed #4A90D9',
+        borderRadius: '2px',
         outline: 'none',
-        fontSize: isStencil ? `${12 * camera.zoom}px` : `${scaledFontSize}px`,
+        fontSize: `${scaledFontSize}px`,
         fontFamily: fontFamily,
-        textAlign: 'center' as React.CSSProperties['textAlign'],
-        background: isStencil
-          ? 'var(--bg-canvas, #ffffff)'
-          : expression.kind === 'sticky-note' && typeof data.color === 'string'
-            ? data.color
-            : 'transparent',
+        color: color,
+        textAlign: textAlign as React.CSSProperties['textAlign'],
+        background: background,
         resize: 'none',
         zIndex: 10,
         boxSizing: 'border-box',

@@ -21,6 +21,7 @@ import type { DrawableCache } from './drawableCache.js';
 import { getCompositeRenderer } from './compositeRegistry.js';
 import { resolveBindings } from '../interaction/connectorHelpers.js';
 import { getStencil, svgToDataUri } from './stencils/index.js';
+import { resolveTextConfig } from '../text/textConfig.js';
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -29,12 +30,6 @@ const ARROWHEAD_SIZE = 10;
 
 /** Sticky note rotation in radians (2°). */
 const STICKY_NOTE_ROTATION = (2 * Math.PI) / 180;
-
-/** Padding inside sticky notes for text (in px). */
-const STICKY_NOTE_PADDING = 12;
-
-/** Default font size when not specified. */
-const DEFAULT_FONT_SIZE = 16;
 
 /** Default font family when not specified. */
 const DEFAULT_FONT_FAMILY = 'Architects Daughter, cursive';
@@ -103,6 +98,7 @@ export function renderExpressions(
   camera: Camera,
   viewportWidth: number,
   viewportHeight: number,
+  editingId?: string | null,
 ): void {
   for (const id of expressionOrder) {
     const expr = expressions[id];
@@ -122,7 +118,7 @@ export function renderExpressions(
     ctx.save();
     ctx.globalAlpha = expr.style.opacity;
 
-    renderPrimitive(ctx, roughCanvas, expr, expressions);
+    renderPrimitive(ctx, roughCanvas, expr, expressions, editingId);
 
     ctx.restore();
   }
@@ -138,18 +134,20 @@ function renderPrimitive(
   roughCanvas: RoughCanvas,
   expr: VisualExpression,
   expressions: Record<string, VisualExpression>,
+  editingId?: string | null,
 ): void {
   const { kind } = expr;
+  const isEditing = expr.id === editingId;
 
   switch (kind) {
     case 'rectangle':
-      renderRectangle(ctx, roughCanvas, expr);
+      renderRectangle(ctx, roughCanvas, expr, isEditing);
       break;
     case 'ellipse':
-      renderEllipse(ctx, roughCanvas, expr);
+      renderEllipse(ctx, roughCanvas, expr, isEditing);
       break;
     case 'diamond':
-      renderDiamond(ctx, roughCanvas, expr);
+      renderDiamond(ctx, roughCanvas, expr, isEditing);
       break;
     case 'line':
       renderLine(ctx, roughCanvas, expr);
@@ -161,16 +159,16 @@ function renderPrimitive(
       renderFreehand(ctx, expr);
       break;
     case 'text':
-      renderText(ctx, expr);
+      if (!isEditing) renderText(ctx, expr);
       break;
     case 'sticky-note':
-      renderStickyNote(ctx, expr);
+      renderStickyNote(ctx, expr, isEditing);
       break;
     case 'image':
       renderImage(ctx, expr);
       break;
     case 'stencil':
-      renderStencil(ctx, expr);
+      renderStencil(ctx, expr, isEditing);
       break;
     default: {
       // Check composite renderer registry before falling back
@@ -192,6 +190,7 @@ function renderRectangle(
   ctx: CanvasRenderingContext2D,
   rc: RoughCanvas,
   expr: VisualExpression,
+  skipLabel = false,
 ): void {
   const { x, y } = expr.position;
   const { width, height } = expr.size;
@@ -203,8 +202,8 @@ function renderRectangle(
 
   rc.draw(drawable);
 
-  // Center label if present
-  if (expr.data.kind === 'rectangle' && expr.data.label) {
+  // Center label if present (skip when editing in-place)
+  if (!skipLabel && expr.data.kind === 'rectangle' && expr.data.label) {
     renderLabel(ctx, expr.data.label, x, y, width, height, expr.style);
   }
 }
@@ -214,6 +213,7 @@ function renderEllipse(
   ctx: CanvasRenderingContext2D,
   rc: RoughCanvas,
   expr: VisualExpression,
+  skipLabel = false,
 ): void {
   const { x, y } = expr.position;
   const { width, height } = expr.size;
@@ -227,7 +227,7 @@ function renderEllipse(
 
   rc.draw(drawable);
 
-  if (expr.data.kind === 'ellipse' && expr.data.label) {
+  if (!skipLabel && expr.data.kind === 'ellipse' && expr.data.label) {
     renderLabel(ctx, expr.data.label, x, y, width, height, expr.style);
   }
 }
@@ -237,6 +237,7 @@ function renderDiamond(
   ctx: CanvasRenderingContext2D,
   rc: RoughCanvas,
   expr: VisualExpression,
+  skipLabel = false,
 ): void {
   const { x, y } = expr.position;
   const { width, height } = expr.size;
@@ -257,7 +258,7 @@ function renderDiamond(
 
   rc.draw(drawable);
 
-  if (expr.data.kind === 'diamond' && expr.data.label) {
+  if (!skipLabel && expr.data.kind === 'diamond' && expr.data.label) {
     renderLabel(ctx, expr.data.label, x, y, width, height, expr.style);
   }
 }
@@ -434,30 +435,30 @@ function renderFreehand(
   }
 }
 
-/** Render text with word-wrap. [AC8] */
+/** Render text with word-wrap using unified text config. [AC8] */
 function renderText(
   ctx: CanvasRenderingContext2D,
   expr: VisualExpression,
 ): void {
   if (expr.data.kind !== 'text') return;
-  const { text, fontSize, fontFamily, textAlign } = expr.data;
-  const { x, y } = expr.position;
-  const { width } = expr.size;
+  const config = resolveTextConfig(expr);
+  if (!config) return;
 
-  ctx.font = `${fontSize}px ${fontFamily}`;
-  ctx.textAlign = textAlign;
+  ctx.font = `${config.fontSize}px ${config.fontFamily}`;
+  ctx.textAlign = (expr.data as { textAlign: string }).textAlign as CanvasTextAlign;
   ctx.textBaseline = 'top';
-  ctx.fillStyle = expr.style.strokeColor;
+  ctx.fillStyle = config.color;
 
-  const lineHeight = fontSize * LINE_HEIGHT_MULTIPLIER;
-  const lines = wrapText(ctx, text, width);
+  const lineHeight = config.fontSize * LINE_HEIGHT_MULTIPLIER;
+  const lines = wrapText(ctx, config.text, config.worldWidth);
 
-  let textX = x;
-  if (textAlign === 'center') textX = x + width / 2;
-  else if (textAlign === 'right') textX = x + width;
+  let textX = config.worldX;
+  const textAlign = (expr.data as { textAlign: string }).textAlign;
+  if (textAlign === 'center') textX = config.worldX + config.worldWidth / 2;
+  else if (textAlign === 'right') textX = config.worldX + config.worldWidth;
 
   for (let i = 0; i < lines.length; i++) {
-    ctx.fillText(lines[i]!, textX, y + i * lineHeight);
+    ctx.fillText(lines[i]!, textX, config.worldY + i * lineHeight);
   }
 }
 
@@ -465,9 +466,10 @@ function renderText(
 function renderStickyNote(
   ctx: CanvasRenderingContext2D,
   expr: VisualExpression,
+  skipText = false,
 ): void {
   if (expr.data.kind !== 'sticky-note') return;
-  const { text, color } = expr.data;
+  const { color } = expr.data;
   const { x, y } = expr.position;
   const { width, height } = expr.size;
 
@@ -484,24 +486,26 @@ function renderStickyNote(
   ctx.fillStyle = color;
   ctx.fillRect(x, y, width, height);
 
-  // Draw text with padding
-  const fontSize = expr.style.fontSize ?? DEFAULT_FONT_SIZE;
-  const fontFamily = expr.style.fontFamily ?? DEFAULT_FONT_FAMILY;
-  ctx.font = `${fontSize}px ${fontFamily}`;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-  ctx.fillStyle = '#000000';
+  // Draw text with padding (skip when editing in-place)
+  if (!skipText) {
+    const config = resolveTextConfig(expr);
+    if (config) {
+      ctx.font = `${config.fontSize}px ${config.fontFamily}`;
+      ctx.textAlign = config.textAlign;
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = config.color;
 
-  const textWidth = width - STICKY_NOTE_PADDING * 2;
-  const lineHeight = fontSize * LINE_HEIGHT_MULTIPLIER;
-  const lines = wrapText(ctx, text, textWidth);
+      const lineHeight = config.fontSize * LINE_HEIGHT_MULTIPLIER;
+      const lines = wrapText(ctx, config.text, config.worldWidth);
 
-  for (let i = 0; i < lines.length; i++) {
-    ctx.fillText(
-      lines[i]!,
-      x + STICKY_NOTE_PADDING,
-      y + STICKY_NOTE_PADDING + i * lineHeight,
-    );
+      for (let i = 0; i < lines.length; i++) {
+        ctx.fillText(
+          lines[i]!,
+          config.worldX,
+          config.worldY + i * lineHeight,
+        );
+      }
+    }
   }
 
   ctx.restore();
@@ -535,16 +539,11 @@ function renderImage(
   }
 }
 
-/** Label font size for stencil labels (px). */
-const STENCIL_LABEL_FONT_SIZE = 12;
-
-/** Gap between stencil icon bottom and label text (px). */
-const STENCIL_LABEL_GAP = 4;
-
 /** Render stencil icon from catalog with optional label. */
 function renderStencil(
   ctx: CanvasRenderingContext2D,
   expr: VisualExpression,
+  skipLabel = false,
 ): void {
   if (expr.data.kind !== 'stencil') return;
   const { stencilId, label } = expr.data;
@@ -679,15 +678,16 @@ function renderStencil(
     ctx.fillText('⏳', x + width / 2, y + height / 2);
   }
 
-  // Draw label below the icon if present
-  if (label) {
-    const fontFamily = expr.style.fontFamily ?? DEFAULT_FONT_FAMILY;
-    const fontSize = expr.style.fontSize ?? STENCIL_LABEL_FONT_SIZE;
-    ctx.font = `${fontSize}px ${fontFamily}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'top';
-    ctx.fillStyle = expr.style.strokeColor;
-    ctx.fillText(label, x + width / 2, y + height + STENCIL_LABEL_GAP);
+  // Draw label below the icon if present (skip when editing in-place)
+  if (!skipLabel && label) {
+    const config = resolveTextConfig(expr);
+    if (config) {
+      ctx.font = `${config.fontSize}px ${config.fontFamily}`;
+      ctx.textAlign = config.textAlign;
+      ctx.textBaseline = 'top';
+      ctx.fillStyle = config.color;
+      ctx.fillText(label, expr.position.x + expr.size.width / 2, config.worldY);
+    }
   }
 }
 

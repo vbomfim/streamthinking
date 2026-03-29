@@ -55,6 +55,12 @@ export interface MarqueeProvider {
   getMarquee(): { x: number; y: number; width: number; height: number } | null;
 }
 
+/** Callback that returns the ID of the expression currently being inline-edited. */
+export interface EditingProvider {
+  /** ID of the expression being edited, or null. */
+  getEditingId(): string | null;
+}
+
 /**
  * Create a render loop bound to a canvas context.
  *
@@ -78,6 +84,7 @@ export function createRenderLoop(
   drawPreviewProvider?: DrawPreviewProvider,
   dpr: number = 1,
   marqueeProvider?: MarqueeProvider,
+  editingProvider?: EditingProvider,
 ): RenderLoop {
   let width = initialWidth;
   let height = initialHeight;
@@ -109,6 +116,7 @@ export function createRenderLoop(
         camera,
         width,
         height,
+        editingProvider?.getEditingId() ?? null,
       );
     }
 

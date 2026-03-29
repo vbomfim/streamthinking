@@ -34,7 +34,7 @@ export {
 // ── Renderers ──────────────────────────────────────────────
 export { renderGrid, getGridSpacing } from './renderer/gridRenderer.js';
 export { createRenderLoop } from './renderer/renderLoop.js';
-export type { RenderLoop, ExpressionProvider, SelectionProvider, DrawPreviewProvider } from './renderer/renderLoop.js';
+export type { RenderLoop, ExpressionProvider, SelectionProvider, DrawPreviewProvider, EditingProvider } from './renderer/renderLoop.js';
 export {
   renderExpressions,
   renderLabel,
@@ -190,6 +190,10 @@ export { morphExpression, canMorph, getMorphTargets } from './morph/morphEngine.
 export { Canvas } from './components/Canvas.js';
 export { ErrorBoundary } from './components/ErrorBoundary.js';
 export { ShortcutsHelpPanel } from './components/ShortcutsHelpPanel.js';
+
+// ── Text Configuration ─────────────────────────────────────
+export { resolveTextConfig } from './text/textConfig.js';
+export type { TextConfig } from './text/textConfig.js';
 
 // ── Types ──────────────────────────────────────────────────
 export type {
