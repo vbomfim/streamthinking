@@ -31,6 +31,7 @@ const PREVIEW_FILL_COLOR = 'rgba(74, 144, 217, 0.08)';
 export function renderDrawPreview(
   ctx: CanvasRenderingContext2D,
   preview: DrawPreview,
+  zoom: number = 1,
 ): void {
   ctx.save();
 
@@ -67,14 +68,15 @@ export function renderDrawPreview(
 
   // ── Snap indicator: blue circle at snap point ──
   if (preview.snapPoint) {
+    const r = 10 / zoom;
     ctx.save();
     ctx.beginPath();
-    ctx.arc(preview.snapPoint.x, preview.snapPoint.y, 6, 0, Math.PI * 2);
+    ctx.arc(preview.snapPoint.x, preview.snapPoint.y, r, 0, Math.PI * 2);
     ctx.fillStyle = '#4A90D9';
     ctx.globalAlpha = 0.8;
     ctx.fill();
     ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2 / zoom;
     ctx.setLineDash([]);
     ctx.stroke();
     ctx.restore();

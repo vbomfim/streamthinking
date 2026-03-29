@@ -134,7 +134,7 @@ export function createRenderLoop(
     if (drawPreviewProvider) {
       const preview = drawPreviewProvider.getDrawPreview();
       if (preview) {
-        renderDrawPreview(ctx, preview);
+        renderDrawPreview(ctx, preview, camera.zoom);
       }
     }
 
@@ -143,7 +143,7 @@ export function createRenderLoop(
       const sp = dragSnapState.currentDragSnapPoint;
       ctx.save();
       ctx.beginPath();
-      ctx.arc(sp.x, sp.y, 6 / camera.zoom, 0, Math.PI * 2);
+      ctx.arc(sp.x, sp.y, 10 / camera.zoom, 0, Math.PI * 2);
       ctx.fillStyle = '#4A90D9';
       ctx.globalAlpha = 0.8;
       ctx.fill();
