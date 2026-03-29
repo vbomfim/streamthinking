@@ -55,14 +55,14 @@ export function App() {
       const { camera } = useCanvasStore.getState();
       const cx = window.innerWidth / 2;
       const cy = window.innerHeight / 2;
-      const [worldX, worldY] = screenToWorld(cx, cy, camera);
+      const world = screenToWorld(cx, cy, camera);
       const offset = (Math.random() - 0.5) * 40;
 
       const centered = {
         ...expression,
         position: {
-          x: worldX - expression.size.width / 2 + offset,
-          y: worldY - expression.size.height / 2 + offset,
+          x: world.x - expression.size.width / 2 + offset,
+          y: world.y - expression.size.height / 2 + offset,
         },
       };
       addExpression(centered);

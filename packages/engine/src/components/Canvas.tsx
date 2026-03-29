@@ -183,12 +183,12 @@ function CanvasInner() {
     if (!entry) return;
 
     const { camera } = useCanvasStore.getState();
-    const [worldX, worldY] = screenToWorld(e.clientX, e.clientY, camera);
+    const world = screenToWorld(e.clientX, e.clientY, camera);
 
     const expression: VisualExpression = {
       id: nanoid(),
       kind: 'stencil',
-      position: { x: worldX - entry.defaultSize.width / 2, y: worldY - entry.defaultSize.height / 2 },
+      position: { x: world.x - entry.defaultSize.width / 2, y: world.y - entry.defaultSize.height / 2 },
       size: { ...entry.defaultSize },
       angle: 0,
       style: { ...DEFAULT_EXPRESSION_STYLE },
