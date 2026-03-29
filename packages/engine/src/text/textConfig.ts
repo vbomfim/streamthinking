@@ -214,15 +214,10 @@ function resolveShapeLabelKind(expr: VisualExpression): TextConfig {
 function resolveStencilKind(expr: VisualExpression): TextConfig {
   const data = expr.data as { label?: string };
   const fontFamily = expr.style.fontFamily ?? DEFAULT_FONT_FAMILY;
-  // Use explicit fontSize from style, or scale proportionally with stencil size
-  const baseSize = expr.style.fontSize ?? STENCIL_LABEL_FONT_SIZE;
-  // If user set explicit fontSize via style panel, use it directly.
-  // Otherwise scale with stencil size (base 12px at 44px icon).
-  const fontSize = expr.style.fontSize
-    ? expr.style.fontSize
-    : Math.round(baseSize * Math.min(expr.size.width, expr.size.height) / 44);
-  const scaleFactor = Math.min(expr.size.width, expr.size.height) / 44;
-  const gap = STENCIL_LABEL_GAP * scaleFactor;
+  // Label font: ~8% of stencil height, clamped between 10 and 24 world pixels
+  const autoSize = Math.round(Math.min(expr.size.width, expr.size.height) * 0.08);
+  const fontSize = Math.max(10, Math.min(autoSize, 24));
+  const gap = Math.max(2, fontSize * 0.3);
 
   return {
     text: data.label ?? '',
