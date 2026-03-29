@@ -415,7 +415,7 @@ function TextEditor({ expression, initialText, camera, onCommit, onCancel }: Tex
           onKeyDown={handleKeyDown}
           onBlur={handleBlur}
           style={{
-            width: '100%',
+            width: '85%',
             maxHeight: '100%',
             padding: 0,
             margin: 0,
