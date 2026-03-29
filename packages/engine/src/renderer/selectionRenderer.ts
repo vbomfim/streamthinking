@@ -77,7 +77,16 @@ export function renderSelection(
     const { width, height } = expr.size;
 
     if (isPointBasedKind(expr.kind)) {
-      // ── Point-based shapes: only show endpoint circles, no bounding box ──
+      // ── Point-based shapes: bounding box + resize handles + endpoint circles ──
+      ctx.save();
+      ctx.strokeStyle = SELECTION_COLOR;
+      ctx.lineWidth = 1 / camera.zoom;
+      ctx.setLineDash(DASH_PATTERN.map((d) => d / camera.zoom));
+      ctx.strokeRect(x, y, width, height);
+      ctx.setLineDash([]);
+      ctx.restore();
+
+      renderBboxHandles(ctx, expr, camera, handleSize, halfHandle);
       renderPointHandles(ctx, expr, camera, halfHandle);
     } else {
       // ── Dashed bounding box + 8 resize handles ──────────────

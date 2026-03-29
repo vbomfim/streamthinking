@@ -102,9 +102,6 @@ export function detectHandle(
     const expr = expressions[id];
     if (!expr) continue;
 
-    // Point-based shapes use point handles, not bbox handles
-    if (isPointBasedKind(expr.data.kind)) continue;
-
     const handles = getHandlePositions(expr);
     for (const handle of handles) {
       const dx = worldPoint.x - handle.x;

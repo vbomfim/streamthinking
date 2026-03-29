@@ -255,6 +255,20 @@ export function useManipulationInteraction(
       useCanvasStore.setState((draft) => {
         const expr = draft.expressions[drag.handle.expressionId];
         if (expr) {
+          // Scale data.points proportionally for point-based shapes
+          if (isPointBasedKind(expr.kind) && 'points' in (expr.data as Record<string, unknown>)) {
+            const origPos = drag.originalPosition;
+            const origSize = drag.originalSize;
+            const scaleX = origSize.width > 0 ? resized.size.width / origSize.width : 1;
+            const scaleY = origSize.height > 0 ? resized.size.height / origSize.height : 1;
+            const pts = (expr.data as { points: [number, number][] }).points;
+            for (let i = 0; i < pts.length; i++) {
+              pts[i] = [
+                resized.position.x + (pts[i]![0] - origPos.x) * scaleX,
+                resized.position.y + (pts[i]![1] - origPos.y) * scaleY,
+              ];
+            }
+          }
           expr.position = resized.position;
           expr.size = resized.size;
         }

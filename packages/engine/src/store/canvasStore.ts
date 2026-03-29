@@ -47,6 +47,7 @@ import {
   clearBindingsForDeletedExpression,
   findSnapPoint,
 } from '../interaction/connectorHelpers.js';
+import { isPointBasedKind } from '../interaction/manipulationHelpers.js';
 import type { ArrowData, ArrowAnchor, ArrowBinding } from '@infinicanvas/protocol';
 
 // Enable immer support for Set/Map (used by selectedIds: Set<string>)
@@ -945,6 +946,22 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
       set((state) => {
         const expr = state.expressions[id];
         if (!expr) return;
+
+        // Scale data.points proportionally for point-based shapes
+        if (isPointBasedKind(expr.kind) && 'points' in (expr.data as Record<string, unknown>)) {
+          const origPos = original.position;
+          const origSize = original.size;
+          const scaleX = origSize.width > 0 ? final.size.width / origSize.width : 1;
+          const scaleY = origSize.height > 0 ? final.size.height / origSize.height : 1;
+          const pts = (expr.data as { points: number[][] }).points;
+          for (let i = 0; i < pts.length; i++) {
+            const pt = pts[i]!;
+            pts[i] = [
+              final.position.x + (pt[0]! - origPos.x) * scaleX,
+              final.position.y + (pt[1]! - origPos.y) * scaleY,
+            ];
+          }
+        }
 
         expr.position = { ...final.position };
         expr.size = { ...final.size };
