@@ -359,9 +359,8 @@ function renderArrow(
   const endType = resolveArrowheadType(data.endArrowhead);
   const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
   // Arrowhead size scales with stroke width: Thin(1)→10, Normal(2)→15, Thick(4)→25
-  const zoom = camera?.zoom ?? 1;
   const baseArrowSize = 5 + ARROWHEAD_SIZE * (expr.style.strokeWidth / 2);
-  const arrowSize = Math.max(baseArrowSize, baseArrowSize / zoom);
+  const arrowSize = baseArrowSize;
 
   // Resolve binding positions for connected arrows
   const points = resolveBindings(expr, expressions);
