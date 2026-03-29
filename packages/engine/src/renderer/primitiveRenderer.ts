@@ -185,6 +185,9 @@ function renderPrimitive(
 
 // ── Shape renderers (Rough.js) ───────────────────────────────
 
+/** Reference size for cached shape drawables. */
+const REF_SIZE = 100;
+
 /** Render rectangle. [AC2] */
 function renderRectangle(
   ctx: CanvasRenderingContext2D,
@@ -196,12 +199,14 @@ function renderRectangle(
   const { width, height } = expr.size;
   const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
 
+  // Create drawable at fixed reference size; scale to actual size at render
   const drawable = getOrCreateDrawable(expr, () =>
-    rc.rectangle(0, 0, width, height, options),
+    rc.rectangle(0, 0, REF_SIZE, REF_SIZE, options),
   );
 
   ctx.save();
   ctx.translate(x, y);
+  ctx.scale(width / REF_SIZE, height / REF_SIZE);
   rc.draw(drawable);
   ctx.restore();
 
@@ -222,13 +227,13 @@ function renderEllipse(
   const { width, height } = expr.size;
   const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
 
-  // Draw at origin so position changes (drag) don't regenerate roughness
   const drawable = getOrCreateDrawable(expr, () =>
-    rc.ellipse(width / 2, height / 2, width, height, options),
+    rc.ellipse(REF_SIZE / 2, REF_SIZE / 2, REF_SIZE, REF_SIZE, options),
   );
 
   ctx.save();
   ctx.translate(x, y);
+  ctx.scale(width / REF_SIZE, height / REF_SIZE);
   rc.draw(drawable);
   ctx.restore();
 
@@ -248,20 +253,20 @@ function renderDiamond(
   const { width, height } = expr.size;
   const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
 
-  // Draw at origin so position changes (drag) don't regenerate roughness
-  const points: [number, number][] = [
-    [width / 2, 0],       // top
-    [width, height / 2],  // right
-    [width / 2, height],  // bottom
-    [0, height / 2],      // left
+  const refPoints: [number, number][] = [
+    [REF_SIZE / 2, 0],
+    [REF_SIZE, REF_SIZE / 2],
+    [REF_SIZE / 2, REF_SIZE],
+    [0, REF_SIZE / 2],
   ];
 
   const drawable = getOrCreateDrawable(expr, () =>
-    rc.polygon(points, options),
+    rc.polygon(refPoints, options),
   );
 
   ctx.save();
   ctx.translate(x, y);
+  ctx.scale(width / REF_SIZE, height / REF_SIZE);
   rc.draw(drawable);
   ctx.restore();
 
@@ -974,12 +979,14 @@ function getOrCreateDrawable(
   expr: VisualExpression,
   create: () => Drawable,
 ): Drawable {
-  // Shapes are drawn at origin with ctx.translate — position shouldn't invalidate cache.
-  // Label changes also shouldn't regenerate the sketchy outline.
+  // Shapes: cache ignores position, size, and data so dragging/resizing
+  // never regenerates the rough drawable — eliminates flicker.
   const isShape = expr.kind === 'rectangle' || expr.kind === 'ellipse' || expr.kind === 'diamond';
   const cacheData = isShape ? undefined : expr.data;
   const cachePosition = isShape ? { x: 0, y: 0 } : expr.position;
-  const ctx = { style: expr.style, position: cachePosition, size: expr.size, data: cacheData };
+  // Use fixed reference size for shapes so resize never invalidates cache
+  const cacheSize = isShape ? { width: 100, height: 100 } : expr.size;
+  const ctx = { style: expr.style, position: cachePosition, size: cacheSize, data: cacheData };
   const cached = drawableCache.get(expr.id, ctx);
   if (cached) return cached;
 
