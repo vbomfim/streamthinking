@@ -120,13 +120,16 @@ function resolveTextKind(expr: VisualExpression): TextConfig {
     textAlign: 'left' | 'center' | 'right';
   };
 
+  // Inset text so it doesn't overlap resize handles
+  const pad = 6;
+
   return {
     text: data.text,
     field: 'text',
-    worldX: expr.position.x,
-    worldY: expr.position.y,
-    worldWidth: expr.size.width,
-    worldHeight: expr.size.height,
+    worldX: expr.position.x + pad,
+    worldY: expr.position.y + pad,
+    worldWidth: expr.size.width - pad * 2,
+    worldHeight: expr.size.height - pad * 2,
     fontSize: data.fontSize,
     fontFamily: data.fontFamily,
     color: expr.style.strokeColor,
