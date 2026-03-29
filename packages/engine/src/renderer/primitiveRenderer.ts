@@ -588,7 +588,7 @@ function renderStencil(
 
       ctx.globalAlpha = opacity * 0.4;
       ctx.strokeStyle = bgColor;
-      ctx.lineWidth = 1;
+      ctx.lineWidth = 1.5;
 
       // Seeded pseudo-random for stable wobble across frames
       let seed = 0;
@@ -598,34 +598,60 @@ function renderStencil(
         return (seed & 0x7fffffff) / 2147483647;
       };
 
-      // Helper: draw a wobbly line with roughness-based jitter
+      // Hachure at -41° (matching Rough.js default) with roughness wobble
+      const angle = -41 * Math.PI / 180;
+      const cos = Math.cos(angle);
+      const sin = Math.sin(angle);
+      const step = Math.max(4, 8 - roughness * 2);
+      const diagonal = Math.hypot(width, height);
+
+      // Helper: draw a wobbly line segment
       const wobblyLine = (x1: number, y1: number, x2: number, y2: number) => {
-        if (roughness < 0.5) {
+        if (roughness < 0.3) {
           ctx.moveTo(x1, y1);
           ctx.lineTo(x2, y2);
           return;
         }
-        const segments = Math.max(2, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / 20));
-        ctx.moveTo(x1, y1);
+        const len = Math.hypot(x2 - x1, y2 - y1);
+        const segments = Math.max(2, Math.ceil(len / 15));
+        ctx.moveTo(x1 + (seededRandom() - 0.5) * roughness, y1 + (seededRandom() - 0.5) * roughness);
         for (let s = 1; s <= segments; s++) {
           const t = s / segments;
-          const jx = (seededRandom() - 0.5) * roughness * 2;
-          const jy = (seededRandom() - 0.5) * roughness * 2;
+          const jx = (seededRandom() - 0.5) * roughness * 1.5;
+          const jy = (seededRandom() - 0.5) * roughness * 1.5;
           ctx.lineTo(x1 + (x2 - x1) * t + jx, y1 + (y2 - y1) * t + jy);
         }
       };
 
-      const step = 5 + roughness * 2;
       ctx.beginPath();
-      for (let i = -height; i < width + height; i += step) {
-        wobblyLine(x + i, y, x + i + height, y + height);
+      const cx = x + width / 2;
+      const cy = y + height / 2;
+      for (let d = -diagonal; d < diagonal; d += step) {
+        // Line perpendicular to hachure angle at offset d
+        const px = cx + cos * 0 + sin * d;
+        const py = cy + sin * 0 - cos * d;
+        // Extend line in both directions
+        const x1 = px - cos * diagonal;
+        const y1 = py - sin * diagonal;
+        const x2 = px + cos * diagonal;
+        const y2 = py + sin * diagonal;
+        wobblyLine(x1, y1, x2, y2);
       }
       ctx.stroke();
 
       if (fillStyle === 'cross-hatch') {
+        const angle2 = 41 * Math.PI / 180;
+        const cos2 = Math.cos(angle2);
+        const sin2 = Math.sin(angle2);
         ctx.beginPath();
-        for (let i = 0; i < width + height; i += step) {
-          wobblyLine(x + i, y + height, x + i - height, y);
+        for (let d = -diagonal; d < diagonal; d += step) {
+          const px = cx + sin2 * d;
+          const py = cy - cos2 * d;
+          const x1 = px - cos2 * diagonal;
+          const y1 = py - sin2 * diagonal;
+          const x2 = px + cos2 * diagonal;
+          const y2 = py + sin2 * diagonal;
+          wobblyLine(x1, y1, x2, y2);
         }
         ctx.stroke();
       }
