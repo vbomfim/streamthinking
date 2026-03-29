@@ -147,35 +147,6 @@ export class ArrowTool implements ToolHandler {
 
     const store = useCanvasStore.getState();
     store.addExpression(expression);
-
-    // Fix self-loop: if both ends bind to same shape, resolve to different edges
-    if (this.startBinding && endBinding && this.startBinding.expressionId === endBinding.expressionId) {
-      const target = store.expressions[this.startBinding.expressionId];
-      if (target) {
-        const startAnchor = this.startBinding.anchor || 'top';
-        const endAnchorRaw = endBinding.anchor || 'right';
-        const endAnchor = startAnchor === endAnchorRaw
-          ? (startAnchor === 'top' ? 'right' : startAnchor === 'right' ? 'bottom' : startAnchor === 'bottom' ? 'left' : 'top')
-          : endAnchorRaw;
-        const sp = getAnchorPoint(target, startAnchor, this.startBinding.ratio ?? 0.5);
-        const ep = getAnchorPoint(target, endAnchor, endBinding.ratio ?? 0.5);
-        const fixedPoints: [number, number][] = [[sp.x, sp.y], [ep.x, ep.y]];
-        const loopSize = Math.max(target.size.width, target.size.height) * 0.7;
-        const midX = (sp.x + ep.x) / 2, midY = (sp.y + ep.y) / 2;
-        const cx = target.position.x + target.size.width / 2;
-        const cy = target.position.y + target.size.height / 2;
-        const dist = Math.hypot(midX - cx, midY - cy) || 1;
-        const cpX = midX + ((midX - cx) / dist) * loopSize;
-        const cpY = midY + ((midY - cy) / dist) * loopSize;
-        const bbox = computeBoundingBox([...fixedPoints, [cpX, cpY]]);
-        store.updateExpression(id, {
-          position: bbox.position,
-          size: bbox.size,
-          data: { ...expression.data, points: fixedPoints, endBinding: { ...endBinding, anchor: endAnchor } },
-        });
-      }
-    }
-
     store.setSelectedIds(new Set([id]));
 
     this.reset();
