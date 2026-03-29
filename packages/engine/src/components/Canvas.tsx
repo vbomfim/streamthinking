@@ -450,7 +450,7 @@ function TextEditor({ expression, initialText, camera, editorTextRef, onCommit, 
             el.style.height = 'auto';
             const maxH = verticalAlign === 'middle' ? effectiveHeight * 0.6 : effectiveHeight;
             el.style.height = `${Math.min(el.scrollHeight, maxH)}px`;
-          }}}
+          }}
           style={{
             width: '85%',
             height: `${Math.min(scaledFontSize * 1.4, effectiveHeight)}px`,
