@@ -11,7 +11,7 @@
 import type { VisualExpression, ArrowData, ArrowBinding } from '@infinicanvas/protocol';
 
 /** Kinds that support snap/binding (shapes with meaningful edges). */
-const BINDABLE_KINDS = new Set(['rectangle', 'ellipse', 'diamond', 'sticky-note']);
+const BINDABLE_KINDS = new Set(['rectangle', 'ellipse', 'diamond', 'sticky-note', 'stencil']);
 
 /**
  * Find the nearest connection point on a shape's edge.
