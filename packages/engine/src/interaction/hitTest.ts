@@ -142,10 +142,12 @@ export function hitTestLine(
 
   if (points.length < 2) return false;
 
+  const effectiveTolerance = Math.max(tolerance, 8);
+
   for (let i = 0; i < points.length - 1; i++) {
     const [ax, ay] = points[i]!;
     const [bx, by] = points[i + 1]!;
-    if (distanceToSegment(point.x, point.y, ax, ay, bx, by) <= tolerance) {
+    if (distanceToSegment(point.x, point.y, ax, ay, bx, by) <= effectiveTolerance) {
       return true;
     }
   }
@@ -168,10 +170,13 @@ export function hitTestArrow(
 
   if (points.length < 2) return false;
 
+  // Use wider tolerance for thin lines (minimum 8 world px for easier clicking)
+  const effectiveTolerance = Math.max(tolerance, 8);
+
   for (let i = 0; i < points.length - 1; i++) {
     const [ax, ay] = points[i]!;
     const [bx, by] = points[i + 1]!;
-    if (distanceToSegment(point.x, point.y, ax, ay, bx, by) <= tolerance) {
+    if (distanceToSegment(point.x, point.y, ax, ay, bx, by) <= effectiveTolerance) {
       return true;
     }
   }
