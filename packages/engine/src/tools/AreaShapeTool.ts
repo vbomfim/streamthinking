@@ -84,11 +84,7 @@ export class AreaShapeTool implements ToolHandler {
     const data: ExpressionData = { kind: this.shapeKind };
 
     const store = useCanvasStore.getState();
-    const zoom = store.camera.zoom;
-    const style = {
-      ...store.lastUsedStyle,
-      strokeWidth: store.lastUsedStyle.strokeWidth / zoom,
-    };
+    const style = { ...store.lastUsedStyle };
 
     const expression: VisualExpression = {
       id,

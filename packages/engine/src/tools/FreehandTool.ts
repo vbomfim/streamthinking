@@ -61,7 +61,7 @@ export class FreehandTool implements ToolHandler {
       angle: 0,
       style: (() => {
         const s = useCanvasStore.getState();
-        return { ...s.lastUsedStyle, strokeWidth: s.lastUsedStyle.strokeWidth / s.camera.zoom };
+        return { ...s.lastUsedStyle };
       })(),
       meta: {
         author: LOCAL_AUTHOR,
