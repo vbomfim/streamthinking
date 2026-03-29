@@ -568,7 +568,7 @@ function renderStencil(
   // If fill style is not 'none' and background color is set, inject a fill rect
   const hasFill = fillStyle !== 'none' && bgColor !== 'none' && bgColor !== 'transparent' && bgColor !== '#00000000';
   if (hasFill) {
-    const fillOpacity = fillStyle === 'solid' ? '0.6' : '0.25';
+    const fillOpacity = fillStyle === 'solid' ? '1' : '0.4';
     styledSvg = styledSvg.replace(
       /(<svg[^>]*>)/,
       `$1<rect width="100%" height="100%" fill="${bgColor}" rx="4" opacity="${fillOpacity}"/>`,
