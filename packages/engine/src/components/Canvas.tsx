@@ -385,23 +385,55 @@ function TextEditor({ expression, initialText, camera, onCommit, onCancel }: Tex
     doCommit();
   };
 
-  // For middle-aligned text (shape labels), dynamically center based on line count
-  const [lineCount, setLineCount] = useState(1);
+  const effectiveWidth = Math.max(screenWidth, 80);
   const effectiveHeight = Math.max(screenHeight, 24);
-  const textLineHeight = scaledFontSize * 1.4;
-  const totalTextHeight = textLineHeight * lineCount;
-  const verticalPad = verticalAlign === 'middle'
-    ? Math.max(0, (effectiveHeight - totalTextHeight) / 2)
-    : 0;
 
-  const handleInput = useCallback(() => {
-    const textarea = textareaRef.current;
-    if (!textarea) return;
-    const lines = textarea.value.split('\n').length;
-    // Also account for wrapping: estimate wrapped lines from scrollHeight
-    const wrappedLines = Math.max(lines, Math.round(textarea.scrollHeight / (scaledFontSize * 1.4)));
-    setLineCount(Math.max(1, wrappedLines));
-  }, [scaledFontSize]);
+  // Use a wrapper div with flexbox for true vertical+horizontal centering
+  if (verticalAlign === 'middle') {
+    return (
+      <div
+        style={{
+          position: 'absolute',
+          left: `${screenPos.x}px`,
+          top: `${screenPos.y}px`,
+          width: `${effectiveWidth}px`,
+          height: `${effectiveHeight}px`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          border: '1px dashed #4A90D9',
+          borderRadius: '2px',
+          zIndex: 10,
+          boxSizing: 'border-box',
+          background: background,
+        }}
+      >
+        <textarea
+          ref={textareaRef}
+          data-testid="inline-edit-overlay"
+          defaultValue={initialText}
+          onKeyDown={handleKeyDown}
+          onBlur={handleBlur}
+          style={{
+            width: '100%',
+            maxHeight: '100%',
+            padding: 0,
+            margin: 0,
+            border: 'none',
+            outline: 'none',
+            fontSize: `${scaledFontSize}px`,
+            fontFamily: fontFamily,
+            color: color,
+            textAlign: textAlign as React.CSSProperties['textAlign'],
+            background: 'transparent',
+            resize: 'none',
+            overflow: 'hidden',
+            lineHeight: 1.4,
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <textarea
@@ -410,14 +442,13 @@ function TextEditor({ expression, initialText, camera, onCommit, onCancel }: Tex
       defaultValue={initialText}
       onKeyDown={handleKeyDown}
       onBlur={handleBlur}
-      onInput={handleInput}
       style={{
         position: 'absolute',
         left: `${screenPos.x}px`,
         top: `${screenPos.y}px`,
-        width: `${Math.max(screenWidth, 80)}px`,
+        width: `${effectiveWidth}px`,
         height: `${effectiveHeight}px`,
-        padding: `${verticalPad}px 0 0 0`,
+        padding: 0,
         margin: 0,
         border: '1px dashed #4A90D9',
         borderRadius: '2px',
