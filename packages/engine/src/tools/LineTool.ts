@@ -71,17 +71,19 @@ export class LineTool implements ToolHandler {
     const state = useCanvasStore.getState();
     let startBinding: ArrowBinding | undefined;
     let endBinding: ArrowBinding | undefined;
+    // Scale snap distance so it stays ~15 screen pixels at any zoom
+    const snapDist = Math.max(SNAP_DISTANCE, SNAP_DISTANCE / state.camera.zoom);
 
     for (const [id, target] of Object.entries(state.expressions)) {
       if (!startBinding) {
-        const snap = findSnapPoint({ x: this.startX, y: this.startY }, target, SNAP_DISTANCE);
+        const snap = findSnapPoint({ x: this.startX, y: this.startY }, target, snapDist);
         if (snap) {
           startBinding = { expressionId: id, anchor: snap.anchor as ArrowAnchor };
           points[0] = [snap.point.x, snap.point.y];
         }
       }
       if (!endBinding) {
-        const snap = findSnapPoint({ x: this.endX, y: this.endY }, target, SNAP_DISTANCE);
+        const snap = findSnapPoint({ x: this.endX, y: this.endY }, target, snapDist);
         if (snap) {
           endBinding = { expressionId: id, anchor: snap.anchor as ArrowAnchor };
           points[points.length - 1] = [snap.point.x, snap.point.y];

@@ -211,11 +211,13 @@ export class ArrowTool implements ToolHandler {
     worldX: number,
     worldY: number,
   ): { point: { x: number; y: number }; anchor: string; targetId: string; ratio: number } | null {
-    const { expressions } = useCanvasStore.getState();
+    const { expressions, camera } = useCanvasStore.getState();
+    // Scale snap distance so it stays ~15 screen pixels at any zoom
+    const snapDist = Math.max(SNAP_DISTANCE, SNAP_DISTANCE / camera.zoom);
     let best: { point: { x: number; y: number }; anchor: string; targetId: string; dist: number; ratio: number } | null = null;
 
     for (const [id, expr] of Object.entries(expressions)) {
-      const snap = findSnapPoint({ x: worldX, y: worldY }, expr, SNAP_DISTANCE);
+      const snap = findSnapPoint({ x: worldX, y: worldY }, expr, snapDist);
       if (snap) {
         const dist = Math.hypot(worldX - snap.point.x, worldY - snap.point.y);
         if (!best || dist < best.dist) {
