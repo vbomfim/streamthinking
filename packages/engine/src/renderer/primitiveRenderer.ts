@@ -805,7 +805,7 @@ export function renderLabel(
     }
     if (currentLine) lines.push(currentLine);
 
-    const lineHeight = fontSize * 1.3;
+    const lineHeight = fontSize * LINE_HEIGHT_MULTIPLIER;
     const totalHeight = lines.length * lineHeight;
     const startY = y + height / 2 - totalHeight / 2 + lineHeight / 2;
     for (let i = 0; i < lines.length; i++) {
