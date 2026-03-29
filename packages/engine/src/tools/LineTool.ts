@@ -1,19 +1,24 @@
 /**
  * Line drawing tool.
  *
- * Click start → drag end → create line expression with points array.
- * Minimum distance: 5px. Auto-switches to Select after creation.
+ * Creates an arrow expression with no arrowheads (a plain line).
+ * User can add arrowheads later via the style panel.
+ * Supports snap-to-shape binding like the arrow tool.
  *
  * @module
  */
 
 import { nanoid } from 'nanoid';
-import type { VisualExpression } from '@infinicanvas/protocol';
+import type { VisualExpression, ArrowBinding, ArrowAnchor } from '@infinicanvas/protocol';
 import type { ToolHandler, DrawPreview } from './BaseTool.js';
 import { useCanvasStore } from '../store/canvasStore.js';
+import { findSnapPoint } from '../interaction/connectorHelpers.js';
 
 /** Minimum line length in world units. */
 const MIN_LINE_LENGTH = 5;
+
+/** Snap distance for connector binding (world units). */
+const SNAP_DISTANCE = 15;
 
 /** Human author for locally-drawn expressions. */
 const LOCAL_AUTHOR = {
@@ -22,7 +27,7 @@ const LOCAL_AUTHOR = {
   name: 'You',
 };
 
-/** Tool handler for drawing straight lines on the canvas. */
+/** Tool handler for drawing straight lines (arrows with no tips). */
 export class LineTool implements ToolHandler {
   private isDrawing = false;
   private startX = 0;
@@ -62,20 +67,39 @@ export class LineTool implements ToolHandler {
       [this.endX, this.endY],
     ];
 
+    // Snap endpoints to nearby shapes
+    const state = useCanvasStore.getState();
+    let startBinding: ArrowBinding | undefined;
+    let endBinding: ArrowBinding | undefined;
+
+    for (const [id, target] of Object.entries(state.expressions)) {
+      if (!startBinding) {
+        const snap = findSnapPoint({ x: this.startX, y: this.startY }, target, SNAP_DISTANCE);
+        if (snap) {
+          startBinding = { expressionId: id, anchor: snap.anchor as ArrowAnchor };
+          points[0] = [snap.point.x, snap.point.y];
+        }
+      }
+      if (!endBinding) {
+        const snap = findSnapPoint({ x: this.endX, y: this.endY }, target, SNAP_DISTANCE);
+        if (snap) {
+          endBinding = { expressionId: id, anchor: snap.anchor as ArrowAnchor };
+          points[points.length - 1] = [snap.point.x, snap.point.y];
+        }
+      }
+    }
+
     const { position, size } = computeBoundingBox(points);
     const now = Date.now();
     const id = nanoid();
 
     const expression: VisualExpression = {
       id,
-      kind: 'line',
+      kind: 'arrow',
       position,
       size,
       angle: 0,
-      style: (() => {
-        const s = useCanvasStore.getState();
-        return { ...s.lastUsedStyle };
-      })(),
+      style: { ...state.lastUsedStyle },
       meta: {
         author: LOCAL_AUTHOR,
         createdAt: now,
@@ -83,12 +107,18 @@ export class LineTool implements ToolHandler {
         tags: [],
         locked: false,
       },
-      data: { kind: 'line', points },
+      data: {
+        kind: 'arrow',
+        points,
+        startArrowhead: 'none',
+        endArrowhead: 'none',
+        startBinding,
+        endBinding,
+      },
     };
 
-    const store = useCanvasStore.getState();
-    store.addExpression(expression);
-    store.setSelectedIds(new Set([id]));
+    state.addExpression(expression);
+    state.setSelectedIds(new Set([id]));
 
     this.reset();
   }
@@ -142,6 +172,6 @@ function computeBoundingBox(points: [number, number][]) {
 
   return {
     position: { x: minX, y: minY },
-    size: { width: maxX - minX, height: maxY - minY },
+    size: { width: Math.max(maxX - minX, 1), height: Math.max(maxY - minY, 1) },
   };
 }

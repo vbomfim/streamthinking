@@ -44,15 +44,18 @@ export interface ArrowBinding {
   ratio?: number;
 }
 
+/** Arrowhead tip style. */
+export type ArrowheadType = 'triangle' | 'chevron' | 'diamond' | 'circle' | 'none';
+
 /** Data for an arrow expression with optional arrowheads. */
 export interface ArrowData {
   kind: 'arrow';
   /** Array of [x, y] coordinate pairs forming the arrow path. */
   points: [number, number][];
-  /** Whether to render an arrowhead at the start. */
-  startArrowhead?: boolean;
-  /** Whether to render an arrowhead at the end. */
-  endArrowhead?: boolean;
+  /** Arrowhead style at the start ('none' = no arrowhead). */
+  startArrowhead?: ArrowheadType | boolean;
+  /** Arrowhead style at the end ('none' = no arrowhead). */
+  endArrowhead?: ArrowheadType | boolean;
   /** Binding for the start endpoint to a shape. */
   startBinding?: ArrowBinding;
   /** Binding for the end endpoint to a shape. */

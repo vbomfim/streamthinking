@@ -137,6 +137,15 @@ function radioLabelStyle(isActive: boolean): React.CSSProperties {
   };
 }
 
+/** Arrowhead type options. */
+const ARROWHEAD_TYPES = [
+  { value: 'none', label: 'None' },
+  { value: 'triangle', label: '▶ Triangle' },
+  { value: 'chevron', label: '❯ Chevron' },
+  { value: 'diamond', label: '◆ Diamond' },
+  { value: 'circle', label: '● Circle' },
+] as const;
+
 // ── Component ──────────────────────────────────────────────
 
 /** Style panel for editing selected expression styles or pre-draw defaults. */
@@ -175,6 +184,29 @@ export function StylePanel() {
     } else {
       styleExpressions([...selectedIds], style);
     }
+  }
+
+  // Arrowhead controls — detect if selected expression is an arrow/line
+  const updateExpression = useCanvasStore((s) => s.updateExpression);
+  const isArrowSelected = !isDrawingMode && firstExpr && (firstExpr.kind === 'arrow' || firstExpr.kind === 'line');
+  const arrowData = isArrowSelected ? (firstExpr.data as { startArrowhead?: string | boolean; endArrowhead?: string | boolean }) : null;
+
+  function resolveType(val: string | boolean | undefined): string {
+    if (val === true) return 'triangle';
+    if (val === false || val === undefined) return 'none';
+    return val;
+  }
+  const startArrowheadType = arrowData ? resolveType(arrowData.startArrowhead) : 'none';
+  const endArrowheadType = arrowData ? resolveType(arrowData.endArrowhead) : 'none';
+
+  function updateArrowhead(end: 'start' | 'end', type: string) {
+    if (!firstSelectedId) return;
+    const expr = expressions[firstSelectedId];
+    if (!expr) return;
+    const field = end === 'start' ? 'startArrowhead' : 'endArrowhead';
+    updateExpression(firstSelectedId, {
+      data: { ...expr.data, [field]: type },
+    });
   }
 
   return (
@@ -361,6 +393,46 @@ export function StylePanel() {
           style={SLIDER_STYLE}
         />
       </Section>
+
+      {/* ── Arrowhead Controls (shown for arrow/line expressions) ── */}
+      {isArrowSelected && (
+        <>
+          <Section label="Start tip">
+            <div style={RADIO_GROUP_STYLE}>
+              {ARROWHEAD_TYPES.map(({ value, label }) => (
+                <label key={`start-${value}`} style={radioLabelStyle(startArrowheadType === value)}>
+                  <input
+                    type="radio"
+                    name="startArrowhead"
+                    value={value}
+                    checked={startArrowheadType === value}
+                    onChange={() => updateArrowhead('start', value)}
+                    style={{ display: 'none' }}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </Section>
+          <Section label="End tip">
+            <div style={RADIO_GROUP_STYLE}>
+              {ARROWHEAD_TYPES.map(({ value, label }) => (
+                <label key={`end-${value}`} style={radioLabelStyle(endArrowheadType === value)}>
+                  <input
+                    type="radio"
+                    name="endArrowhead"
+                    value={value}
+                    checked={endArrowheadType === value}
+                    onChange={() => updateArrowhead('end', value)}
+                    style={{ display: 'none' }}
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </Section>
+        </>
+      )}
     </div>
   );
 }

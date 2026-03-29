@@ -355,7 +355,8 @@ function renderArrow(
 ): void {
   if (expr.data.kind !== 'arrow') return;
   const data = expr.data as ArrowData;
-  const { startArrowhead, endArrowhead } = data;
+  const startType = resolveArrowheadType(data.startArrowhead);
+  const endType = resolveArrowheadType(data.endArrowhead);
   const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
   // Scale arrowheads so they stay visible when zoomed out
   const zoom = camera?.zoom ?? 1;
@@ -419,13 +420,13 @@ function renderArrow(
 
     // Arrowheads for self-loop
     ctx.fillStyle = expr.style.strokeColor;
-    if (endArrowhead) {
+    if (endType !== 'none') {
       const angle = Math.atan2(end[1] - cp2y, end[0] - cp2x);
-      renderArrowhead(ctx, end[0], end[1], angle, arrowSize);
+      renderArrowhead(ctx, end[0], end[1], angle, arrowSize, endType);
     }
-    if (startArrowhead) {
+    if (startType !== 'none') {
       const angle = Math.atan2(start[1] - cp1y, start[0] - cp1x);
-      renderArrowhead(ctx, start[0], start[1], angle, arrowSize);
+      renderArrowhead(ctx, start[0], start[1], angle, arrowSize, startType);
     }
   } else {
     // Normal straight arrow
@@ -436,18 +437,18 @@ function renderArrow(
 
     ctx.fillStyle = expr.style.strokeColor;
 
-    if (endArrowhead && points.length >= 2) {
+    if (endType !== 'none' && points.length >= 2) {
       const last = points[points.length - 1]!;
       const prev = points[points.length - 2]!;
       const angle = Math.atan2(last[1] - prev[1], last[0] - prev[0]);
-      renderArrowhead(ctx, last[0], last[1], angle, arrowSize);
+      renderArrowhead(ctx, last[0], last[1], angle, arrowSize, endType);
     }
 
-    if (startArrowhead && points.length >= 2) {
+    if (startType !== 'none' && points.length >= 2) {
       const first = points[0]!;
       const second = points[1]!;
       const angle = Math.atan2(first[1] - second[1], first[0] - second[0]);
-      renderArrowhead(ctx, first[0], first[1], angle, arrowSize);
+      renderArrowhead(ctx, first[0], first[1], angle, arrowSize, startType);
     }
   }
 
@@ -892,27 +893,92 @@ export function renderLabel(
  * The arrowhead points in the direction of `angle` (radians).
  * The triangle has a base of `size` and height of `size`.
  */
+/**
+ * Resolve arrowhead value to a type string.
+ * Handles backward compat: true → 'triangle', false/undefined → 'none'.
+ */
+function resolveArrowheadType(value: string | boolean | undefined): string {
+  if (value === true) return 'triangle';
+  if (value === false || value === undefined) return 'none';
+  return value;
+}
+
 export function renderArrowhead(
   ctx: CanvasRenderingContext2D,
   tipX: number,
   tipY: number,
   angle: number,
   size: number,
+  type: string = 'triangle',
 ): void {
-  const halfAngle = Math.PI / 6; // 30° half-angle
+  if (type === 'none') return;
 
-  ctx.beginPath();
-  ctx.moveTo(tipX, tipY);
-  ctx.lineTo(
-    tipX - size * Math.cos(angle - halfAngle),
-    tipY - size * Math.sin(angle - halfAngle),
-  );
-  ctx.lineTo(
-    tipX - size * Math.cos(angle + halfAngle),
-    tipY - size * Math.sin(angle + halfAngle),
-  );
-  ctx.closePath();
-  ctx.fill();
+  const halfAngle = Math.PI / 6; // 30°
+
+  switch (type) {
+    case 'triangle':
+    default: {
+      ctx.beginPath();
+      ctx.moveTo(tipX, tipY);
+      ctx.lineTo(
+        tipX - size * Math.cos(angle - halfAngle),
+        tipY - size * Math.sin(angle - halfAngle),
+      );
+      ctx.lineTo(
+        tipX - size * Math.cos(angle + halfAngle),
+        tipY - size * Math.sin(angle + halfAngle),
+      );
+      ctx.closePath();
+      ctx.fill();
+      break;
+    }
+    case 'chevron': {
+      ctx.save();
+      ctx.lineWidth = Math.max(ctx.lineWidth, 1.5);
+      ctx.strokeStyle = ctx.fillStyle as string;
+      ctx.beginPath();
+      ctx.moveTo(
+        tipX - size * Math.cos(angle - halfAngle),
+        tipY - size * Math.sin(angle - halfAngle),
+      );
+      ctx.lineTo(tipX, tipY);
+      ctx.lineTo(
+        tipX - size * Math.cos(angle + halfAngle),
+        tipY - size * Math.sin(angle + halfAngle),
+      );
+      ctx.stroke();
+      ctx.restore();
+      break;
+    }
+    case 'diamond': {
+      const hSize = size * 0.6;
+      const cx = tipX - hSize * Math.cos(angle);
+      const cy = tipY - hSize * Math.sin(angle);
+      ctx.beginPath();
+      ctx.moveTo(tipX, tipY);
+      ctx.lineTo(
+        cx - hSize * 0.5 * Math.cos(angle - Math.PI / 2),
+        cy - hSize * 0.5 * Math.sin(angle - Math.PI / 2),
+      );
+      ctx.lineTo(cx - hSize * Math.cos(angle), cy - hSize * Math.sin(angle));
+      ctx.lineTo(
+        cx - hSize * 0.5 * Math.cos(angle + Math.PI / 2),
+        cy - hSize * 0.5 * Math.sin(angle + Math.PI / 2),
+      );
+      ctx.closePath();
+      ctx.fill();
+      break;
+    }
+    case 'circle': {
+      const r = size * 0.35;
+      const cx = tipX - r * Math.cos(angle);
+      const cy = tipY - r * Math.sin(angle);
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.fill();
+      break;
+    }
+  }
 }
 
 /**

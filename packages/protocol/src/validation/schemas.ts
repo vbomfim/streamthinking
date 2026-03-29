@@ -114,11 +114,13 @@ const arrowBindingSchema = z.object({
   ratio: z.number().min(0).max(1).optional(),
 });
 
+const arrowheadTypeSchema = z.enum(['none', 'triangle', 'chevron', 'diamond', 'circle']);
+
 export const arrowDataSchema = z.object({
   kind: z.literal('arrow'),
   points: z.array(point2dSchema).min(2),
-  startArrowhead: z.boolean().optional(),
-  endArrowhead: z.boolean().optional(),
+  startArrowhead: z.union([z.boolean(), arrowheadTypeSchema]).optional(),
+  endArrowhead: z.union([z.boolean(), arrowheadTypeSchema]).optional(),
   startBinding: arrowBindingSchema.optional(),
   endBinding: arrowBindingSchema.optional(),
 });

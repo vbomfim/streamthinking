@@ -19,6 +19,7 @@ export type {
   ArrowData,
   ArrowBinding,
   ArrowAnchor,
+  ArrowheadType,
   FreehandData,
   TextData,
   StickyNoteData,

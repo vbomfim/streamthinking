@@ -138,8 +138,8 @@ export class ArrowTool implements ToolHandler {
       data: {
         kind: 'arrow',
         points,
-        startArrowhead: false,
-        endArrowhead: true,
+        startArrowhead: 'none',
+        endArrowhead: 'triangle',
         ...(this.startBinding && { startBinding: this.startBinding }),
         ...(endBinding && { endBinding }),
       },
