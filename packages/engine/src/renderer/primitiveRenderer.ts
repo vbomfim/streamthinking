@@ -186,9 +186,6 @@ function renderPrimitive(
 // ── Shape renderers (Rough.js) ───────────────────────────────
 
 
-/** Reference size for cached shape drawables. */
-const REF_SIZE = 100;
-
 /** Draw a shape with native canvas API (perfect geometry, no roughness). */
 function drawCleanShape(
   ctx: CanvasRenderingContext2D,
@@ -244,13 +241,10 @@ function renderRectangle(
   } else {
     const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
     const drawable = getOrCreateDrawable(expr, () =>
-      rc.rectangle(0, 0, REF_SIZE, REF_SIZE, options),
+      rc.rectangle(0, 0, width, height, options),
     );
     ctx.save();
     ctx.translate(x, y);
-    const sx = width / REF_SIZE, sy = height / REF_SIZE;
-    ctx.scale(sx, sy);
-    ctx.lineWidth = (expr.style.strokeWidth ?? 2) / Math.max(sx, sy);
     rc.draw(drawable);
     ctx.restore();
   }
@@ -276,13 +270,10 @@ function renderEllipse(
   } else {
     const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
     const drawable = getOrCreateDrawable(expr, () =>
-      rc.ellipse(REF_SIZE / 2, REF_SIZE / 2, REF_SIZE, REF_SIZE, options),
+      rc.ellipse(width / 2, height / 2, width, height, options),
     );
     ctx.save();
     ctx.translate(x, y);
-    const sx = width / REF_SIZE, sy = height / REF_SIZE;
-    ctx.scale(sx, sy);
-    ctx.lineWidth = (expr.style.strokeWidth ?? 2) / Math.max(sx, sy);
     rc.draw(drawable);
     ctx.restore();
   }
@@ -306,20 +297,17 @@ function renderDiamond(
     drawCleanShape(ctx, expr, 'diamond');
   } else {
     const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
-    const refPoints: [number, number][] = [
-      [REF_SIZE / 2, 0],
-      [REF_SIZE, REF_SIZE / 2],
-      [REF_SIZE / 2, REF_SIZE],
-      [0, REF_SIZE / 2],
+    const points: [number, number][] = [
+      [width / 2, 0],
+      [width, height / 2],
+      [width / 2, height],
+      [0, height / 2],
     ];
     const drawable = getOrCreateDrawable(expr, () =>
-      rc.polygon(refPoints, options),
+      rc.polygon(points, options),
     );
     ctx.save();
     ctx.translate(x, y);
-    const sx = width / REF_SIZE, sy = height / REF_SIZE;
-    ctx.scale(sx, sy);
-    ctx.lineWidth = (expr.style.strokeWidth ?? 2) / Math.max(sx, sy);
     rc.draw(drawable);
     ctx.restore();
   }
@@ -1038,7 +1026,7 @@ function getOrCreateDrawable(
   const isShape = expr.kind === 'rectangle' || expr.kind === 'ellipse' || expr.kind === 'diamond';
   const cacheData = isShape ? undefined : expr.data;
   const cachePosition = isShape ? { x: 0, y: 0 } : expr.position;
-  const cacheSize = isShape ? { width: REF_SIZE, height: REF_SIZE } : expr.size;
+  const cacheSize = expr.size;
   const ctx = { style: expr.style, position: cachePosition, size: cacheSize, data: cacheData };
   const cached = drawableCache.get(expr.id, ctx);
   if (cached) return cached;
