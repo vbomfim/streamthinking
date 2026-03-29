@@ -14,7 +14,7 @@ import type { RoughCanvas } from 'roughjs/bin/canvas.js';
 import type { Drawable } from 'roughjs/bin/core.js';
 import getStroke from 'perfect-freehand';
 import type { Camera } from '../types/index.js';
-import { mapStyleToRoughOptions } from './styleMapper.js';
+import { mapStyleToRoughOptions, idToSeed } from './styleMapper.js';
 import { isVisible } from './viewportCulling.js';
 import { createDrawableCache } from './drawableCache.js';
 import type { DrawableCache } from './drawableCache.js';
@@ -194,9 +194,8 @@ function renderRectangle(
 ): void {
   const { x, y } = expr.position;
   const { width, height } = expr.size;
-  const options = mapStyleToRoughOptions(expr.style);
+  const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
 
-  // Draw at origin so position changes (drag) don't regenerate roughness
   const drawable = getOrCreateDrawable(expr, () =>
     rc.rectangle(0, 0, width, height, options),
   );
@@ -221,7 +220,7 @@ function renderEllipse(
 ): void {
   const { x, y } = expr.position;
   const { width, height } = expr.size;
-  const options = mapStyleToRoughOptions(expr.style);
+  const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
 
   // Draw at origin so position changes (drag) don't regenerate roughness
   const drawable = getOrCreateDrawable(expr, () =>
@@ -247,7 +246,7 @@ function renderDiamond(
 ): void {
   const { x, y } = expr.position;
   const { width, height } = expr.size;
-  const options = mapStyleToRoughOptions(expr.style);
+  const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
 
   // Draw at origin so position changes (drag) don't regenerate roughness
   const points: [number, number][] = [
@@ -279,7 +278,7 @@ function renderLine(
 ): void {
   if (expr.data.kind !== 'line') return;
   const { points } = expr.data;
-  const options = mapStyleToRoughOptions(expr.style);
+  const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
   const offset = computePositionOffset(expr);
 
   if (offset.x !== 0 || offset.y !== 0) {
@@ -308,7 +307,7 @@ function renderArrow(
   if (expr.data.kind !== 'arrow') return;
   const data = expr.data as ArrowData;
   const { startArrowhead, endArrowhead } = data;
-  const options = mapStyleToRoughOptions(expr.style);
+  const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
 
   // Resolve binding positions for connected arrows
   const points = resolveBindings(expr, expressions);

@@ -30,7 +30,7 @@ function strokeStyleToDash(strokeStyle: string, strokeWidth: number): number[] |
   }
 }
 
-export function mapStyleToRoughOptions(style: ExpressionStyle): Options {
+export function mapStyleToRoughOptions(style: ExpressionStyle, seed?: number): Options {
   const noFill = style.fillStyle === 'none' || style.backgroundColor === 'transparent';
   const dash = strokeStyleToDash(style.strokeStyle ?? 'solid', style.strokeWidth);
   return {
@@ -40,7 +40,17 @@ export function mapStyleToRoughOptions(style: ExpressionStyle): Options {
     strokeWidth: style.strokeWidth,
     roughness: style.roughness,
     strokeLineDash: dash,
+    ...(seed !== undefined ? { seed } : {}),
   };
+}
+
+/** Derive a deterministic numeric seed from a string (expression ID). */
+export function idToSeed(id: string): number {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
 }
 
 /**
