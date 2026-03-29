@@ -352,7 +352,7 @@ export function StylePanel() {
       <Section label={`Font Size: ${currentStyle.fontSize ?? 16}px`}>
         <input
           type="range"
-          min={8}
+          min={1}
           max={72}
           step={1}
           value={currentStyle.fontSize ?? 16}
