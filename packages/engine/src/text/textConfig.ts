@@ -215,8 +215,9 @@ function resolveStencilKind(expr: VisualExpression): TextConfig {
   const data = expr.data as { label?: string };
   const fontFamily = expr.style.fontFamily ?? DEFAULT_FONT_FAMILY;
   // Scale font proportionally with stencil size (base: 12px at 44px icon)
+  // Cap at 1.5x so container stencils (zone, cluster, nsp) don't get oversized labels
   const baseSize = expr.style.fontSize ?? STENCIL_LABEL_FONT_SIZE;
-  const scaleFactor = Math.min(expr.size.width, expr.size.height) / 44;
+  const scaleFactor = Math.min(Math.min(expr.size.width, expr.size.height) / 44, 1.5);
   const fontSize = Math.round(baseSize * scaleFactor);
   const gap = STENCIL_LABEL_GAP * scaleFactor;
 
