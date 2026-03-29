@@ -144,6 +144,12 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
         entry.id,
       );
       event.dataTransfer.effectAllowed = 'copy';
+
+      // Use the SVG thumbnail as drag image
+      const img = event.currentTarget.querySelector('img');
+      if (img) {
+        event.dataTransfer.setDragImage(img, 24, 24);
+      }
     },
     [],
   );
