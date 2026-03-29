@@ -265,8 +265,16 @@ function CanvasInner() {
           initialText={inlineEditor.getEditingText()}
           camera={camera}
           editorTextRef={editorTextRef}
-          onCommit={(text) => {
+          onCommit={(text, fontSize) => {
             inlineEditor.commitEdit(text);
+            // Save auto-shrunk font size to the expression style
+            if (fontSize !== undefined && editingExpr) {
+              const worldFontSize = fontSize / camera.zoom;
+              useCanvasStore.getState().styleExpressions(
+                [editingExpr.id],
+                { fontSize: worldFontSize },
+              );
+            }
           }}
           onCancel={() => {
             inlineEditor.cancelEdit();
@@ -326,7 +334,7 @@ interface TextEditorProps {
   initialText: string;
   camera: { x: number; y: number; zoom: number };
   editorTextRef: React.MutableRefObject<string>;
-  onCommit: (text: string) => void;
+  onCommit: (text: string, fontSize?: number) => void;
   onCancel: () => void;
 }
 
@@ -345,6 +353,7 @@ interface TextEditorProps {
 function TextEditor({ expression, initialText, camera, editorTextRef, onCommit, onCancel }: TextEditorProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const committedRef = useRef(false);
+  const currentFontSizeRef = useRef<number | null>(null);
 
   // Keep editorTextRef in sync so container-level handlers can read current value
   editorTextRef.current = initialText;
@@ -390,6 +399,7 @@ function TextEditor({ expression, initialText, camera, editorTextRef, onCommit, 
         textarea.style.fontSize = `${fs}px`;
         textarea.style.height = 'auto';
       }
+      currentFontSizeRef.current = fs;
       textarea.style.height = `${textarea.scrollHeight}px`;
     }
   }, []);
@@ -397,7 +407,7 @@ function TextEditor({ expression, initialText, camera, editorTextRef, onCommit, 
   const doCommit = () => {
     if (committedRef.current) return;
     committedRef.current = true;
-    onCommit(textareaRef.current?.value ?? '');
+    onCommit(textareaRef.current?.value ?? '', currentFontSizeRef.current ?? undefined);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -462,6 +472,7 @@ function TextEditor({ expression, initialText, camera, editorTextRef, onCommit, 
               el.style.fontSize = `${fs}px`;
               el.style.height = 'auto';
             }
+            currentFontSizeRef.current = fs;
             el.style.height = `${el.scrollHeight}px`;
           }}
           style={{
