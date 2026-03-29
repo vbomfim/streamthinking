@@ -477,9 +477,11 @@ function InlineEditOverlay({ expression, initialText, camera, onCommit, onCancel
         fontSize: isStencil ? `${12 * camera.zoom}px` : `${scaledFontSize}px`,
         fontFamily: fontFamily,
         textAlign: 'center' as React.CSSProperties['textAlign'],
-        background: expression.kind === 'sticky-note' && typeof data.color === 'string'
-          ? data.color
-          : 'transparent',
+        background: isStencil
+          ? 'var(--bg-canvas, #ffffff)'
+          : expression.kind === 'sticky-note' && typeof data.color === 'string'
+            ? data.color
+            : 'transparent',
         resize: 'none',
         zIndex: 10,
         boxSizing: 'border-box',
