@@ -928,7 +928,12 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
 
     setLastUsedStyle: (style: Partial<ExpressionStyle>) => {
       set((state) => {
-        state.lastUsedStyle = { ...state.lastUsedStyle, ...style } as ExpressionStyle;
+        // Strip empty strings to avoid tainting lastUsedStyle with invalid values
+        const clean: Record<string, unknown> = {};
+        for (const [k, v] of Object.entries(style)) {
+          if (v !== '') clean[k] = v;
+        }
+        state.lastUsedStyle = { ...state.lastUsedStyle, ...clean } as ExpressionStyle;
       });
     },
 
