@@ -1025,5 +1025,55 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
 
       return newIds;
     },
+
+    bringToFront: (ids: string[]) => {
+      if (ids.length === 0) return;
+      const idSet = new Set(ids);
+      set((state) => {
+        const rest = state.expressionOrder.filter((id) => !idSet.has(id));
+        const moved = state.expressionOrder.filter((id) => idSet.has(id));
+        state.expressionOrder = [...rest, ...moved];
+      });
+    },
+
+    sendToBack: (ids: string[]) => {
+      if (ids.length === 0) return;
+      const idSet = new Set(ids);
+      set((state) => {
+        const rest = state.expressionOrder.filter((id) => !idSet.has(id));
+        const moved = state.expressionOrder.filter((id) => idSet.has(id));
+        state.expressionOrder = [...moved, ...rest];
+      });
+    },
+
+    bringForward: (ids: string[]) => {
+      if (ids.length === 0) return;
+      const idSet = new Set(ids);
+      set((state) => {
+        const order = [...state.expressionOrder];
+        // Move each target ID one position forward (toward end = toward front)
+        for (let i = order.length - 2; i >= 0; i--) {
+          if (idSet.has(order[i]!) && !idSet.has(order[i + 1]!)) {
+            [order[i], order[i + 1]] = [order[i + 1]!, order[i]!];
+          }
+        }
+        state.expressionOrder = order;
+      });
+    },
+
+    sendBackward: (ids: string[]) => {
+      if (ids.length === 0) return;
+      const idSet = new Set(ids);
+      set((state) => {
+        const order = [...state.expressionOrder];
+        // Move each target ID one position backward (toward start = toward back)
+        for (let i = 1; i < order.length; i++) {
+          if (idSet.has(order[i]!) && !idSet.has(order[i - 1]!)) {
+            [order[i], order[i - 1]] = [order[i - 1]!, order[i]!];
+          }
+        }
+        state.expressionOrder = order;
+      });
+    },
   })),
 );

@@ -229,6 +229,38 @@ export function useKeyboardShortcuts(
           return;
         }
 
+        // Ctrl+] → bring to front
+        if (key === ']') {
+          event.preventDefault();
+          const ids = Array.from(useCanvasStore.getState().selectedIds);
+          if (ids.length > 0) useCanvasStore.getState().bringToFront(ids);
+          return;
+        }
+
+        // Ctrl+[ → send to back
+        if (key === '[') {
+          event.preventDefault();
+          const ids = Array.from(useCanvasStore.getState().selectedIds);
+          if (ids.length > 0) useCanvasStore.getState().sendToBack(ids);
+          return;
+        }
+
+        // Ctrl+ArrowUp → bring forward
+        if (key === 'ArrowUp') {
+          event.preventDefault();
+          const ids = Array.from(useCanvasStore.getState().selectedIds);
+          if (ids.length > 0) useCanvasStore.getState().bringForward(ids);
+          return;
+        }
+
+        // Ctrl+ArrowDown → send backward
+        if (key === 'ArrowDown') {
+          event.preventDefault();
+          const ids = Array.from(useCanvasStore.getState().selectedIds);
+          if (ids.length > 0) useCanvasStore.getState().sendBackward(ids);
+          return;
+        }
+
         // Other modifier combos — not handled, let browser process
         return;
       }

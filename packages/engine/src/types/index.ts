@@ -138,4 +138,12 @@ export interface CanvasActions {
    * Returns the IDs of the newly created expressions.
    */
   duplicateGrouped: (ids: Set<string>) => string[];
+  /** Move expressions to the front of the z-order (rendered last = on top). */
+  bringToFront: (ids: string[]) => void;
+  /** Move expressions to the back of the z-order (rendered first = behind). */
+  sendToBack: (ids: string[]) => void;
+  /** Move expressions one step forward in z-order. */
+  bringForward: (ids: string[]) => void;
+  /** Move expressions one step backward in z-order. */
+  sendBackward: (ids: string[]) => void;
 }
