@@ -407,6 +407,11 @@ function TextEditor({ expression, initialText, camera, onCommit, onCancel }: Tex
           boxSizing: 'border-box',
           background: background,
         }}
+        onClick={(e) => {
+          // Focus textarea when clicking the wrapper
+          e.stopPropagation();
+          textareaRef.current?.focus();
+        }}
       >
         <textarea
           ref={textareaRef}
@@ -414,9 +419,16 @@ function TextEditor({ expression, initialText, camera, onCommit, onCancel }: Tex
           defaultValue={initialText}
           onKeyDown={handleKeyDown}
           onBlur={handleBlur}
+          rows={1}
+          onInput={(e) => {
+            // Auto-resize height to content so flexbox centers properly
+            const el = e.currentTarget;
+            el.style.height = 'auto';
+            el.style.height = `${Math.min(el.scrollHeight, effectiveHeight)}px`;
+          }}
           style={{
             width: '85%',
-            maxHeight: '100%',
+            height: `${Math.min(scaledFontSize * 1.4, effectiveHeight)}px`,
             padding: 0,
             margin: 0,
             border: 'none',
