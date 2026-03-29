@@ -383,7 +383,7 @@ function TextEditor({ expression, initialText, camera, editorTextRef, onCommit, 
       textarea.setSelectionRange(len, len);
       // Auto-size to existing content, capped at 60% of shape for middle-aligned
       textarea.style.height = 'auto';
-      const maxH = verticalAlign === 'middle' ? effectiveHeight * 0.6 : Math.max(screenHeight, 24);
+      const maxH = verticalAlign === 'middle' ? effectiveHeight * 0.85 : Math.max(screenHeight, 24);
       textarea.style.height = `${Math.min(textarea.scrollHeight, maxH)}px`;
     }
   }, []);
@@ -448,7 +448,7 @@ function TextEditor({ expression, initialText, camera, editorTextRef, onCommit, 
             const el = e.currentTarget;
             editorTextRef.current = el.value;
             el.style.height = 'auto';
-            const maxH = verticalAlign === 'middle' ? effectiveHeight * 0.6 : effectiveHeight;
+            const maxH = verticalAlign === 'middle' ? effectiveHeight * 0.85 : effectiveHeight;
             el.style.height = `${Math.min(el.scrollHeight, maxH)}px`;
           }}
           style={{
