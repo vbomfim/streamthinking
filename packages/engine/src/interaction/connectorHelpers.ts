@@ -155,26 +155,19 @@ export function resolveBindings(
     ? { x: endShape.position.x + endShape.size.width / 2, y: endShape.position.y + endShape.size.height / 2 }
     : null;
 
-  // Resolve start binding — smart route facing the other end
+  // Resolve start binding — use stored anchor from snap
   if (arrowData.startBinding && startShape) {
-    const toward = endCenter ?? { x: points[points.length - 1]![0], y: points[points.length - 1]![1] };
-    const bestEdge = getBestEdge(startShape, toward);
-    // Use stored ratio if edge matches, otherwise center
-    const ratio = bestEdge === arrowData.startBinding.anchor
-      ? (arrowData.startBinding.ratio ?? 0.5)
-      : 0.5;
-    const pt = getAnchorPoint(startShape, bestEdge, ratio);
+    const anchor = arrowData.startBinding.anchor;
+    const ratio = arrowData.startBinding.ratio ?? 0.5;
+    const pt = getAnchorPoint(startShape, anchor, ratio);
     points[0] = [pt.x, pt.y];
   }
 
-  // Resolve end binding — smart route facing the other end
+  // Resolve end binding — use stored anchor from snap
   if (arrowData.endBinding && endShape) {
-    const toward = startCenter ?? { x: points[0]![0], y: points[0]![1] };
-    const bestEdge = getBestEdge(endShape, toward);
-    const ratio = bestEdge === arrowData.endBinding.anchor
-      ? (arrowData.endBinding.ratio ?? 0.5)
-      : 0.5;
-    const pt = getAnchorPoint(endShape, bestEdge, ratio);
+    const anchor = arrowData.endBinding.anchor;
+    const ratio = arrowData.endBinding.ratio ?? 0.5;
+    const pt = getAnchorPoint(endShape, anchor, ratio);
     points[points.length - 1] = [pt.x, pt.y];
   }
 
