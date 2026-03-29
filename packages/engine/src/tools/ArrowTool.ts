@@ -12,7 +12,7 @@ import { nanoid } from 'nanoid';
 import type { VisualExpression, ArrowBinding } from '@infinicanvas/protocol';
 import type { ToolHandler, DrawPreview } from './BaseTool.js';
 import { useCanvasStore } from '../store/canvasStore.js';
-import { findSnapPoint } from '../interaction/connectorHelpers.js';
+import { findSnapPoint, getAnchorPoint } from '../interaction/connectorHelpers.js';
 
 /** Minimum arrow length in world units. */
 const MIN_ARROW_LENGTH = 5;
@@ -157,7 +157,6 @@ export class ArrowTool implements ToolHandler {
         const endAnchor = startAnchor === endAnchorRaw
           ? (startAnchor === 'top' ? 'right' : startAnchor === 'right' ? 'bottom' : startAnchor === 'bottom' ? 'left' : 'top')
           : endAnchorRaw;
-        const { getAnchorPoint } = await import('../interaction/connectorHelpers.js');
         const sp = getAnchorPoint(target, startAnchor, this.startBinding.ratio ?? 0.5);
         const ep = getAnchorPoint(target, endAnchor, endBinding.ratio ?? 0.5);
         const fixedPoints: [number, number][] = [[sp.x, sp.y], [ep.x, ep.y]];
