@@ -580,7 +580,8 @@ function renderStencil(
       ctx.fillStyle = bgColor;
       ctx.fill();
     } else {
-      // hachure / cross-hatch — tint + diagonal lines, all clipped
+      // hachure / cross-hatch — tint + sketchy diagonal lines, all clipped
+      const roughness = expr.style.roughness ?? 1;
       ctx.fillStyle = bgColor;
       ctx.globalAlpha = opacity * 0.15;
       ctx.fillRect(x, y, width, height);
@@ -588,19 +589,35 @@ function renderStencil(
       ctx.globalAlpha = opacity * 0.4;
       ctx.strokeStyle = bgColor;
       ctx.lineWidth = 1;
+
+      // Helper: draw a wobbly line with roughness-based jitter
+      const wobblyLine = (x1: number, y1: number, x2: number, y2: number) => {
+        if (roughness < 0.5) {
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          return;
+        }
+        const segments = Math.max(2, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / 20));
+        ctx.moveTo(x1, y1);
+        for (let s = 1; s <= segments; s++) {
+          const t = s / segments;
+          const jx = (Math.random() - 0.5) * roughness * 2;
+          const jy = (Math.random() - 0.5) * roughness * 2;
+          ctx.lineTo(x1 + (x2 - x1) * t + jx, y1 + (y2 - y1) * t + jy);
+        }
+      };
+
+      const step = 5 + roughness * 2;
       ctx.beginPath();
-      const step = 6;
       for (let i = -height; i < width + height; i += step) {
-        ctx.moveTo(x + i, y);
-        ctx.lineTo(x + i + height, y + height);
+        wobblyLine(x + i, y, x + i + height, y + height);
       }
       ctx.stroke();
 
       if (fillStyle === 'cross-hatch') {
         ctx.beginPath();
         for (let i = 0; i < width + height; i += step) {
-          ctx.moveTo(x + i, y + height);
-          ctx.lineTo(x + i - height, y);
+          wobblyLine(x + i, y + height, x + i - height, y);
         }
         ctx.stroke();
       }
