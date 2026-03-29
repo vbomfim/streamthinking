@@ -105,7 +105,6 @@ export function useInlineEditor(
     const data = expression.data as Record<string, unknown>;
     const value = data[config.field];
     const existingText = typeof value === 'string' ? value : '';
-    // Append initial character for type-to-edit (first keypress that triggered editing)
     return existingText || initialChar;
   }, [initialChar]);
 
@@ -156,12 +155,14 @@ export function useInlineEditor(
     }
 
     setEditingId(null);
+    setInitialChar('');
   }, []);
 
   // ── Cancel edit ────────────────────────────────────────────
 
   const cancelEdit = useCallback(() => {
     setEditingId(null);
+    setInitialChar('');
   }, []);
 
   // ── Double-click listener ──────────────────────────────────
