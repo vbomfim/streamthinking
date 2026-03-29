@@ -3,7 +3,8 @@
  *
  * Covers: lookup by ID, unknown ID handling, category filtering,
  * getAllCategories listing, SVG to data URI conversion, and
- * STENCIL_CATALOG integrity.
+ * STENCIL_CATALOG integrity — including all 15 stencils
+ * (14 production + 1 placeholder).
  *
  * @module
  */
@@ -17,28 +18,149 @@ import {
   svgToDataUri,
 } from '../renderer/stencils/index.js';
 
-// ── getStencil ────────────────────────────────────────────
+// ── getStencil — Network category ─────────────────────────
 
-describe('getStencil', () => {
-  it('returns the server stencil entry by ID', () => {
+describe('getStencil — network stencils', () => {
+  it('returns the server stencil entry', () => {
     const entry = getStencil('server');
     expect(entry).toBeDefined();
     expect(entry!.id).toBe('server');
     expect(entry!.category).toBe('network');
     expect(entry!.label).toBe('Server');
     expect(entry!.svgContent).toContain('<svg');
-    expect(entry!.defaultSize.width).toBe(64);
-    expect(entry!.defaultSize.height).toBe(64);
+    expect(entry!.defaultSize).toEqual({ width: 64, height: 64 });
   });
 
-  it('returns the database stencil entry by ID', () => {
+  it('returns the load-balancer stencil entry', () => {
+    const entry = getStencil('load-balancer');
+    expect(entry).toBeDefined();
+    expect(entry!.id).toBe('load-balancer');
+    expect(entry!.category).toBe('network');
+    expect(entry!.label).toBe('Load Balancer');
+    expect(entry!.defaultSize).toEqual({ width: 64, height: 64 });
+  });
+
+  it('returns the firewall stencil entry', () => {
+    const entry = getStencil('firewall');
+    expect(entry).toBeDefined();
+    expect(entry!.id).toBe('firewall');
+    expect(entry!.category).toBe('network');
+    expect(entry!.label).toBe('Firewall');
+    expect(entry!.defaultSize).toEqual({ width: 64, height: 64 });
+  });
+
+  it('returns the router stencil entry', () => {
+    const entry = getStencil('router');
+    expect(entry).toBeDefined();
+    expect(entry!.id).toBe('router');
+    expect(entry!.category).toBe('network');
+    expect(entry!.label).toBe('Router');
+    expect(entry!.defaultSize).toEqual({ width: 64, height: 64 });
+  });
+
+  it('returns the switch stencil entry', () => {
+    const entry = getStencil('switch');
+    expect(entry).toBeDefined();
+    expect(entry!.id).toBe('switch');
+    expect(entry!.category).toBe('network');
+    expect(entry!.label).toBe('Switch');
+    expect(entry!.defaultSize).toEqual({ width: 64, height: 64 });
+  });
+});
+
+// ── getStencil — Generic IT category ──────────────────────
+
+describe('getStencil — generic-it stencils', () => {
+  it('returns the database stencil entry', () => {
     const entry = getStencil('database');
     expect(entry).toBeDefined();
     expect(entry!.id).toBe('database');
     expect(entry!.category).toBe('generic-it');
+    expect(entry!.label).toBe('Database');
+    expect(entry!.defaultSize).toEqual({ width: 64, height: 64 });
   });
 
-  it('returns the k8s-pod stencil entry by ID', () => {
+  it('returns the queue stencil entry', () => {
+    const entry = getStencil('queue');
+    expect(entry).toBeDefined();
+    expect(entry!.id).toBe('queue');
+    expect(entry!.category).toBe('generic-it');
+    expect(entry!.label).toBe('Queue');
+    expect(entry!.defaultSize).toEqual({ width: 64, height: 64 });
+  });
+
+  it('returns the cache stencil entry', () => {
+    const entry = getStencil('cache');
+    expect(entry).toBeDefined();
+    expect(entry!.id).toBe('cache');
+    expect(entry!.category).toBe('generic-it');
+    expect(entry!.label).toBe('Cache');
+    expect(entry!.defaultSize).toEqual({ width: 64, height: 64 });
+  });
+
+  it('returns the api stencil entry', () => {
+    const entry = getStencil('api');
+    expect(entry).toBeDefined();
+    expect(entry!.id).toBe('api');
+    expect(entry!.category).toBe('generic-it');
+    expect(entry!.label).toBe('API');
+    expect(entry!.defaultSize).toEqual({ width: 64, height: 64 });
+  });
+
+  it('returns the user stencil entry', () => {
+    const entry = getStencil('user');
+    expect(entry).toBeDefined();
+    expect(entry!.id).toBe('user');
+    expect(entry!.category).toBe('generic-it');
+    expect(entry!.label).toBe('User');
+    expect(entry!.defaultSize).toEqual({ width: 64, height: 64 });
+  });
+
+  it('returns the browser stencil entry', () => {
+    const entry = getStencil('browser');
+    expect(entry).toBeDefined();
+    expect(entry!.id).toBe('browser');
+    expect(entry!.category).toBe('generic-it');
+    expect(entry!.label).toBe('Browser');
+    expect(entry!.defaultSize).toEqual({ width: 64, height: 64 });
+  });
+});
+
+// ── getStencil — Architecture category ────────────────────
+
+describe('getStencil — architecture stencils', () => {
+  it('returns the boundary-zone stencil entry with container size', () => {
+    const entry = getStencil('boundary-zone');
+    expect(entry).toBeDefined();
+    expect(entry!.id).toBe('boundary-zone');
+    expect(entry!.category).toBe('architecture');
+    expect(entry!.label).toBe('Boundary Zone');
+    expect(entry!.defaultSize).toEqual({ width: 200, height: 150 });
+  });
+
+  it('returns the microservice stencil entry', () => {
+    const entry = getStencil('microservice');
+    expect(entry).toBeDefined();
+    expect(entry!.id).toBe('microservice');
+    expect(entry!.category).toBe('architecture');
+    expect(entry!.label).toBe('Microservice');
+    expect(entry!.defaultSize).toEqual({ width: 64, height: 64 });
+  });
+
+  it('returns the container stencil entry', () => {
+    const entry = getStencil('container');
+    expect(entry).toBeDefined();
+    expect(entry!.id).toBe('container');
+    expect(entry!.category).toBe('architecture');
+    expect(entry!.label).toBe('Container');
+    expect(entry!.defaultSize).toEqual({ width: 64, height: 64 });
+  });
+});
+
+// ── getStencil — Kubernetes placeholder ───────────────────
+
+describe('getStencil — kubernetes placeholder', () => {
+  it('returns the k8s-pod stencil entry', () => {
     const entry = getStencil('k8s-pod');
     expect(entry).toBeDefined();
     expect(entry!.id).toBe('k8s-pod');
@@ -57,22 +179,31 @@ describe('getStencil', () => {
 // ── getStencilsByCategory ─────────────────────────────────
 
 describe('getStencilsByCategory', () => {
-  it('returns stencils in the network category', () => {
+  it('returns 5 stencils in the network category', () => {
     const entries = getStencilsByCategory('network');
-    expect(entries).toHaveLength(1);
-    expect(entries[0]!.id).toBe('server');
+    expect(entries).toHaveLength(5);
+    const ids = entries.map((e) => e.id).sort();
+    expect(ids).toEqual(['firewall', 'load-balancer', 'router', 'server', 'switch']);
   });
 
-  it('returns stencils in the kubernetes category', () => {
+  it('returns 6 stencils in the generic-it category', () => {
+    const entries = getStencilsByCategory('generic-it');
+    expect(entries).toHaveLength(6);
+    const ids = entries.map((e) => e.id).sort();
+    expect(ids).toEqual(['api', 'browser', 'cache', 'database', 'queue', 'user']);
+  });
+
+  it('returns 3 stencils in the architecture category', () => {
+    const entries = getStencilsByCategory('architecture');
+    expect(entries).toHaveLength(3);
+    const ids = entries.map((e) => e.id).sort();
+    expect(ids).toEqual(['boundary-zone', 'container', 'microservice']);
+  });
+
+  it('returns 1 stencil in the kubernetes category', () => {
     const entries = getStencilsByCategory('kubernetes');
     expect(entries).toHaveLength(1);
     expect(entries[0]!.id).toBe('k8s-pod');
-  });
-
-  it('returns stencils in the generic-it category', () => {
-    const entries = getStencilsByCategory('generic-it');
-    expect(entries).toHaveLength(1);
-    expect(entries[0]!.id).toBe('database');
   });
 
   it('returns empty array for unknown category', () => {
@@ -87,21 +218,26 @@ describe('getStencilsByCategory', () => {
 // ── getAllCategories ───────────────────────────────────────
 
 describe('getAllCategories', () => {
-  it('returns all unique categories sorted alphabetically', () => {
+  it('returns all 4 unique categories sorted alphabetically', () => {
     const categories = getAllCategories();
-    expect(categories).toEqual(['generic-it', 'kubernetes', 'network']);
+    expect(categories).toEqual([
+      'architecture',
+      'generic-it',
+      'kubernetes',
+      'network',
+    ]);
   });
 
   it('returns the correct number of categories', () => {
-    expect(getAllCategories()).toHaveLength(3);
+    expect(getAllCategories()).toHaveLength(4);
   });
 });
 
 // ── STENCIL_CATALOG integrity ─────────────────────────────
 
 describe('STENCIL_CATALOG', () => {
-  it('contains exactly 3 entries', () => {
-    expect(STENCIL_CATALOG.size).toBe(3);
+  it('contains exactly 15 entries', () => {
+    expect(STENCIL_CATALOG.size).toBe(15);
   });
 
   it('has map keys matching entry IDs', () => {
@@ -110,7 +246,7 @@ describe('STENCIL_CATALOG', () => {
     }
   });
 
-  it('all entries have non-empty SVG content', () => {
+  it('all entries have valid SVG content starting with <svg and ending with </svg>', () => {
     for (const entry of STENCIL_CATALOG.values()) {
       expect(entry.svgContent).toContain('<svg');
       expect(entry.svgContent).toContain('</svg>');
@@ -121,6 +257,37 @@ describe('STENCIL_CATALOG', () => {
     for (const entry of STENCIL_CATALOG.values()) {
       expect(entry.defaultSize.width).toBeGreaterThan(0);
       expect(entry.defaultSize.height).toBeGreaterThan(0);
+    }
+  });
+
+  it('all SVGs contain xmlns attribute', () => {
+    for (const entry of STENCIL_CATALOG.values()) {
+      expect(entry.svgContent).toContain('xmlns="http://www.w3.org/2000/svg"');
+    }
+  });
+
+  it('all SVGs contain viewBox attribute', () => {
+    for (const entry of STENCIL_CATALOG.values()) {
+      expect(entry.svgContent).toContain('viewBox=');
+    }
+  });
+
+  it('boundary-zone has the container viewBox 200×150', () => {
+    const entry = getStencil('boundary-zone');
+    expect(entry).toBeDefined();
+    expect(entry!.svgContent).toContain('viewBox="0 0 200 150"');
+  });
+
+  it('regular icons have 64×64 viewBox', () => {
+    const regularIds = [
+      'server', 'load-balancer', 'firewall', 'router', 'switch',
+      'database', 'queue', 'cache', 'api', 'user', 'browser',
+      'microservice', 'container', 'k8s-pod',
+    ];
+    for (const id of regularIds) {
+      const entry = getStencil(id);
+      expect(entry).toBeDefined();
+      expect(entry!.svgContent).toContain('viewBox="0 0 64 64"');
     }
   });
 });
