@@ -358,12 +358,11 @@ function renderArrow(
   const startType = resolveArrowheadType(data.startArrowhead);
   const endType = resolveArrowheadType(data.endArrowhead);
   const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
-  // Arrowhead size scales with stroke width: Thin(1)→10, Normal(2)→15, Thick(4)→25
-  // Ensure minimum visibility when zoomed out (at least 6 screen pixels)
+  // Arrowhead must always be larger than the stroke width
   const zoom = camera?.zoom ?? 1;
-  const minWorldSize = 6 / zoom;
   const baseArrowSize = 5 + ARROWHEAD_SIZE * (expr.style.strokeWidth / 2);
-  const arrowSize = Math.max(baseArrowSize, minWorldSize);
+  const minArrowSize = Math.max(expr.style.strokeWidth * 4, 8 / zoom);
+  const arrowSize = Math.max(baseArrowSize, minArrowSize);
 
   // Resolve binding positions for connected arrows
   const points = resolveBindings(expr, expressions);
@@ -436,11 +435,6 @@ function renderArrow(
     const drawable = getOrCreateDrawable(expr, () =>
       rc.generator.linearPath(points, options),
     );
-    // Ensure line stays visible when zoomed out (min 1 screen pixel)
-    const minLineWidth = 1 / zoom;
-    if (expr.style.strokeWidth < minLineWidth) {
-      ctx.lineWidth = minLineWidth;
-    }
     rc.draw(drawable);
 
     ctx.fillStyle = expr.style.strokeColor;
