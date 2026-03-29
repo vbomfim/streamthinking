@@ -195,6 +195,7 @@ export { ShortcutsHelpPanel } from './components/ShortcutsHelpPanel.js';
 export type {
   ToolType,
   Camera,
+  CameraWaypoint,
   CanvasState,
   CanvasActions,
 } from './types/index.js';

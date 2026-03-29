@@ -34,7 +34,7 @@ import type {
   UngroupPayload,
   ExpressionStyle,
 } from '@infinicanvas/protocol';
-import type { CanvasState, CanvasActions, ToolType, Camera } from '../types/index.js';
+import type { CanvasState, CanvasActions, ToolType, Camera, CameraWaypoint } from '../types/index.js';
 import { HistoryManager } from '../history/historyManager.js';
 import type { CanvasSnapshot } from '../history/historyManager.js';
 import { invalidateLayoutCache as invalidateFlowchartCache } from '../renderer/composites/flowchartRenderer.js';
@@ -294,6 +294,8 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     canUndo: false,
     canRedo: false,
     lastUsedStyle: { ...DEFAULT_EXPRESSION_STYLE },
+    waypoints: [] as CameraWaypoint[],
+    presentationIndex: -1,
 
     // ── Content mutations (emit ProtocolOperations + push snapshots) ──
 
@@ -1105,6 +1107,77 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
           }
         }
         state.expressionOrder = order;
+      });
+    },
+
+    // ── Presentation mode (UI-only — NO operations, NO snapshots) ──
+
+    addWaypoint: (waypoint?: CameraWaypoint) => {
+      const { camera } = get();
+      const wp: CameraWaypoint = waypoint ?? { x: camera.x, y: camera.y, zoom: camera.zoom };
+      set((state) => {
+        state.waypoints.push(wp);
+      });
+    },
+
+    removeWaypoint: (index: number) => {
+      const { waypoints } = get();
+      if (index < 0 || index >= waypoints.length) return;
+      set((state) => {
+        state.waypoints.splice(index, 1);
+        // Reset presentation index if the active waypoint was removed
+        if (state.presentationIndex >= state.waypoints.length) {
+          state.presentationIndex = -1;
+        } else if (state.presentationIndex === index) {
+          state.presentationIndex = -1;
+        }
+      });
+    },
+
+    clearWaypoints: () => {
+      set((state) => {
+        state.waypoints = [];
+        state.presentationIndex = -1;
+      });
+    },
+
+    goToWaypoint: (index: number) => {
+      const { waypoints } = get();
+      if (index < 0 || index >= waypoints.length) return;
+      const wp = waypoints[index]!;
+      set((state) => {
+        state.presentationIndex = index;
+        state.camera = { x: wp.x, y: wp.y, zoom: Math.max(MIN_ZOOM, Math.min(wp.zoom, MAX_ZOOM)) };
+      });
+    },
+
+    nextWaypoint: () => {
+      const { waypoints, presentationIndex } = get();
+      if (waypoints.length === 0) return;
+      const nextIndex = presentationIndex < 0 ? 0 : (presentationIndex + 1) % waypoints.length;
+      const wp = waypoints[nextIndex]!;
+      set((state) => {
+        state.presentationIndex = nextIndex;
+        state.camera = { x: wp.x, y: wp.y, zoom: Math.max(MIN_ZOOM, Math.min(wp.zoom, MAX_ZOOM)) };
+      });
+    },
+
+    prevWaypoint: () => {
+      const { waypoints, presentationIndex } = get();
+      if (waypoints.length === 0) return;
+      const prevIndex = presentationIndex < 0
+        ? waypoints.length - 1
+        : (presentationIndex - 1 + waypoints.length) % waypoints.length;
+      const wp = waypoints[prevIndex]!;
+      set((state) => {
+        state.presentationIndex = prevIndex;
+        state.camera = { x: wp.x, y: wp.y, zoom: Math.max(MIN_ZOOM, Math.min(wp.zoom, MAX_ZOOM)) };
+      });
+    },
+
+    exitPresentation: () => {
+      set((state) => {
+        state.presentationIndex = -1;
       });
     },
   })),

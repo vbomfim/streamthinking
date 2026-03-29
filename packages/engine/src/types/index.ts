@@ -25,6 +25,14 @@ export interface Camera {
   zoom: number;
 }
 
+/** A saved camera position for presentation mode navigation. */
+export interface CameraWaypoint {
+  x: number;
+  y: number;
+  zoom: number;
+  label?: string;
+}
+
 /** Complete canvas state shape managed by Zustand. */
 export interface CanvasState {
   /** All expressions on the canvas, keyed by ID. */
@@ -37,6 +45,10 @@ export interface CanvasState {
   activeTool: ToolType;
   /** Camera viewport state. */
   camera: Camera;
+  /** Saved camera waypoints for presentation mode. */
+  waypoints: CameraWaypoint[];
+  /** Active waypoint index (-1 = not in presentation mode). */
+  presentationIndex: number;
   /** Log of all protocol operations applied to the canvas. */
   operationLog: ProtocolOperation[];
   /** Last style used for drawing — applied to new expressions. */
@@ -146,4 +158,18 @@ export interface CanvasActions {
   bringForward: (ids: string[]) => void;
   /** Move expressions one step backward in z-order. */
   sendBackward: (ids: string[]) => void;
+  /** Add a camera waypoint. Snapshots current camera if no argument. */
+  addWaypoint: (waypoint?: CameraWaypoint) => void;
+  /** Remove a waypoint by index. */
+  removeWaypoint: (index: number) => void;
+  /** Clear all waypoints and exit presentation mode. */
+  clearWaypoints: () => void;
+  /** Navigate to a specific waypoint by index. */
+  goToWaypoint: (index: number) => void;
+  /** Advance to the next waypoint (wraps around). */
+  nextWaypoint: () => void;
+  /** Go to the previous waypoint (wraps around). */
+  prevWaypoint: () => void;
+  /** Exit presentation mode without clearing waypoints. */
+  exitPresentation: () => void;
 }

@@ -140,10 +140,17 @@ export function useKeyboardShortcuts(
         return;
       }
 
-      // ── Escape: cancel / deselect / close help ──
+      // ── Escape: cancel / deselect / close help / exit presentation ──
       if (key === 'Escape') {
         // Close help panel if open
         setShowShortcutsHelp(false);
+
+        // Exit presentation mode if active
+        const { presentationIndex } = useCanvasStore.getState();
+        if (presentationIndex >= 0) {
+          useCanvasStore.getState().exitPresentation();
+          return;
+        }
 
         // Cancel active draw operation
         options.cancelDraw();
@@ -154,6 +161,23 @@ export function useKeyboardShortcuts(
         // Switch to select tool
         useCanvasStore.getState().setActiveTool('select');
         return;
+      }
+
+      // ── Presentation mode navigation (arrow keys, no modifier) ──
+      if (!isModifier && !event.shiftKey && !event.altKey) {
+        const { presentationIndex: presIdx } = useCanvasStore.getState();
+        if (presIdx >= 0) {
+          if (key === 'ArrowRight' || key === 'ArrowDown') {
+            event.preventDefault();
+            useCanvasStore.getState().nextWaypoint();
+            return;
+          }
+          if (key === 'ArrowLeft' || key === 'ArrowUp') {
+            event.preventDefault();
+            useCanvasStore.getState().prevWaypoint();
+            return;
+          }
+        }
       }
 
       // ── Modifier-based shortcuts ──

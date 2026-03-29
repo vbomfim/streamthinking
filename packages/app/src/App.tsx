@@ -22,6 +22,7 @@ import { StylePanel } from './components/panels/StylePanel.js';
 import { ThemeToggle } from './components/panels/ThemeToggle.js';
 import { ExportMenu } from './components/panels/ExportMenu.js';
 import { ZoomControls } from './components/panels/ZoomControls.js';
+import { PresentationBar } from './components/panels/PresentationBar.js';
 import { SettingsPanel } from './components/panels/SettingsPanel.js';
 import { ConnectionStatus } from './components/panels/ConnectionStatus.js';
 import { WelcomeScreen } from './components/WelcomeScreen.js';
@@ -117,6 +118,7 @@ export function App() {
       />
       <AgentSidebar />
       <ZoomControls />
+      <PresentationBar />
       <WelcomeScreen />
       {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
       {/* Top-left action bar: theme toggle + export menu + settings */}
