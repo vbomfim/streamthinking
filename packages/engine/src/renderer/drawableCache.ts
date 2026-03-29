@@ -31,6 +31,8 @@ export interface RenderContext {
 export interface DrawableCache {
   /** Get a cached drawable if the render hash matches. */
   get(id: string, ctx: RenderContext): Drawable | undefined;
+  /** Get any cached drawable regardless of hash (for flicker-free fallback). */
+  getStale(id: string): Drawable | undefined;
   /** Store a drawable for an expression with the given render context. */
   set(id: string, ctx: RenderContext, drawable: Drawable): void;
   /** Remove a specific expression from the cache. */
@@ -58,6 +60,11 @@ export function createDrawableCache(): DrawableCache {
       if (entry.renderHash !== hash) return undefined;
 
       return entry.drawable;
+    },
+
+    /** Get any cached drawable (even stale) for flicker-free rendering. */
+    getStale(id: string): Drawable | undefined {
+      return entries.get(id)?.drawable;
     },
 
     set(id: string, ctx: RenderContext, drawable: Drawable): void {

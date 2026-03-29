@@ -118,12 +118,6 @@ export function renderExpressions(
     ctx.save();
     ctx.globalAlpha = expr.style.opacity;
 
-    // Ensure strokes stay visible when zoomed out — minimum 1px screen
-    const minWorldWidth = 1 / camera.zoom;
-    if (expr.style.strokeWidth < minWorldWidth) {
-      ctx.lineWidth = minWorldWidth;
-    }
-
     renderPrimitive(ctx, roughCanvas, expr, expressions, editingId, camera);
 
     ctx.restore();
@@ -1032,13 +1026,13 @@ function getOrCreateDrawable(
   expr: VisualExpression,
   create: () => Drawable,
 ): Drawable {
-  // Shapes: cache ignores position, size, and data so dragging/resizing
-  // never regenerates the rough drawable — eliminates flicker.
+  // Shapes: cache ignores position and data. Size is included so resize
+  // gets the correct geometry. Deterministic seed ensures identical
+  // roughness pattern on regeneration — no visual flicker.
   const isShape = expr.kind === 'rectangle' || expr.kind === 'ellipse' || expr.kind === 'diamond';
   const cacheData = isShape ? undefined : expr.data;
   const cachePosition = isShape ? { x: 0, y: 0 } : expr.position;
-  const cacheSize = expr.size;
-  const ctx = { style: expr.style, position: cachePosition, size: cacheSize, data: cacheData };
+  const ctx = { style: expr.style, position: cachePosition, size: expr.size, data: cacheData };
   const cached = drawableCache.get(expr.id, ctx);
   if (cached) return cached;
 
