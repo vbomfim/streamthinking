@@ -1003,6 +1003,7 @@ describe('CreatePayload style/angle fields (R3)', () => {
       strokeColor: '#ff0000',
       backgroundColor: '#00ff00',
       fillStyle: 'solid' as const,
+      strokeStyle: 'solid' as const,
       strokeWidth: 5,
       roughness: 2,
       opacity: 0.5,

@@ -21,14 +21,25 @@ import type { Options } from 'roughjs/bin/core.js';
  * - `roughness` → `roughness`
  * - `opacity` is NOT mapped (handled via `ctx.globalAlpha`)
  */
+/** Convert strokeStyle to a canvas/Rough.js dash pattern. */
+function strokeStyleToDash(strokeStyle: string, strokeWidth: number): number[] | undefined {
+  switch (strokeStyle) {
+    case 'dashed': return [strokeWidth * 4, strokeWidth * 3];
+    case 'dotted': return [strokeWidth, strokeWidth * 2];
+    default: return undefined;
+  }
+}
+
 export function mapStyleToRoughOptions(style: ExpressionStyle): Options {
   const noFill = style.fillStyle === 'none' || style.backgroundColor === 'transparent';
+  const dash = strokeStyleToDash(style.strokeStyle ?? 'solid', style.strokeWidth);
   return {
     stroke: style.strokeColor,
     fill: noFill ? undefined : style.backgroundColor,
     fillStyle: noFill ? undefined : style.fillStyle,
     strokeWidth: style.strokeWidth,
     roughness: style.roughness,
+    strokeLineDash: dash,
   };
 }
 
@@ -45,6 +56,7 @@ export function computeStyleHash(style: ExpressionStyle): string {
     style.strokeColor,
     style.backgroundColor,
     style.fillStyle,
+    style.strokeStyle ?? 'solid',
     style.strokeWidth,
     style.roughness,
     style.opacity,
@@ -70,6 +82,7 @@ export function computeRenderHash(
     style.strokeColor,
     style.backgroundColor,
     style.fillStyle,
+    style.strokeStyle ?? 'solid',
     style.strokeWidth,
     style.roughness,
     style.opacity,

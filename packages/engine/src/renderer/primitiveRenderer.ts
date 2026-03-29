@@ -344,6 +344,9 @@ function renderArrow(
     ctx.strokeStyle = expr.style.strokeColor;
     ctx.lineWidth = expr.style.strokeWidth;
     ctx.globalAlpha = expr.style.opacity;
+    const ss = expr.style.strokeStyle ?? 'solid';
+    if (ss === 'dashed') ctx.setLineDash([expr.style.strokeWidth * 4, expr.style.strokeWidth * 3]);
+    else if (ss === 'dotted') ctx.setLineDash([expr.style.strokeWidth, expr.style.strokeWidth * 2]);
     ctx.beginPath();
     ctx.moveTo(start[0], start[1]);
     ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, end[0], end[1]);

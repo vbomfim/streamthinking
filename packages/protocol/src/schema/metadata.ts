@@ -19,6 +19,8 @@ export interface ExpressionStyle {
   backgroundColor: string;
   /** Fill rendering style */
   fillStyle: 'solid' | 'hachure' | 'cross-hatch' | 'none';
+  /** Stroke line style */
+  strokeStyle: 'solid' | 'dashed' | 'dotted';
   /** Stroke width in pixels (1–10) */
   strokeWidth: number;
   /** Roughness factor: 0 = smooth, 1+ = sketchy hand-drawn look */
@@ -41,6 +43,7 @@ export const DEFAULT_EXPRESSION_STYLE: ExpressionStyle = {
   strokeColor: '#1e1e1e',
   backgroundColor: 'transparent',
   fillStyle: 'hachure',
+  strokeStyle: 'solid',
   strokeWidth: 2,
   roughness: 1,
   opacity: 1,

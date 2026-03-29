@@ -76,6 +76,7 @@ export const expressionStyleSchema = z.object({
     z.literal('transparent'),
   ]),
   fillStyle: z.enum(['solid', 'hachure', 'cross-hatch', 'none']),
+  strokeStyle: z.enum(['solid', 'dashed', 'dotted']).default('solid'),
   strokeWidth: z.number().positive().max(100),
   roughness: z.number().min(0),
   opacity: z.number().min(0).max(1),

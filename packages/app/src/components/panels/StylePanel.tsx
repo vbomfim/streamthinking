@@ -44,6 +44,13 @@ const FILL_STYLES = [
   { value: 'cross-hatch', label: 'Cross-hatch' },
 ] as const;
 
+/** Stroke style options. */
+const STROKE_STYLES = [
+  { value: 'solid', label: 'Solid' },
+  { value: 'dashed', label: 'Dashed' },
+  { value: 'dotted', label: 'Dotted' },
+] as const;
+
 // ── Inline style constants ─────────────────────────────────
 
 const PANEL_STYLE: React.CSSProperties = {
@@ -248,6 +255,25 @@ export function StylePanel() {
                 value={value}
                 checked={currentStyle.strokeWidth === value}
                 onChange={() => applyStyle({ strokeWidth: value })}
+                style={{ display: 'none' }}
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+      </Section>
+
+      {/* ── Stroke Style ── */}
+      <Section label="Stroke style">
+        <div style={RADIO_GROUP_STYLE}>
+          {STROKE_STYLES.map(({ value, label }) => (
+            <label key={value} style={radioLabelStyle((currentStyle.strokeStyle ?? 'solid') === value)}>
+              <input
+                type="radio"
+                name="strokeStyle"
+                value={value}
+                checked={(currentStyle.strokeStyle ?? 'solid') === value}
+                onChange={() => applyStyle({ strokeStyle: value as ExpressionStyle['strokeStyle'] })}
                 style={{ display: 'none' }}
               />
               {label}
