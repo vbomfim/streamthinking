@@ -84,7 +84,7 @@ export interface StencilEntry {
 }
 
 /** Standard 64×64 default size for regular icons. */
-const ICON_SIZE = { width: 36, height: 36 } as const;
+const ICON_SIZE = { width: 48, height: 44 } as const;
 
 /** Global stencil catalog keyed by stencil ID. */
 export const STENCIL_CATALOG: Map<string, StencilEntry> = new Map([
