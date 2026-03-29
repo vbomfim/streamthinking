@@ -204,7 +204,8 @@ function drawCleanShape(
 
   ctx.save();
   ctx.strokeStyle = style.strokeColor;
-  ctx.lineWidth = style.strokeWidth;
+  // Native canvas draws single-pixel lines — scale up to match Rough.js visual weight
+  ctx.lineWidth = Math.max(style.strokeWidth * 1.5, 1.5);
   ctx.setLineDash(dash);
 
   ctx.beginPath();
