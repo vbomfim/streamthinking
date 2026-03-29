@@ -197,16 +197,16 @@ export function detectPointerTarget(
   selectedIds: Set<string>,
   camera: Camera,
 ): PointerTarget {
-  // Check bbox handles first — resize takes priority over point-drag
-  const handle = detectHandle(worldPoint, expressions, selectedIds, camera);
-  if (handle) {
-    return { kind: 'handle', handle };
-  }
-
-  // Check point handles (for line/arrow/freehand endpoint dragging)
+  // Check point handles first (for line/arrow/freehand)
   const pointHandle = detectPointHandle(worldPoint, expressions, selectedIds, camera);
   if (pointHandle) {
     return { kind: 'point-handle', handle: pointHandle };
+  }
+
+  // Check bbox handles (only for non-point-based shapes)
+  const handle = detectHandle(worldPoint, expressions, selectedIds, camera);
+  if (handle) {
+    return { kind: 'handle', handle };
   }
 
   // Check shape bodies (only selected shapes can be moved)
