@@ -277,8 +277,8 @@ function computeBoundingBox(points: [number, number][]) {
   return {
     position: { x: minX, y: minY },
     size: {
-      width: Math.max(maxX - minX, 1),
-      height: Math.max(maxY - minY, 1),
+      width: Math.max(maxX - minX, 20),
+      height: Math.max(maxY - minY, 20),
     },
   };
 }

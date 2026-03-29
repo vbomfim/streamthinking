@@ -233,7 +233,7 @@ export function useManipulationInteraction(
               if (py > maxY) maxY = py;
             }
             arrow.position = { x: minX, y: minY };
-            arrow.size = { width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) };
+            arrow.size = { width: Math.max(20, maxX - minX), height: Math.max(20, maxY - minY) };
           }
         }
       });
