@@ -206,7 +206,7 @@ function CanvasInner() {
       position: { x: world.x - w / 2, y: world.y - h / 2 },
       size: { width: w, height: h },
       angle: 0,
-      style: { ...DEFAULT_EXPRESSION_STYLE },
+      style: { ...DEFAULT_EXPRESSION_STYLE, fontSize: 4 },
       meta: {
         author: { type: 'human', id: 'local-user', name: 'User' },
         createdAt: Date.now(),
