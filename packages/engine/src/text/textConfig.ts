@@ -214,12 +214,13 @@ function resolveShapeLabelKind(expr: VisualExpression): TextConfig {
 function resolveStencilKind(expr: VisualExpression): TextConfig {
   const data = expr.data as { label?: string };
   const fontFamily = expr.style.fontFamily ?? DEFAULT_FONT_FAMILY;
-  // Label font: scale proportionally with stencil size.
-  // Slider value is for a 44px icon — scale by same ratio as the stencil.
+  // Auto-size: scale default 8px proportionally with stencil size.
+  // Explicit fontSize from slider: use as-is (world pixels) — what you set is what you get.
   const scaleFactor = Math.min(expr.size.width, expr.size.height) / 44;
-  const baseSize = expr.style.fontSize ?? STENCIL_LABEL_FONT_SIZE;
-  const fontSize = Math.round(baseSize * scaleFactor);
-  const gap = fontSize * 0.3;
+  const fontSize = expr.style.fontSize
+    ? expr.style.fontSize
+    : Math.round(STENCIL_LABEL_FONT_SIZE * scaleFactor);
+  const gap = Math.round(STENCIL_LABEL_GAP * scaleFactor);
 
   return {
     text: data.label ?? '',
