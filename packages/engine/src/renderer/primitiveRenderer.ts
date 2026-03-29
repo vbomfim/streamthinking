@@ -556,8 +556,23 @@ function renderStencil(
     return;
   }
 
-  // Convert SVG to data URI and use the image cache pattern
-  const dataUri = svgToDataUri(entry.svgContent);
+  // Apply expression style colors to the SVG
+  const strokeColor = expr.style.strokeColor ?? '#1e1e1e';
+  const bgColor = expr.style.backgroundColor ?? 'none';
+  
+  // Replace currentColor with the expression's stroke color
+  let styledSvg = entry.svgContent.replace(/currentColor/g, strokeColor);
+  
+  // If background color is set (not default), inject a fill rect behind the content
+  if (bgColor !== 'none' && bgColor !== 'transparent' && bgColor !== '#00000000') {
+    // Add a background rect as the first child of the SVG
+    styledSvg = styledSvg.replace(
+      /(<svg[^>]*>)/,
+      `$1<rect width="100%" height="100%" fill="${bgColor}" rx="4" opacity="0.3"/>`,
+    );
+  }
+
+  const dataUri = svgToDataUri(styledSvg);
   const img = getCachedImage(dataUri);
 
   if (img) {
