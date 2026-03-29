@@ -381,10 +381,16 @@ function TextEditor({ expression, initialText, camera, editorTextRef, onCommit, 
       textarea.focus();
       const len = textarea.value.length;
       textarea.setSelectionRange(len, len);
-      // Auto-size to existing content, capped at 60% of shape for middle-aligned
       textarea.style.height = 'auto';
-      const maxH = verticalAlign === 'middle' ? effectiveHeight * 0.85 : Math.max(screenHeight, 24);
-      textarea.style.height = `${Math.min(textarea.scrollHeight, maxH)}px`;
+      // Shrink font to fit inside the shape
+      let fs = scaledFontSize;
+      textarea.style.fontSize = `${fs}px`;
+      while (textarea.scrollHeight > effectiveHeight * 0.9 && fs > 6) {
+        fs -= 1;
+        textarea.style.fontSize = `${fs}px`;
+        textarea.style.height = 'auto';
+      }
+      textarea.style.height = `${textarea.scrollHeight}px`;
     }
   }, []);
 
@@ -447,9 +453,16 @@ function TextEditor({ expression, initialText, camera, editorTextRef, onCommit, 
           onInput={(e) => {
             const el = e.currentTarget;
             editorTextRef.current = el.value;
+            // Shrink font to fit inside shape
+            let fs = scaledFontSize;
+            el.style.fontSize = `${fs}px`;
             el.style.height = 'auto';
-            const maxH = verticalAlign === 'middle' ? effectiveHeight * 0.85 : effectiveHeight;
-            el.style.height = `${Math.min(el.scrollHeight, maxH)}px`;
+            while (el.scrollHeight > effectiveHeight * 0.9 && fs > 6) {
+              fs -= 1;
+              el.style.fontSize = `${fs}px`;
+              el.style.height = 'auto';
+            }
+            el.style.height = `${el.scrollHeight}px`;
           }}
           style={{
             width: '85%',
