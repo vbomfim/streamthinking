@@ -61,6 +61,10 @@ import {
   executeCanvasLoad,
   executeCanvasListSaves,
 } from './tools/persistenceTools.js';
+import {
+  executePlaceStencil,
+  executeListStencils,
+} from './tools/stencilTools.js';
 
 // ── Zod schemas for tool parameters ────────────────────────
 
@@ -543,6 +547,35 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
     {},
     async () => ({
       content: [{ type: 'text' as const, text: executeCanvasListSaves() }],
+    }),
+  );
+
+  // ── Stencil tools ──────────────────────────────────────────
+
+  server.tool(
+    'canvas_place_stencil',
+    'Place a pre-built stencil icon on the canvas. Use for architecture diagrams with servers, databases, Kubernetes resources, Azure services, etc.',
+    {
+      stencilId: z.string().describe("Stencil identifier (e.g., 'server', 'k8s-pod', 'database')"),
+      x: z.number().describe('X position on the canvas'),
+      y: z.number().describe('Y position on the canvas'),
+      label: z.string().optional().describe('Override label text'),
+      width: z.number().positive().optional().describe('Override width'),
+      height: z.number().positive().optional().describe('Override height'),
+    },
+    async (params) => ({
+      content: [{ type: 'text' as const, text: await executePlaceStencil(gatewayClient, params) }],
+    }),
+  );
+
+  server.tool(
+    'canvas_list_stencils',
+    'List available stencil icons, optionally filtered by category. Categories: network, azure, generic-it, architecture, kubernetes, azure-arm.',
+    {
+      category: z.string().optional().describe('Filter by category (e.g., "network", "kubernetes")'),
+    },
+    async (params) => ({
+      content: [{ type: 'text' as const, text: executeListStencils(params) }],
     }),
   );
 
