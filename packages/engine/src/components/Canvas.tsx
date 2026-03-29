@@ -453,6 +453,10 @@ function InlineEditOverlay({ expression, initialText, camera, onCommit, onCancel
     doCommit();
   };
 
+  // For stencils, position the edit overlay below the icon (where the label renders)
+  const isStencil = expression.kind === 'stencil';
+  const stencilLabelOffset = isStencil ? (expression.size.height + 4) * camera.zoom : 0;
+
   return (
     <textarea
       ref={textareaRef}
@@ -462,15 +466,15 @@ function InlineEditOverlay({ expression, initialText, camera, onCommit, onCancel
       onBlur={handleBlur}
       style={{
         position: 'absolute',
-        left: `${screenPos.x}px`,
-        top: `${screenPos.y}px`,
-        width: `${Math.max(screenWidth, 100)}px`,
-        height: `${Math.max(screenHeight, 32)}px`,
-        padding: `${Math.max((Math.max(screenHeight, 32) - scaledFontSize * 1.4) / 2, 4)}px 8px`,
+        left: `${isStencil ? screenPos.x - 20 : screenPos.x}px`,
+        top: `${screenPos.y + stencilLabelOffset}px`,
+        width: `${isStencil ? Math.max(screenWidth + 40, 120) : Math.max(screenWidth, 100)}px`,
+        height: `${isStencil ? 28 : Math.max(screenHeight, 32)}px`,
+        padding: isStencil ? '4px 8px' : `${Math.max((Math.max(screenHeight, 32) - scaledFontSize * 1.4) / 2, 4)}px 8px`,
         border: '2px solid #4A90D9',
         borderRadius: '4px',
         outline: 'none',
-        fontSize: `${scaledFontSize}px`,
+        fontSize: isStencil ? `${12 * camera.zoom}px` : `${scaledFontSize}px`,
         fontFamily: fontFamily,
         textAlign: 'center' as React.CSSProperties['textAlign'],
         background: expression.kind === 'sticky-note' && typeof data.color === 'string'
