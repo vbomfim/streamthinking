@@ -26,6 +26,7 @@ import {
   Group,
   Ungroup,
   Trash2,
+  LayoutGrid,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 
@@ -55,8 +56,16 @@ const BUTTON_SIZE = 36;
 /** Icon size in pixels. */
 const ICON_SIZE = 18;
 
+/** Props for the Toolbar component. */
+export interface ToolbarProps {
+  /** Callback to toggle the stencil palette panel. */
+  onToggleStencilPalette?: () => void;
+  /** Whether the stencil palette panel is currently open. */
+  isStencilPaletteOpen?: boolean;
+}
+
 /** Toolbar component — renders a vertical bar on the left side. */
-export function Toolbar() {
+export function Toolbar({ onToggleStencilPalette, isStencilPaletteOpen }: ToolbarProps = {}) {
   const activeTool = useCanvasStore((s) => s.activeTool);
   const setActiveTool = useCanvasStore((s) => s.setActiveTool);
   const lastUsedStyle = useCanvasStore((s) => s.lastUsedStyle);
@@ -125,6 +134,36 @@ export function Toolbar() {
         }}
       />
       <StyleIndicator style={lastUsedStyle} isTransparentFill={isTransparentFill} />
+
+      {/* Stencil palette toggle — shown when callback is provided */}
+      {onToggleStencilPalette && (
+        <>
+          <div style={{ width: '100%', height: 1, backgroundColor: '#e0e0e0', margin: '2px 0' }} />
+          <button
+            type="button"
+            title="Stencil Palette (I)"
+            aria-label="Stencil Palette"
+            aria-pressed={!!isStencilPaletteOpen}
+            data-testid="stencil-palette-toggle"
+            onClick={onToggleStencilPalette}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: BUTTON_SIZE,
+              height: BUTTON_SIZE,
+              border: 'none',
+              borderRadius: 6,
+              cursor: 'pointer',
+              backgroundColor: isStencilPaletteOpen ? '#4A90D9' : 'transparent',
+              color: isStencilPaletteOpen ? '#ffffff' : 'var(--text-primary, #333333)',
+              transition: 'background-color 0.15s, color 0.15s',
+            }}
+          >
+            <LayoutGrid size={ICON_SIZE} />
+          </button>
+        </>
+      )}
 
       {/* Group/Ungroup buttons — shown when 2+ expressions selected */}
       <GroupActions />

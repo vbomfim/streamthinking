@@ -14,6 +14,7 @@ import { Canvas, useCanvasStore, morphExpression } from '@infinicanvas/engine';
 import type { VisualExpression, ExpressionKind } from '@infinicanvas/protocol';
 import { Toolbar } from './components/toolbar/Toolbar.js';
 import { ExpressionPalette } from './components/toolbar/ExpressionPalette.js';
+import { StencilPalette } from './components/toolbar/StencilPalette.js';
 import { AgentActions } from './components/toolbar/AgentActions.js';
 import type { AgentActionType } from './components/toolbar/AgentActions.js';
 import { AgentSidebar } from './components/sidebar/AgentSidebar.js';
@@ -34,6 +35,7 @@ export function App() {
   const expressions = useCanvasStore((s) => s.expressions);
   const selectedIds = useCanvasStore((s) => s.selectedIds);
   const [showSettings, setShowSettings] = useState(false);
+  const [showStencilPalette, setShowStencilPalette] = useState(false);
   const gatewayState = useGatewayConnection();
   const { isLoading: agentLoading } = useAgentActionHandler(
     gatewayState.sendMessage,
@@ -85,9 +87,13 @@ export function App() {
   return (
     <>
       <Canvas />
-      <Toolbar />
+      <Toolbar
+        onToggleStencilPalette={() => setShowStencilPalette((prev) => !prev)}
+        isStencilPaletteOpen={showStencilPalette}
+      />
       <StylePanel />
       <ExpressionPalette onInsert={handleInsert} />
+      <StencilPalette onInsert={handleInsert} isOpen={showStencilPalette} />
       <AgentActions
         selectedExpressions={selectedExpressions}
         onAction={handleAgentAction}
