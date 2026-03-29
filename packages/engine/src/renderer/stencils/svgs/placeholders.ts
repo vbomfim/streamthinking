@@ -1,8 +1,10 @@
 /**
  * Placeholder SVG icons for the stencil catalog.
  *
- * Three minimal monochrome icons (64×64 viewBox) to prove the
- * stencil pipeline end-to-end: server, database, and k8s-pod.
+ * Minimal monochrome icons (64×64 viewBox) to prove the
+ * stencil pipeline end-to-end: server and database.
+ *
+ * Note: k8s-pod moved to svgs/kubernetes.ts in Sub-ticket C.
  *
  * @module
  */
@@ -22,10 +24,4 @@ export const DATABASE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 
   <ellipse cx="32" cy="14" rx="22" ry="8" />
   <path d="M10 14v36c0 4.4 9.8 8 22 8s22-3.6 22-8V14" />
   <path d="M10 30c0 4.4 9.8 8 22 8s22-3.6 22-8" />
-</svg>`;
-
-/** Kubernetes pod icon — hexagon shape (kubernetes category). */
-export const K8S_POD_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2">
-  <polygon points="32,4 56,18 56,46 32,60 8,46 8,18" />
-  <circle cx="32" cy="32" r="8" />
 </svg>`;

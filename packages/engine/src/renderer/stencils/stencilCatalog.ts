@@ -7,7 +7,39 @@
  * @module
  */
 
-import { SERVER_SVG, DATABASE_SVG, K8S_POD_SVG } from './svgs/placeholders.js';
+import { SERVER_SVG, DATABASE_SVG } from './svgs/placeholders.js';
+import {
+  AZURE_APP_GATEWAY_SVG,
+  AZURE_AKS_SVG,
+  AZURE_STORAGE_SVG,
+  AZURE_SQL_SVG,
+  AZURE_FUNCTIONS_SVG,
+  AZURE_VNET_SVG,
+} from './svgs/azure.js';
+import {
+  K8S_POD_SVG,
+  K8S_DEPLOYMENT_SVG,
+  K8S_SERVICE_SVG,
+  K8S_INGRESS_SVG,
+  K8S_CONFIGMAP_SVG,
+  K8S_SECRET_SVG,
+  K8S_NAMESPACE_SVG,
+  K8S_PERSISTENT_VOLUME_SVG,
+  K8S_NODE_SVG,
+  K8S_CLUSTER_SVG,
+} from './svgs/kubernetes.js';
+import {
+  ARM_RESOURCE_GROUP_SVG,
+  ARM_SUBSCRIPTION_SVG,
+  ARM_MANAGEMENT_GROUP_SVG,
+  ARM_VIRTUAL_MACHINE_SVG,
+  ARM_VNET_SVG,
+  ARM_SUBNET_SVG,
+  ARM_NSG_SVG,
+  ARM_KEY_VAULT_SVG,
+  ARM_APP_SERVICE_SVG,
+  ARM_CONTAINER_REGISTRY_SVG,
+} from './svgs/azureArm.js';
 
 /** A single entry in the stencil catalog. */
 export interface StencilEntry {
@@ -25,6 +57,7 @@ export interface StencilEntry {
 
 /** Global stencil catalog keyed by stencil ID. */
 export const STENCIL_CATALOG: Map<string, StencilEntry> = new Map([
+  // ── Placeholders (Sub-ticket A) ─────────────────────────
   [
     'server',
     {
@@ -45,6 +78,70 @@ export const STENCIL_CATALOG: Map<string, StencilEntry> = new Map([
       defaultSize: { width: 64, height: 64 },
     },
   ],
+
+  // ── Azure (Sub-ticket C) ────────────────────────────────
+  [
+    'azure-app-gateway',
+    {
+      id: 'azure-app-gateway',
+      category: 'azure',
+      label: 'App Gateway',
+      svgContent: AZURE_APP_GATEWAY_SVG,
+      defaultSize: { width: 64, height: 64 },
+    },
+  ],
+  [
+    'azure-aks',
+    {
+      id: 'azure-aks',
+      category: 'azure',
+      label: 'Azure Kubernetes Service',
+      svgContent: AZURE_AKS_SVG,
+      defaultSize: { width: 64, height: 64 },
+    },
+  ],
+  [
+    'azure-storage',
+    {
+      id: 'azure-storage',
+      category: 'azure',
+      label: 'Azure Storage',
+      svgContent: AZURE_STORAGE_SVG,
+      defaultSize: { width: 64, height: 64 },
+    },
+  ],
+  [
+    'azure-sql',
+    {
+      id: 'azure-sql',
+      category: 'azure',
+      label: 'Azure SQL Database',
+      svgContent: AZURE_SQL_SVG,
+      defaultSize: { width: 64, height: 64 },
+    },
+  ],
+  [
+    'azure-functions',
+    {
+      id: 'azure-functions',
+      category: 'azure',
+      label: 'Azure Functions',
+      svgContent: AZURE_FUNCTIONS_SVG,
+      defaultSize: { width: 64, height: 64 },
+    },
+  ],
+  [
+    'azure-vnet',
+    {
+      id: 'azure-vnet',
+      category: 'azure',
+      label: 'Azure Virtual Network',
+      svgContent: AZURE_VNET_SVG,
+      defaultSize: { width: 64, height: 64 },
+    },
+  ],
+
+  // ── Kubernetes (Sub-ticket C) ───────────────────────────
   [
     'k8s-pod',
     {
@@ -52,6 +149,198 @@ export const STENCIL_CATALOG: Map<string, StencilEntry> = new Map([
       category: 'kubernetes',
       label: 'Kubernetes Pod',
       svgContent: K8S_POD_SVG,
+      defaultSize: { width: 64, height: 64 },
+    },
+  ],
+  [
+    'k8s-deployment',
+    {
+      id: 'k8s-deployment',
+      category: 'kubernetes',
+      label: 'Deployment',
+      svgContent: K8S_DEPLOYMENT_SVG,
+      defaultSize: { width: 64, height: 64 },
+    },
+  ],
+  [
+    'k8s-service',
+    {
+      id: 'k8s-service',
+      category: 'kubernetes',
+      label: 'Service',
+      svgContent: K8S_SERVICE_SVG,
+      defaultSize: { width: 64, height: 64 },
+    },
+  ],
+  [
+    'k8s-ingress',
+    {
+      id: 'k8s-ingress',
+      category: 'kubernetes',
+      label: 'Ingress',
+      svgContent: K8S_INGRESS_SVG,
+      defaultSize: { width: 64, height: 64 },
+    },
+  ],
+  [
+    'k8s-configmap',
+    {
+      id: 'k8s-configmap',
+      category: 'kubernetes',
+      label: 'ConfigMap',
+      svgContent: K8S_CONFIGMAP_SVG,
+      defaultSize: { width: 64, height: 64 },
+    },
+  ],
+  [
+    'k8s-secret',
+    {
+      id: 'k8s-secret',
+      category: 'kubernetes',
+      label: 'Secret',
+      svgContent: K8S_SECRET_SVG,
+      defaultSize: { width: 64, height: 64 },
+    },
+  ],
+  [
+    'k8s-namespace',
+    {
+      id: 'k8s-namespace',
+      category: 'kubernetes',
+      label: 'Namespace',
+      svgContent: K8S_NAMESPACE_SVG,
+      defaultSize: { width: 200, height: 150 },
+    },
+  ],
+  [
+    'k8s-persistent-volume',
+    {
+      id: 'k8s-persistent-volume',
+      category: 'kubernetes',
+      label: 'Persistent Volume',
+      svgContent: K8S_PERSISTENT_VOLUME_SVG,
+      defaultSize: { width: 64, height: 64 },
+    },
+  ],
+  [
+    'k8s-node',
+    {
+      id: 'k8s-node',
+      category: 'kubernetes',
+      label: 'Node',
+      svgContent: K8S_NODE_SVG,
+      defaultSize: { width: 64, height: 64 },
+    },
+  ],
+  [
+    'k8s-cluster',
+    {
+      id: 'k8s-cluster',
+      category: 'kubernetes',
+      label: 'Cluster',
+      svgContent: K8S_CLUSTER_SVG,
+      defaultSize: { width: 250, height: 200 },
+    },
+  ],
+
+  // ── Azure ARM (Sub-ticket C) ────────────────────────────
+  [
+    'arm-resource-group',
+    {
+      id: 'arm-resource-group',
+      category: 'azure-arm',
+      label: 'Resource Group',
+      svgContent: ARM_RESOURCE_GROUP_SVG,
+      defaultSize: { width: 200, height: 150 },
+    },
+  ],
+  [
+    'arm-subscription',
+    {
+      id: 'arm-subscription',
+      category: 'azure-arm',
+      label: 'Subscription',
+      svgContent: ARM_SUBSCRIPTION_SVG,
+      defaultSize: { width: 250, height: 200 },
+    },
+  ],
+  [
+    'arm-management-group',
+    {
+      id: 'arm-management-group',
+      category: 'azure-arm',
+      label: 'Management Group',
+      svgContent: ARM_MANAGEMENT_GROUP_SVG,
+      defaultSize: { width: 300, height: 200 },
+    },
+  ],
+  [
+    'arm-virtual-machine',
+    {
+      id: 'arm-virtual-machine',
+      category: 'azure-arm',
+      label: 'Virtual Machine',
+      svgContent: ARM_VIRTUAL_MACHINE_SVG,
+      defaultSize: { width: 64, height: 64 },
+    },
+  ],
+  [
+    'arm-vnet',
+    {
+      id: 'arm-vnet',
+      category: 'azure-arm',
+      label: 'Virtual Network',
+      svgContent: ARM_VNET_SVG,
+      defaultSize: { width: 64, height: 64 },
+    },
+  ],
+  [
+    'arm-subnet',
+    {
+      id: 'arm-subnet',
+      category: 'azure-arm',
+      label: 'Subnet',
+      svgContent: ARM_SUBNET_SVG,
+      defaultSize: { width: 64, height: 64 },
+    },
+  ],
+  [
+    'arm-nsg',
+    {
+      id: 'arm-nsg',
+      category: 'azure-arm',
+      label: 'Network Security Group',
+      svgContent: ARM_NSG_SVG,
+      defaultSize: { width: 64, height: 64 },
+    },
+  ],
+  [
+    'arm-key-vault',
+    {
+      id: 'arm-key-vault',
+      category: 'azure-arm',
+      label: 'Key Vault',
+      svgContent: ARM_KEY_VAULT_SVG,
+      defaultSize: { width: 64, height: 64 },
+    },
+  ],
+  [
+    'arm-app-service',
+    {
+      id: 'arm-app-service',
+      category: 'azure-arm',
+      label: 'App Service',
+      svgContent: ARM_APP_SERVICE_SVG,
+      defaultSize: { width: 64, height: 64 },
+    },
+  ],
+  [
+    'arm-container-registry',
+    {
+      id: 'arm-container-registry',
+      category: 'azure-arm',
+      label: 'Container Registry',
+      svgContent: ARM_CONTAINER_REGISTRY_SVG,
       defaultSize: { width: 64, height: 64 },
     },
   ],
