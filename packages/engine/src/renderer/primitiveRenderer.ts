@@ -563,17 +563,38 @@ function renderStencil(
   const opacity = expr.style.opacity ?? 1;
   
   // Replace currentColor with the expression's stroke color
-  let styledSvg = entry.svgContent.replace(/currentColor/g, strokeColor);
-  
-  // Determine background: if user set a fill color, use it; otherwise white for solid/hachure
+  const styledSvg = entry.svgContent.replace(/currentColor/g, strokeColor);
+
+  // Draw background fill behind the icon (same behavior as geometric forms)
   const isTransparent = bgColor === 'transparent' || bgColor === 'none' || bgColor === '#00000000';
-  if (fillStyle !== 'none') {
-    const effectiveBg = isTransparent ? '#ffffff' : bgColor;
-    const fillOpacity = fillStyle === 'solid' ? '1' : '0.4';
-    styledSvg = styledSvg.replace(
-      /(<svg[^>]*>)/,
-      `$1<rect width="100%" height="100%" fill="${effectiveBg}" rx="4" opacity="${fillOpacity}"/>`,
-    );
+  if (fillStyle !== 'none' && !isTransparent) {
+    ctx.save();
+    ctx.globalAlpha = opacity;
+    if (fillStyle === 'solid') {
+      ctx.fillStyle = bgColor;
+      ctx.beginPath();
+      ctx.roundRect(x, y, width, height, 4);
+      ctx.fill();
+    } else {
+      // hachure / cross-hatch — draw semi-transparent fill + hatching lines
+      ctx.fillStyle = bgColor;
+      ctx.globalAlpha = opacity * 0.15;
+      ctx.beginPath();
+      ctx.roundRect(x, y, width, height, 4);
+      ctx.fill();
+      // Draw hatch lines
+      ctx.globalAlpha = opacity * 0.4;
+      ctx.strokeStyle = bgColor;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      const step = 6;
+      for (let i = -height; i < width; i += step) {
+        ctx.moveTo(x + i, y);
+        ctx.lineTo(x + i + height, y + height);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   const dataUri = svgToDataUri(styledSvg);
