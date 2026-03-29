@@ -189,6 +189,45 @@ function renderPrimitive(
 /** Reference size for cached shape drawables. */
 const REF_SIZE = 100;
 
+/** Draw a shape with native canvas API (perfect geometry, no roughness). */
+function drawCleanShape(
+  ctx: CanvasRenderingContext2D,
+  expr: VisualExpression,
+  kind: 'rectangle' | 'ellipse' | 'diamond',
+): void {
+  const { x, y } = expr.position;
+  const { width, height } = expr.size;
+  const style = expr.style;
+  const noFill = style.fillStyle === 'none' || style.backgroundColor === 'transparent';
+  const dash = style.strokeStyle === 'dashed' ? [style.strokeWidth * 4, style.strokeWidth * 3]
+    : style.strokeStyle === 'dotted' ? [style.strokeWidth, style.strokeWidth * 2] : [];
+
+  ctx.save();
+  ctx.strokeStyle = style.strokeColor;
+  ctx.lineWidth = style.strokeWidth;
+  ctx.setLineDash(dash);
+
+  ctx.beginPath();
+  if (kind === 'rectangle') {
+    ctx.rect(x, y, width, height);
+  } else if (kind === 'ellipse') {
+    ctx.ellipse(x + width / 2, y + height / 2, width / 2, height / 2, 0, 0, Math.PI * 2);
+  } else {
+    ctx.moveTo(x + width / 2, y);
+    ctx.lineTo(x + width, y + height / 2);
+    ctx.lineTo(x + width / 2, y + height);
+    ctx.lineTo(x, y + height / 2);
+    ctx.closePath();
+  }
+
+  if (!noFill) {
+    ctx.fillStyle = style.backgroundColor;
+    ctx.fill();
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
 /** Render rectangle. [AC2] */
 function renderRectangle(
   ctx: CanvasRenderingContext2D,
@@ -198,19 +237,22 @@ function renderRectangle(
 ): void {
   const { x, y } = expr.position;
   const { width, height } = expr.size;
-  const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
 
-  const drawable = getOrCreateDrawable(expr, () =>
-    rc.rectangle(0, 0, REF_SIZE, REF_SIZE, options),
-  );
-
-  ctx.save();
-  ctx.translate(x, y);
-  const sx = width / REF_SIZE, sy = height / REF_SIZE;
-  ctx.scale(sx, sy);
-  ctx.lineWidth = (expr.style.strokeWidth ?? 2) / Math.max(sx, sy);
-  rc.draw(drawable);
-  ctx.restore();
+  if ((expr.style.roughness ?? 1) < 0.1) {
+    drawCleanShape(ctx, expr, 'rectangle');
+  } else {
+    const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
+    const drawable = getOrCreateDrawable(expr, () =>
+      rc.rectangle(0, 0, REF_SIZE, REF_SIZE, options),
+    );
+    ctx.save();
+    ctx.translate(x, y);
+    const sx = width / REF_SIZE, sy = height / REF_SIZE;
+    ctx.scale(sx, sy);
+    ctx.lineWidth = (expr.style.strokeWidth ?? 2) / Math.max(sx, sy);
+    rc.draw(drawable);
+    ctx.restore();
+  }
 
   // Center label if present (skip when editing in-place)
   if (!skipLabel && expr.data.kind === 'rectangle' && expr.data.label) {
@@ -227,19 +269,22 @@ function renderEllipse(
 ): void {
   const { x, y } = expr.position;
   const { width, height } = expr.size;
-  const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
 
-  const drawable = getOrCreateDrawable(expr, () =>
-    rc.ellipse(REF_SIZE / 2, REF_SIZE / 2, REF_SIZE, REF_SIZE, options),
-  );
-
-  ctx.save();
-  ctx.translate(x, y);
-  const sx = width / REF_SIZE, sy = height / REF_SIZE;
-  ctx.scale(sx, sy);
-  ctx.lineWidth = (expr.style.strokeWidth ?? 2) / Math.max(sx, sy);
-  rc.draw(drawable);
-  ctx.restore();
+  if ((expr.style.roughness ?? 1) < 0.1) {
+    drawCleanShape(ctx, expr, 'ellipse');
+  } else {
+    const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
+    const drawable = getOrCreateDrawable(expr, () =>
+      rc.ellipse(REF_SIZE / 2, REF_SIZE / 2, REF_SIZE, REF_SIZE, options),
+    );
+    ctx.save();
+    ctx.translate(x, y);
+    const sx = width / REF_SIZE, sy = height / REF_SIZE;
+    ctx.scale(sx, sy);
+    ctx.lineWidth = (expr.style.strokeWidth ?? 2) / Math.max(sx, sy);
+    rc.draw(drawable);
+    ctx.restore();
+  }
 
   if (!skipLabel && expr.data.kind === 'ellipse' && expr.data.label) {
     renderLabel(ctx, expr.data.label, x, y, width, height, expr.style);
@@ -255,26 +300,28 @@ function renderDiamond(
 ): void {
   const { x, y } = expr.position;
   const { width, height } = expr.size;
-  const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
 
-  const refPoints: [number, number][] = [
-    [REF_SIZE / 2, 0],
-    [REF_SIZE, REF_SIZE / 2],
-    [REF_SIZE / 2, REF_SIZE],
-    [0, REF_SIZE / 2],
-  ];
-
-  const drawable = getOrCreateDrawable(expr, () =>
-    rc.polygon(refPoints, options),
-  );
-
-  ctx.save();
-  ctx.translate(x, y);
-  const sx = width / REF_SIZE, sy = height / REF_SIZE;
-  ctx.scale(sx, sy);
-  ctx.lineWidth = (expr.style.strokeWidth ?? 2) / Math.max(sx, sy);
-  rc.draw(drawable);
-  ctx.restore();
+  if ((expr.style.roughness ?? 1) < 0.1) {
+    drawCleanShape(ctx, expr, 'diamond');
+  } else {
+    const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
+    const refPoints: [number, number][] = [
+      [REF_SIZE / 2, 0],
+      [REF_SIZE, REF_SIZE / 2],
+      [REF_SIZE / 2, REF_SIZE],
+      [0, REF_SIZE / 2],
+    ];
+    const drawable = getOrCreateDrawable(expr, () =>
+      rc.polygon(refPoints, options),
+    );
+    ctx.save();
+    ctx.translate(x, y);
+    const sx = width / REF_SIZE, sy = height / REF_SIZE;
+    ctx.scale(sx, sy);
+    ctx.lineWidth = (expr.style.strokeWidth ?? 2) / Math.max(sx, sy);
+    rc.draw(drawable);
+    ctx.restore();
+  }
 
   if (!skipLabel && expr.data.kind === 'diamond' && expr.data.label) {
     renderLabel(ctx, expr.data.label, x, y, width, height, expr.style);
