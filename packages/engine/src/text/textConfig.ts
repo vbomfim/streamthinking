@@ -219,7 +219,9 @@ function resolveStencilKind(expr: VisualExpression): TextConfig {
   // scaleFactor is 1.0 at base 44px icon (zoom=1), larger when zoomed out.
   const scaleFactor = Math.min(expr.size.width, expr.size.height) / 44;
   const baseSize = expr.style.fontSize ?? STENCIL_LABEL_FONT_SIZE;
-  const fontSize = Math.round(baseSize * scaleFactor);
+  // Cap at 8% of stencil size so label stays proportional at any zoom
+  const maxSize = Math.min(expr.size.width, expr.size.height) * 0.08;
+  const fontSize = Math.max(1, Math.min(Math.round(baseSize * scaleFactor), Math.round(maxSize)));
   const gap = Math.round(STENCIL_LABEL_GAP * scaleFactor);
 
   return {

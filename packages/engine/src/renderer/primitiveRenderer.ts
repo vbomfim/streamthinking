@@ -169,7 +169,7 @@ function renderPrimitive(
       renderImage(ctx, expr);
       break;
     case 'stencil':
-      renderStencil(ctx, expr, isEditing);
+      renderStencil(ctx, expr, isEditing, camera);
       break;
     default: {
       // Check composite renderer registry before falling back
@@ -607,6 +607,7 @@ function renderStencil(
   ctx: CanvasRenderingContext2D,
   expr: VisualExpression,
   skipLabel = false,
+  camera?: Camera,
 ): void {
   if (expr.data.kind !== 'stencil') return;
   const { stencilId, label } = expr.data;
@@ -749,7 +750,11 @@ function renderStencil(
   if (!skipLabel && label) {
     const config = resolveTextConfig(expr);
     if (config) {
-      ctx.font = `${config.fontSize}px ${config.fontFamily}`;
+      // Cap font to max ~24 screen pixels so labels don't overwhelm at extreme zoom
+      const zoom = camera?.zoom ?? 1;
+      const maxWorldPx = 24 / zoom;
+      const cappedSize = Math.min(config.fontSize, maxWorldPx);
+      ctx.font = `${cappedSize}px ${config.fontFamily}`;
       ctx.textAlign = config.textAlign;
       ctx.textBaseline = 'top';
       ctx.fillStyle = config.color;
