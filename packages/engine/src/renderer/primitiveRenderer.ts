@@ -358,9 +358,10 @@ function renderArrow(
   const startType = resolveArrowheadType(data.startArrowhead);
   const endType = resolveArrowheadType(data.endArrowhead);
   const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
-  // Scale arrowheads so they stay visible when zoomed out
+  // Arrowhead size scales with stroke width (base 10px at strokeWidth 2)
   const zoom = camera?.zoom ?? 1;
-  const arrowSize = Math.max(ARROWHEAD_SIZE, ARROWHEAD_SIZE / zoom);
+  const baseArrowSize = ARROWHEAD_SIZE * (expr.style.strokeWidth / 2);
+  const arrowSize = Math.max(baseArrowSize, baseArrowSize / zoom);
 
   // Resolve binding positions for connected arrows
   const points = resolveBindings(expr, expressions);
