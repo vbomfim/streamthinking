@@ -210,18 +210,27 @@ export function useManipulationInteraction(
               ? { x: endTarget.position.x + endTarget.size.width / 2, y: endTarget.position.y + endTarget.size.height / 2 }
               : { x: points[points.length - 1]![0], y: points[points.length - 1]![1] };
 
-            // Smart anchor BOTH ends — only switch edge, keep ratio stable
-            if (data.startBinding && startTarget) {
-              const best = findBestAnchorForDrag(startTarget, endRef, data.startBinding.anchor, data.startBinding.ratio);
-              data.startBinding.anchor = best.anchor as ArrowAnchor;
-              data.startBinding.ratio = best.ratio;
-              points[0] = [best.point.x, best.point.y];
-            }
-            if (data.endBinding && endTarget) {
-              const best = findBestAnchorForDrag(endTarget, startRef, data.endBinding.anchor, data.endBinding.ratio);
-              data.endBinding.anchor = best.anchor as ArrowAnchor;
-              data.endBinding.ratio = best.ratio;
-              points[points.length - 1] = [best.point.x, best.point.y];
+            // Self-loop: preserve stored anchors
+            const isSelfLoop = data.startBinding && data.endBinding &&
+              data.startBinding.expressionId === data.endBinding.expressionId;
+            if (isSelfLoop && startTarget) {
+              const sp = getAnchorPoint(startTarget, data.startBinding!.anchor || 'top', data.startBinding!.ratio ?? 0.5);
+              const ep = getAnchorPoint(startTarget, data.endBinding!.anchor || 'right', data.endBinding!.ratio ?? 0.5);
+              points[0] = [sp.x, sp.y];
+              points[points.length - 1] = [ep.x, ep.y];
+            } else {
+              if (data.startBinding && startTarget) {
+                const best = findBestAnchorForDrag(startTarget, endRef, data.startBinding.anchor, data.startBinding.ratio);
+                data.startBinding.anchor = best.anchor as ArrowAnchor;
+                data.startBinding.ratio = best.ratio;
+                points[0] = [best.point.x, best.point.y];
+              }
+              if (data.endBinding && endTarget) {
+                const best = findBestAnchorForDrag(endTarget, startRef, data.endBinding.anchor, data.endBinding.ratio);
+                data.endBinding.anchor = best.anchor as ArrowAnchor;
+                data.endBinding.ratio = best.ratio;
+                points[points.length - 1] = [best.point.x, best.point.y];
+              }
             }
 
             // Recalc bounding box
