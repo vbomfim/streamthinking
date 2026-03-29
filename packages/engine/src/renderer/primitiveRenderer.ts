@@ -565,34 +565,45 @@ function renderStencil(
   // Replace currentColor with the expression's stroke color
   const styledSvg = entry.svgContent.replace(/currentColor/g, strokeColor);
 
-  // Draw background fill behind the icon (same behavior as geometric forms)
+  // Draw background fill behind the icon (clipped to bounding box)
   const isTransparent = bgColor === 'transparent' || bgColor === 'none' || bgColor === '#00000000';
   if (fillStyle !== 'none' && !isTransparent) {
     ctx.save();
     ctx.globalAlpha = opacity;
+
+    // Clip all fill rendering to the stencil bounding box
+    ctx.beginPath();
+    ctx.roundRect(x, y, width, height, 4);
+    ctx.clip();
+
     if (fillStyle === 'solid') {
       ctx.fillStyle = bgColor;
-      ctx.beginPath();
-      ctx.roundRect(x, y, width, height, 4);
       ctx.fill();
     } else {
-      // hachure / cross-hatch — draw semi-transparent fill + hatching lines
+      // hachure / cross-hatch — tint + diagonal lines, all clipped
       ctx.fillStyle = bgColor;
       ctx.globalAlpha = opacity * 0.15;
-      ctx.beginPath();
-      ctx.roundRect(x, y, width, height, 4);
-      ctx.fill();
-      // Draw hatch lines
+      ctx.fillRect(x, y, width, height);
+
       ctx.globalAlpha = opacity * 0.4;
       ctx.strokeStyle = bgColor;
       ctx.lineWidth = 1;
       ctx.beginPath();
       const step = 6;
-      for (let i = -height; i < width; i += step) {
+      for (let i = -height; i < width + height; i += step) {
         ctx.moveTo(x + i, y);
         ctx.lineTo(x + i + height, y + height);
       }
       ctx.stroke();
+
+      if (fillStyle === 'cross-hatch') {
+        ctx.beginPath();
+        for (let i = 0; i < width + height; i += step) {
+          ctx.moveTo(x + i, y + height);
+          ctx.lineTo(x + i - height, y);
+        }
+        ctx.stroke();
+      }
     }
     ctx.restore();
   }
