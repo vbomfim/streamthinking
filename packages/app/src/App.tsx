@@ -61,12 +61,17 @@ export function App() {
       const world = screenToWorld(cx, cy, camera);
       const offset = (Math.random() - 0.5) * 40;
 
+      // Scale size inversely by zoom so inserted items appear consistent on screen
+      const w = expression.size.width / camera.zoom;
+      const h = expression.size.height / camera.zoom;
+
       const centered = {
         ...expression,
         position: {
-          x: world.x - expression.size.width / 2 + offset,
-          y: world.y - expression.size.height / 2 + offset,
+          x: world.x - w / 2 + offset,
+          y: world.y - h / 2 + offset,
         },
+        size: { width: w, height: h },
       };
       addExpression(centered);
       setSelectedIds(new Set([centered.id]));

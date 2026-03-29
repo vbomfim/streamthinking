@@ -196,11 +196,15 @@ function CanvasInner() {
     const { camera } = useCanvasStore.getState();
     const world = screenToWorld(e.clientX, e.clientY, camera);
 
+    // Scale size inversely by zoom so stencils appear the same screen size
+    const w = entry.defaultSize.width / camera.zoom;
+    const h = entry.defaultSize.height / camera.zoom;
+
     const expression: VisualExpression = {
       id: nanoid(),
       kind: 'stencil',
-      position: { x: world.x - entry.defaultSize.width / 2, y: world.y - entry.defaultSize.height / 2 },
-      size: { ...entry.defaultSize },
+      position: { x: world.x - w / 2, y: world.y - h / 2 },
+      size: { width: w, height: h },
       angle: 0,
       style: { ...DEFAULT_EXPRESSION_STYLE },
       meta: {
