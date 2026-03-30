@@ -394,15 +394,12 @@ function TextEditor({ expression, initialText, camera, editorTextRef, onCommit, 
         // Shrink font if needed to fit inside shape
         let fs = scaledFontSize;
         textarea.style.fontSize = `${fs}px`;
-        textarea.style.height = 'auto';
         while (textarea.scrollHeight > effectiveHeight * 0.9 && fs > 6) {
           fs -= 1;
           textarea.style.fontSize = `${fs}px`;
-          textarea.style.height = 'auto';
         }
         currentFontSizeRef.current = fs;
-        // Set height to content only (not full shape) so flexbox centers
-        textarea.style.height = `${textarea.scrollHeight}px`;
+        // Don't set explicit height — let CSS auto + flexbox handle centering
       } else {
         textarea.style.height = 'auto';
         textarea.style.height = `${textarea.scrollHeight}px`;
@@ -475,14 +472,11 @@ function TextEditor({ expression, initialText, camera, editorTextRef, onCommit, 
             // Shrink font to fit inside shape
             let fs = scaledFontSize;
             el.style.fontSize = `${fs}px`;
-            el.style.height = 'auto';
             while (el.scrollHeight > effectiveHeight * 0.9 && fs > 6) {
               fs -= 1;
               el.style.fontSize = `${fs}px`;
-              el.style.height = 'auto';
             }
             currentFontSizeRef.current = fs;
-            el.style.height = `${el.scrollHeight}px`;
           }}
           style={{
             width: '85%',
