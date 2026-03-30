@@ -394,12 +394,15 @@ function TextEditor({ expression, initialText, camera, editorTextRef, onCommit, 
         // Shrink font if needed to fit inside shape
         let fs = scaledFontSize;
         textarea.style.fontSize = `${fs}px`;
+        textarea.style.height = 'auto';
         while (textarea.scrollHeight > effectiveHeight * 0.9 && fs > 6) {
           fs -= 1;
           textarea.style.fontSize = `${fs}px`;
+          textarea.style.height = 'auto';
         }
         currentFontSizeRef.current = fs;
-        // Don't set explicit height — let CSS auto + flexbox handle centering
+        // Grow to fit existing multiline content
+        textarea.style.height = `${textarea.scrollHeight}px`;
       } else {
         textarea.style.height = 'auto';
         textarea.style.height = `${textarea.scrollHeight}px`;
