@@ -390,17 +390,23 @@ function TextEditor({ expression, initialText, camera, editorTextRef, onCommit, 
       textarea.focus();
       const len = textarea.value.length;
       textarea.setSelectionRange(len, len);
-      textarea.style.height = 'auto';
-      // Shrink font to fit inside the shape
-      let fs = scaledFontSize;
-      textarea.style.fontSize = `${fs}px`;
-      while (textarea.scrollHeight > effectiveHeight * 0.9 && fs > 6) {
-        fs -= 1;
+      if (verticalAlign === 'middle') {
+        // Shrink font if needed to fit inside shape
+        let fs = scaledFontSize;
         textarea.style.fontSize = `${fs}px`;
         textarea.style.height = 'auto';
+        while (textarea.scrollHeight > effectiveHeight * 0.9 && fs > 6) {
+          fs -= 1;
+          textarea.style.fontSize = `${fs}px`;
+          textarea.style.height = 'auto';
+        }
+        currentFontSizeRef.current = fs;
+        // Set height to content only (not full shape) so flexbox centers
+        textarea.style.height = `${textarea.scrollHeight}px`;
+      } else {
+        textarea.style.height = 'auto';
+        textarea.style.height = `${textarea.scrollHeight}px`;
       }
-      currentFontSizeRef.current = fs;
-      textarea.style.height = `${textarea.scrollHeight}px`;
     }
   }, []);
 
@@ -480,7 +486,7 @@ function TextEditor({ expression, initialText, camera, editorTextRef, onCommit, 
           }}
           style={{
             width: '85%',
-            height: `${Math.min(scaledFontSize * 1.4, effectiveHeight)}px`,
+            maxHeight: `${effectiveHeight * 0.9}px`,
             padding: 0,
             margin: 0,
             border: 'none',
