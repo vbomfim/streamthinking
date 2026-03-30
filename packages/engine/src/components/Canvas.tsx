@@ -384,29 +384,32 @@ function TextEditor({ expression, initialText, camera, editorTextRef, onCommit, 
   const background = config?.background ?? 'transparent';
   const verticalAlign = config?.verticalAlign ?? 'middle';
 
+  /** Resize textarea: shrink font to fit, then grow height to content. */
+  const fitTextarea = (el: HTMLTextAreaElement) => {
+    if (verticalAlign === 'middle') {
+      let fs = scaledFontSize;
+      el.style.fontSize = `${fs}px`;
+      el.style.height = 'auto';
+      while (el.scrollHeight > effectiveHeight * 0.9 && fs > 6) {
+        fs -= 1;
+        el.style.fontSize = `${fs}px`;
+        el.style.height = 'auto';
+      }
+      currentFontSizeRef.current = fs;
+      el.style.height = `${el.scrollHeight}px`;
+    } else {
+      el.style.height = 'auto';
+      el.style.height = `${el.scrollHeight}px`;
+    }
+  };
+
   useEffect(() => {
     const textarea = textareaRef.current;
     if (textarea) {
       textarea.focus();
       const len = textarea.value.length;
       textarea.setSelectionRange(len, len);
-      if (verticalAlign === 'middle') {
-        // Shrink font if needed to fit inside shape
-        let fs = scaledFontSize;
-        textarea.style.fontSize = `${fs}px`;
-        textarea.style.height = 'auto';
-        while (textarea.scrollHeight > effectiveHeight * 0.9 && fs > 6) {
-          fs -= 1;
-          textarea.style.fontSize = `${fs}px`;
-          textarea.style.height = 'auto';
-        }
-        currentFontSizeRef.current = fs;
-        // Grow to fit existing multiline content
-        textarea.style.height = `${textarea.scrollHeight}px`;
-      } else {
-        textarea.style.height = 'auto';
-        textarea.style.height = `${textarea.scrollHeight}px`;
-      }
+      fitTextarea(textarea);
     }
   }, []);
 
@@ -471,20 +474,8 @@ function TextEditor({ expression, initialText, camera, editorTextRef, onCommit, 
           onBlur={handleBlur}
           onContextMenu={(e) => { e.preventDefault(); doCommit(); }}
           onInput={(e) => {
-            const el = e.currentTarget;
-            editorTextRef.current = el.value;
-            // Shrink font to fit inside shape
-            let fs = scaledFontSize;
-            el.style.fontSize = `${fs}px`;
-            el.style.height = 'auto';
-            while (el.scrollHeight > effectiveHeight * 0.9 && fs > 6) {
-              fs -= 1;
-              el.style.fontSize = `${fs}px`;
-              el.style.height = 'auto';
-            }
-            currentFontSizeRef.current = fs;
-            // Grow textarea to fit content (for multiline)
-            el.style.height = `${el.scrollHeight}px`;
+            editorTextRef.current = e.currentTarget.value;
+            fitTextarea(e.currentTarget);
           }}
           style={{
             width: '85%',
