@@ -461,6 +461,7 @@ function TextEditor({ expression, initialText, camera, editorTextRef, onCommit, 
       >
         <textarea
           ref={textareaRef}
+          rows={1}
           data-testid="inline-edit-overlay"
           defaultValue={initialText}
           onKeyDown={handleKeyDown}
