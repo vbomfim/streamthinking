@@ -1,4 +1,4 @@
-# StreamThinking
+# StreamThinking — InfiniCanvas
 
 A visual communication protocol for humans & AI — an infinite canvas where AI agents express reasoning, diagrams, wireframes, and workflows, and humans respond by drawing, annotating, and editing. Both sides speak the same visual protocol.
 
@@ -13,63 +13,181 @@ Monorepo with 6 packages:
 | Package | Description |
 |---------|-------------|
 | `protocol` | Shared schema, types, and validation (ICP — InfiniCanvas Protocol) |
-| `engine` | Rendering engine — Zustand state store and Canvas component |
+| `engine` | Rendering engine — Zustand state store, Rough.js renderer, Canvas component |
 | `gateway` | WebSocket gateway — real-time collaboration server for canvas sessions |
-| `mcp-server` | MCP server — canvas tools for AI agents via Model Context Protocol |
-| `agents` | AI agent adapters (Phase 5) |
-| `app` | React web application |
+| `mcp-server` | MCP server — 30+ canvas tools for AI agents via Model Context Protocol |
+| `agents` | AI agent adapters (future) |
+| `app` | React web application — toolbar, style panel, stencil palette |
 
 **Data flow:**
 
 ```
-AI Agent → MCP Server → Gateway ↔ Browser App
+AI Agent ↔ MCP Server ↔ Gateway ↔ Browser App
+                         ↕
+                    Session State
 ```
 
-## Quickstart
+---
+
+## Step-by-Step Setup
 
 ### Prerequisites
 
-- Node.js ≥ 20
+- **Node.js ≥ 20** (check: `node -v`)
+- **npm** (comes with Node.js)
+- **Git**
 
-### Run locally
+### Step 1: Clone the repo
+
+```bash
+git clone https://github.com/vbomfim/streamthinking.git
+cd streamthinking
+```
+
+### Step 2: Install dependencies
 
 ```bash
 npm install
+```
+
+This installs all 6 packages in the monorepo via npm workspaces.
+
+### Step 3: Start the development server
+
+```bash
 npm run dev
 ```
 
-This starts:
-- **Gateway** on `ws://localhost:8080`
-- **App** on `http://localhost:5173`
+This starts two services concurrently:
 
-Open http://localhost:5173, click the Settings gear → enter Gateway URL `ws://localhost:8080` → save.
+| Service | URL | Description |
+|---------|-----|-------------|
+| **Gateway** | `ws://localhost:8080` | WebSocket server for real-time canvas sync |
+| **App** | `http://localhost:5173` | React app — open this in your browser |
 
-## MCP Integration
+Environment variables `INFINICANVAS_API_KEY=local-dev` and `INFINICANVAS_SESSION_ID=local-dev` are set automatically.
 
-InfiniCanvas exposes canvas tools to AI agents via the [Model Context Protocol](https://modelcontextprotocol.io/).
+### Step 4: Open the canvas
 
-### Copilot CLI / VS Code
+1. Open **http://localhost:5173** in your browser
+2. Click the **⚙️ Settings** gear icon (top-right)
+3. Enter Gateway URL: `ws://localhost:8080`
+4. Enter API Key: `local-dev`
+5. Click **Save**
+6. The connection dot should turn green — you're connected!
 
-The MCP config lives at `.github/extensions/infinicanvas.mcp.json`. Set these environment variables before starting:
+### Step 5: Draw something!
+
+Use the **toolbar** on the left:
+- **V** — Select tool
+- **R** — Rectangle
+- **O** — Ellipse
+- **D** — Diamond
+- **A** — Arrow (use style panel to add/change arrowheads)
+- **P** — Freehand pen
+- **T** — Text
+- **N** — Sticky note
+
+Click the **stencil palette** (grid icon) for 56 architecture icons across 7 categories.
+
+---
+
+## MCP Integration (AI Agent Connection)
+
+The MCP server lets AI agents (like GitHub Copilot) draw on the canvas using 30+ tools.
+
+### Option A: Copilot CLI / VS Code
+
+Add this to your MCP config (`~/.copilot/mcp-config.json` or VS Code settings):
+
+```json
+{
+  "mcpServers": {
+    "infinicanvas": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["tsx", "<FULL_PATH>/packages/mcp-server/src/main.ts"],
+      "env": {
+        "INFINICANVAS_GATEWAY_URL": "ws://localhost:8080",
+        "INFINICANVAS_API_KEY": "local-dev",
+        "INFINICANVAS_SESSION_ID": "local-dev"
+      }
+    }
+  }
+}
+```
+
+Replace `<FULL_PATH>` with the absolute path to your clone (e.g., `/Users/you/streamthinking`).
+
+### Option B: Run MCP server standalone
 
 ```bash
-export INFINICANVAS_GATEWAY_URL=ws://localhost:8080
-export INFINICANVAS_API_KEY=any-string-for-local-dev
-```
-
-The MCP server runs via:
-
-```
+INFINICANVAS_GATEWAY_URL=ws://localhost:8080 \
+INFINICANVAS_API_KEY=local-dev \
+INFINICANVAS_SESSION_ID=local-dev \
 npx tsx packages/mcp-server/src/main.ts
 ```
 
-`INFINICANVAS_API_KEY` can be any string for local development.
+### Available MCP Tools
+
+| Category | Tools |
+|----------|-------|
+| **Primitives** | `canvas_draw_rectangle`, `canvas_draw_ellipse`, `canvas_draw_arrow`, `canvas_draw_text`, `canvas_add_sticky_note` |
+| **Stencils** | `canvas_place_stencil`, `canvas_list_stencils` |
+| **Diagrams** | `canvas_draw_flowchart`, `canvas_draw_sequence_diagram`, `canvas_draw_mind_map`, `canvas_draw_kanban`, `canvas_draw_roadmap` |
+| **Visual** | `canvas_draw_reasoning_chain`, `canvas_draw_wireframe` |
+| **Query** | `canvas_get_state`, `canvas_query`, `canvas_get_expression`, `canvas_pending_requests` |
+| **Annotations** | `canvas_annotate`, `canvas_highlight`, `canvas_add_comment` |
+| **Waypoints** | `canvas_add_waypoint`, `canvas_list_waypoints`, `canvas_remove_waypoint` |
+| **Persistence** | `canvas_save`, `canvas_load`, `canvas_list_saves` |
+| **Canvas** | `canvas_clear` |
+
+---
+
+## Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `INFINICANVAS_API_KEY` | — | Authentication key (any string for local dev) |
+| `INFINICANVAS_SESSION_ID` | — | Session ID for MCP server to join |
+| `INFINICANVAS_GATEWAY_URL` | `ws://localhost:8080` | Gateway WebSocket URL |
+| `PORT` | `8080` | Gateway listen port |
+
+---
 
 ## Development
 
 ```bash
-npm test          # run all tests
+npm test          # run all tests across all packages
 npm run build     # build all packages
 npm run lint      # lint all packages
 npm run clean     # remove dist and build artifacts
 ```
+
+### Package-specific commands
+
+```bash
+# Run only gateway tests
+npm test -w @infinicanvas/gateway
+
+# Run only engine tests
+npm test -w @infinicanvas/engine
+
+# Run app in dev mode only
+npm run dev -w @infinicanvas/app
+```
+
+---
+
+## Canvas Features
+
+- **Drawing tools**: Rectangle, ellipse, diamond, arrow, freehand, text, sticky notes
+- **56 stencils**: Network, Azure, Kubernetes, ARM, Generic IT, Architecture, Security
+- **Arrow types**: Triangle, chevron, diamond, circle — configurable per-end
+- **Styles**: Stroke color, fill, roughness, opacity, dashed/dotted, font family/size
+- **Rough.js rendering**: Hand-drawn sketchy style with deterministic seeds
+- **Clean shapes**: Perfect geometry at roughness=0
+- **Presentation mode**: Camera waypoints with keyboard navigation
+- **Z-order**: Bring forward/back with overlap-aware stacking
+- **Real-time sync**: All changes sync via WebSocket gateway
+- **AI collaboration**: Bidirectional — AI draws, human edits, AI sees changes
