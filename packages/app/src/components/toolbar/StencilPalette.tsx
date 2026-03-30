@@ -77,7 +77,7 @@ function createStencilExpression(entry: StencilEntry): VisualExpression {
     position: { x: 0, y: 0 },
     size: { ...entry.defaultSize },
     angle: 0,
-    style: { ...DEFAULT_EXPRESSION_STYLE, fontSize: 4 },
+    style: { ...DEFAULT_EXPRESSION_STYLE, fontSize: 10 },
     meta: {
       author: { type: 'human', id: 'local-user', name: 'User' },
       createdAt: Date.now(),
