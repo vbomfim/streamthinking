@@ -776,11 +776,22 @@ function renderStencil(
   if (img) {
     ctx.save();
     ctx.globalAlpha = opacity;
-    // Small icons have SVG viewBox padding — expand to compensate.
-    // Container stencils (large boxes) are edge-to-edge, draw exact.
     const isContainer = Math.min(width, height) > 80;
-    const inset = isContainer ? 0 : Math.min(width, height) * 0.12;
-    ctx.drawImage(img, x - inset, y - inset, width + 2 * inset, height + 2 * inset);
+    if (isContainer) {
+      // Container: draw dashed border + small icon at top-left
+      ctx.strokeStyle = strokeColor;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 4]);
+      ctx.strokeRect(x, y, width, height);
+      ctx.setLineDash([]);
+      // Draw icon small at top-left
+      const iconSize = 32;
+      ctx.drawImage(img, x + 6, y + 6, iconSize, iconSize);
+    } else {
+      // Icon stencil: expand slightly to compensate for SVG viewBox padding
+      const inset = Math.min(width, height) * 0.12;
+      ctx.drawImage(img, x - inset, y - inset, width + 2 * inset, height + 2 * inset);
+    }
     ctx.restore();
   } else {
     // Loading placeholder
