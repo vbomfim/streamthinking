@@ -372,30 +372,34 @@ export function createGatewayConnection(
 
       case 'screenshot-request': {
         const canvas = document.querySelector('canvas');
-        if (canvas && ws && ws.readyState === WebSocketImpl.OPEN) {
-          // Wait for next frame render to complete before capturing
-          requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              try {
-                const imageBase64 = canvas.toDataURL('image/png');
-                ws.send(JSON.stringify({
+        const currentWs = ws;
+        const reqId = (message as ScreenshotRequestInbound).requestId;
+        if (canvas && currentWs && currentWs.readyState === WebSocketImpl.OPEN) {
+          // Small delay to ensure current render frame completes
+          setTimeout(() => {
+            try {
+              const imageBase64 = canvas.toDataURL('image/png');
+              if (currentWs.readyState === WebSocketImpl.OPEN) {
+                currentWs.send(JSON.stringify({
                   type: 'screenshot-response',
-                  requestId: (message as ScreenshotRequestInbound).requestId,
+                  requestId: reqId,
                   imageBase64,
                   width: canvas.width,
                   height: canvas.height,
                 }));
-              } catch (err) {
-                ws.send(JSON.stringify({
+              }
+            } catch {
+              if (currentWs.readyState === WebSocketImpl.OPEN) {
+                currentWs.send(JSON.stringify({
                   type: 'screenshot-response',
-                  requestId: (message as ScreenshotRequestInbound).requestId,
+                  requestId: reqId,
                   imageBase64: '',
                   width: 0,
                   height: 0,
                 }));
               }
-            });
-          });
+            }
+          }, 100);
         }
         break;
       }
