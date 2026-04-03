@@ -61,6 +61,27 @@ export function intersects(
 
 // ── Query result type ──────────────────────────────────────
 
+interface ExpressionStyleSummary {
+  strokeColor: string;
+  backgroundColor: string;
+  strokeWidth: number;
+  fontSize?: number;
+}
+
+interface ExpressionDataSummary {
+  // Arrow
+  startArrowhead?: string | boolean;
+  endArrowhead?: string | boolean;
+  startBinding?: { expressionId: string; anchor: string; ratio?: number };
+  endBinding?: { expressionId: string; anchor: string; ratio?: number };
+  // Stencil
+  stencilId?: string;
+  category?: string;
+  isContainer?: boolean;
+  // Text
+  text?: string;
+}
+
 interface ExpressionSummary {
   id: string;
   kind: string;
@@ -69,6 +90,8 @@ interface ExpressionSummary {
   label: string | undefined;
   tags: string[];
   author: VisualExpression['meta']['author'];
+  style: ExpressionStyleSummary;
+  data?: ExpressionDataSummary;
 }
 
 interface QueryResult {
@@ -76,6 +99,43 @@ interface QueryResult {
   truncated: boolean;
   total: number;
   expressions: ExpressionSummary[];
+}
+
+// ── Summary helpers ────────────────────────────────────────
+
+function formatStyleSummary(expr: VisualExpression): ExpressionStyleSummary {
+  const s = expr.style;
+  const result: ExpressionStyleSummary = {
+    strokeColor: s.strokeColor,
+    backgroundColor: s.backgroundColor,
+    strokeWidth: s.strokeWidth,
+  };
+  if (s.fontSize !== undefined) result.fontSize = s.fontSize;
+  return result;
+}
+
+function formatDataSummary(expr: VisualExpression): ExpressionDataSummary | undefined {
+  const data = expr.data;
+  switch (data.kind) {
+    case 'arrow': {
+      const summary: ExpressionDataSummary = {};
+      if (data.startArrowhead !== undefined) summary.startArrowhead = data.startArrowhead;
+      if (data.endArrowhead !== undefined) summary.endArrowhead = data.endArrowhead;
+      if (data.startBinding) summary.startBinding = data.startBinding;
+      if (data.endBinding) summary.endBinding = data.endBinding;
+      return Object.keys(summary).length > 0 ? summary : undefined;
+    }
+    case 'stencil':
+      return {
+        stencilId: data.stencilId,
+        category: data.category,
+        isContainer: expr.size.width >= 150 || expr.size.height >= 150,
+      };
+    case 'text':
+      return { text: data.text };
+    default:
+      return undefined;
+  }
 }
 
 // ── Tool executors ─────────────────────────────────────────
@@ -139,6 +199,8 @@ export async function executeCanvasQuery(
       label: getExpressionLabel(expr),
       tags: expr.meta.tags,
       author: expr.meta.author,
+      style: formatStyleSummary(expr),
+      data: formatDataSummary(expr),
     })),
   };
 

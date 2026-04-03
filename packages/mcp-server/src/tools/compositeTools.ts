@@ -392,6 +392,47 @@ const SHAPE_MAP: Record<string, string> = {
   parallelogram: 'rectangle', cylinder: 'rectangle',
 };
 
+/**
+ * Compute arrow start/end points that exit from the correct edge of
+ * each bounding box based on relative positions of the two objects.
+ */
+function smartArrowPoints(
+  from: { x: number; y: number; width: number; height: number },
+  to: { x: number; y: number; width: number; height: number },
+): [number, number][] {
+  const fromCx = from.x + from.width / 2;
+  const fromCy = from.y + from.height / 2;
+  const toCx = to.x + to.width / 2;
+  const toCy = to.y + to.height / 2;
+
+  const dx = toCx - fromCx;
+  const dy = toCy - fromCy;
+
+  let startX: number, startY: number, endX: number, endY: number;
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    // Horizontal connection
+    if (dx > 0) {
+      startX = from.x + from.width; startY = fromCy;  // right edge
+      endX = to.x; endY = toCy;                         // left edge
+    } else {
+      startX = from.x; startY = fromCy;                 // left edge
+      endX = to.x + to.width; endY = toCy;              // right edge
+    }
+  } else {
+    // Vertical connection
+    if (dy > 0) {
+      startX = fromCx; startY = from.y + from.height;   // bottom edge
+      endX = toCx; endY = to.y;                          // top edge
+    } else {
+      startX = fromCx; startY = from.y;                  // top edge
+      endX = toCx; endY = to.y + to.height;              // bottom edge
+    }
+  }
+
+  return [[startX, startY], [endX, endY]];
+}
+
 export async function executeDrawFlowchart(
   client: IGatewayClient,
   params: DrawFlowchartParams,
@@ -433,8 +474,11 @@ export async function executeDrawFlowchart(
     const from = ids.get(edge.from);
     const to = ids.get(edge.to);
     if (!from || !to) continue;
+    const fromRect = { x: from.cx - P.nodeW / 2, y: from.cy - P.nodeH / 2, width: P.nodeW, height: P.nodeH };
+    const toRect = { x: to.cx - P.nodeW / 2, y: to.cy - P.nodeH / 2, width: P.nodeW, height: P.nodeH };
+    const pts = smartArrowPoints(fromRect, toRect);
     const arrow = buildArrow({
-      points: [[from.cx, from.cy + P.nodeH / 2], [to.cx, to.cy - P.nodeH / 2]],
+      points: pts,
       endArrowhead: true, label: edge.label,
     });
     await client.sendCreate(arrow);
@@ -466,7 +510,11 @@ export async function executeDrawSequenceDiagram(
     const fromX = pMap.get(msg.from) ?? ox;
     const toX = pMap.get(msg.to) ?? ox + 100;
     const y = oy + 30 + P.participantH + 30 + i * P.msgGap;
-    const arrow = buildArrow({ points: [[fromX, y], [toX, y]], endArrowhead: true, label: msg.label });
+    const lifeW = 4;
+    const fromRect = { x: fromX - lifeW / 2, y: y - lifeW / 2, width: lifeW, height: lifeW };
+    const toRect = { x: toX - lifeW / 2, y: y - lifeW / 2, width: lifeW, height: lifeW };
+    const pts = smartArrowPoints(fromRect, toRect);
+    const arrow = buildArrow({ points: pts, endArrowhead: true, label: msg.label });
     client.sendCreate(arrow);
   });
 
@@ -480,19 +528,28 @@ export async function executeDrawMindMap(
   const ox = params.x ?? 0, oy = params.y ?? 0;
 
   // Central topic
-  const center = buildEllipse({ x: ox - 60, y: oy - 25, width: 120, height: 50, label: params.centralTopic });
+  const centerW = 120, centerH = 50;
+  const center = buildEllipse({ x: ox - centerW / 2, y: oy - centerH / 2, width: centerW, height: centerH, label: params.centralTopic });
   await client.sendCreate(center);
 
   // Branches radially
   const angleStep = (2 * Math.PI) / Math.max(params.branches.length, 1);
   let branchCount = 0;
+  const branchW = 120, branchH = 36;
 
-  function layoutBranch(branch: MindMapBranch, cx: number, cy: number, angle: number, depth: number) {
+  function layoutBranch(
+    branch: MindMapBranch,
+    cx: number, cy: number,
+    angle: number, depth: number,
+    parentRect: { x: number; y: number; width: number; height: number },
+  ) {
     const bx = cx + Math.cos(angle) * (P.branchRadial + depth * 80);
     const by = cy + Math.sin(angle) * (P.branchRadial + depth * 80);
-    const rect = buildRectangle({ x: bx - 60, y: by - 18, width: 120, height: 36, label: branch.label, backgroundColor: '#fff9c4', fillStyle: 'solid' });
+    const rect = buildRectangle({ x: bx - branchW / 2, y: by - branchH / 2, width: branchW, height: branchH, label: branch.label, backgroundColor: '#fff9c4', fillStyle: 'solid' });
     client.sendCreate(rect);
-    const line = buildArrow({ points: [[cx, cy], [bx, by]] });
+    const childRect = { x: bx - branchW / 2, y: by - branchH / 2, width: branchW, height: branchH };
+    const pts = smartArrowPoints(parentRect, childRect);
+    const line = buildArrow({ points: pts });
     client.sendCreate(line);
     branchCount++;
 
@@ -500,13 +557,14 @@ export async function executeDrawMindMap(
       const childAngleSpread = 0.4;
       branch.children.forEach((child, i) => {
         const childAngle = angle + (i - (branch.children.length - 1) / 2) * childAngleSpread;
-        layoutBranch(child, bx, by, childAngle, depth + 1);
+        layoutBranch(child, bx, by, childAngle, depth + 1, childRect);
       });
     }
   }
 
+  const centerRect = { x: ox - centerW / 2, y: oy - centerH / 2, width: centerW, height: centerH };
   params.branches.forEach((branch, i) => {
-    layoutBranch(branch, ox, oy, i * angleStep - Math.PI / 2, 0);
+    layoutBranch(branch, ox, oy, i * angleStep - Math.PI / 2, 0, centerRect);
   });
 
   return `Created mind map '${params.centralTopic}' with ${branchCount} branches (primitives)`;
@@ -525,7 +583,10 @@ export async function executeDrawReasoningChain(
   // Steps
   let cy = oy + P.stepH;
   for (const step of params.steps) {
-    const arrow = buildArrow({ points: [[ox + P.stepW / 2, cy], [ox + P.stepW / 2, cy + P.stepGap]], endArrowhead: true });
+    const fromRect = { x: ox, y: cy - P.stepH, width: P.stepW, height: P.stepH };
+    const toRect = { x: ox, y: cy + P.stepGap, width: P.stepW, height: P.stepH };
+    const pts = smartArrowPoints(fromRect, toRect);
+    const arrow = buildArrow({ points: pts, endArrowhead: true });
     await client.sendCreate(arrow);
     cy += P.stepGap;
     const rect = buildRectangle({ x: ox, y: cy, width: P.stepW, height: P.stepH, label: `${step.title}: ${step.content}` });
@@ -534,7 +595,10 @@ export async function executeDrawReasoningChain(
   }
 
   // Final answer
-  const arrow = buildArrow({ points: [[ox + P.stepW / 2, cy], [ox + P.stepW / 2, cy + P.stepGap]], endArrowhead: true });
+  const fromRect = { x: ox, y: cy - P.stepH, width: P.stepW, height: P.stepH };
+  const toRect = { x: ox, y: cy + P.stepGap, width: P.stepW, height: P.stepH };
+  const finalPts = smartArrowPoints(fromRect, toRect);
+  const arrow = buildArrow({ points: finalPts, endArrowhead: true });
   await client.sendCreate(arrow);
   cy += P.stepGap;
   const ans = buildRectangle({ x: ox, y: cy, width: P.stepW, height: P.stepH, label: params.finalAnswer, backgroundColor: '#c8e6c9', fillStyle: 'solid' });
