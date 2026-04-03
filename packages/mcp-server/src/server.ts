@@ -718,13 +718,20 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
     {},
     async () => {
       try {
-        const result = await gatewayClient.requestScreenshot();
+        const result = await gatewayClient.requestScreenshot(10000);
+        const base64Data = result.imageBase64.replace(/^data:image\/png;base64,/, '');
         return {
-          content: [{
-            type: 'image' as const,
-            data: result.imageBase64.replace(/^data:image\/png;base64,/, ''),
-            mimeType: 'image/png',
-          }],
+          content: [
+            {
+              type: 'image' as const,
+              data: base64Data,
+              mimeType: 'image/png',
+            },
+            {
+              type: 'text' as const,
+              text: `Screenshot captured: ${result.width}×${result.height} pixels`,
+            },
+          ],
         };
       } catch (err) {
         return {

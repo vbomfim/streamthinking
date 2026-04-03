@@ -374,13 +374,16 @@ export function createGatewayConnection(
         const canvas = document.querySelector('canvas');
         if (canvas) {
           const imageBase64 = canvas.toDataURL('image/png');
-          connection.sendMessage({
-            type: 'screenshot-response',
-            requestId: (message as unknown as { requestId: string }).requestId,
-            imageBase64,
-            width: canvas.width,
-            height: canvas.height,
-          });
+          // Use raw sendMessage since screenshot-response isn't in OutboundMessage type
+          if (ws && ws.readyState === WebSocketImpl.OPEN) {
+            ws.send(JSON.stringify({
+              type: 'screenshot-response',
+              requestId: (message as ScreenshotRequestInbound).requestId,
+              imageBase64,
+              width: canvas.width,
+              height: canvas.height,
+            }));
+          }
         }
         break;
       }
