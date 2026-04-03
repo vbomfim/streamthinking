@@ -11,7 +11,6 @@
 /** Boundary zone icon — dashed rectangle border (container concept, 200×150). */
 export const BOUNDARY_ZONE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 150" fill="none" stroke="currentColor" stroke-width="2">
   <rect x="4" y="4" width="192" height="142" rx="8" stroke-dasharray="8 4" />
-  <text x="14" y="22" font-family="sans-serif" font-size="14" fill="currentColor" stroke="none">Zone</text>
 </svg>`;
 
 /** Microservice icon — hexagon shape. */

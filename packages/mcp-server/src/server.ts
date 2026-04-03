@@ -196,7 +196,7 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
 
   server.tool(
     'canvas_draw_flowchart',
-    'Draw a flowchart diagram. Use for process flows, decision trees, algorithms, or any step-by-step visualization. Nodes are auto-laid out in a grid with 60px horizontal and 80px vertical spacing.',
+    'Call canvas_catalog first to understand available elements and layout guidelines. Draw a flowchart diagram. Use for process flows, decision trees, algorithms, or any step-by-step visualization. Nodes are auto-laid out in a grid with 60px horizontal and 80px vertical spacing.',
     {
       title: z.string().min(1).describe('Title of the flowchart'),
       nodes: z.array(z.object({
@@ -221,7 +221,7 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
 
   server.tool(
     'canvas_draw_sequence_diagram',
-    'Draw a sequence diagram showing interactions between participants over time. Use for API flows, protocol designs, or system interactions.',
+    'Call canvas_catalog first to understand available elements and layout guidelines. Draw a sequence diagram showing interactions between participants over time. Use for API flows, protocol designs, or system interactions.',
     {
       title: z.string().min(1).describe('Title of the sequence diagram'),
       participants: z.array(z.object({
@@ -251,7 +251,7 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
 
   server.tool(
     'canvas_draw_mind_map',
-    'Draw a mind map radiating from a central topic. Use for brainstorming, concept exploration, or hierarchical idea organization.',
+    'Call canvas_catalog first to understand available elements and layout guidelines. Draw a mind map radiating from a central topic. Use for brainstorming, concept exploration, or hierarchical idea organization.',
     {
       centralTopic: z.string().min(1).describe('Central topic of the mind map'),
       branches: z.array(mindMapBranchSchema).min(1).describe('Main branches radiating from the center'),
@@ -266,7 +266,7 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
 
   server.tool(
     'canvas_draw_reasoning_chain',
-    'Draw a visual reasoning chain showing step-by-step thinking. Use for explaining logic, problem-solving, or showing thought process.',
+    'Call canvas_catalog first to understand available elements and layout guidelines. Draw a visual reasoning chain showing step-by-step thinking. Use for explaining logic, problem-solving, or showing thought process.',
     {
       question: z.string().min(1).describe('The question or problem being reasoned about'),
       steps: z.array(z.object({
@@ -285,7 +285,7 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
 
   server.tool(
     'canvas_draw_wireframe',
-    'Draw a UI wireframe with positioned components. Use for mockups, UI prototyping, or screen design.',
+    'Call canvas_catalog first to understand available elements and layout guidelines. Draw a UI wireframe with positioned components. Use for mockups, UI prototyping, or screen design.',
     {
       title: z.string().min(1).describe('Title of the wireframe/screen'),
       screenSize: z.object({
@@ -311,7 +311,7 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
 
   server.tool(
     'canvas_draw_roadmap',
-    'Draw a project roadmap with phases and items. Use for project planning, release schedules, or milestone tracking.',
+    'Call canvas_catalog first to understand available elements and layout guidelines. Draw a project roadmap with phases and items. Use for project planning, release schedules, or milestone tracking.',
     {
       title: z.string().min(1).describe('Roadmap title'),
       orientation: roadmapOrientationSchema.optional().describe('Layout orientation (default: "horizontal")'),
@@ -335,7 +335,7 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
 
   server.tool(
     'canvas_draw_kanban',
-    'Draw a kanban board with columns and cards. Use for task management, sprint boards, or workflow visualization.',
+    'Call canvas_catalog first to understand available elements and layout guidelines. Draw a kanban board with columns and cards. Use for task management, sprint boards, or workflow visualization.',
     {
       title: z.string().min(1).describe('Board title'),
       columns: z.array(z.object({
@@ -456,6 +456,62 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
         toKind: params.toKind,
       });
       return { content: [{ type: 'text' as const, text: result }] };
+    },
+  );
+
+  server.tool(
+    'canvas_move_expression',
+    'Move an expression to a new position on the canvas.',
+    {
+      expressionId: z.string().describe('ID of the expression to move'),
+      x: z.number().describe('New X position'),
+      y: z.number().describe('New Y position'),
+    },
+    async (params) => {
+      const expressions = gatewayClient.getState();
+      const target = expressions.find((e) => e.id === params.expressionId);
+      if (!target) {
+        throw new Error(`Expression '${params.expressionId}' not found on canvas`);
+      }
+      const oldX = target.position.x;
+      const oldY = target.position.y;
+      await gatewayClient.sendDelete([params.expressionId]);
+      const moved = { ...target, position: { x: params.x, y: params.y } };
+      await gatewayClient.sendCreate(moved);
+      return {
+        content: [{
+          type: 'text' as const,
+          text: `Moved expression '${params.expressionId}' from (${oldX}, ${oldY}) to (${params.x}, ${params.y}).`,
+        }],
+      };
+    },
+  );
+
+  server.tool(
+    'canvas_resize_expression',
+    'Resize an expression on the canvas.',
+    {
+      expressionId: z.string().describe('ID of the expression to resize'),
+      width: z.number().positive().describe('New width'),
+      height: z.number().positive().describe('New height'),
+    },
+    async (params) => {
+      const expressions = gatewayClient.getState();
+      const target = expressions.find((e) => e.id === params.expressionId);
+      if (!target) {
+        throw new Error(`Expression '${params.expressionId}' not found on canvas`);
+      }
+      const oldW = target.size.width;
+      const oldH = target.size.height;
+      await gatewayClient.sendDelete([params.expressionId]);
+      const resized = { ...target, size: { width: params.width, height: params.height } };
+      await gatewayClient.sendCreate(resized);
+      return {
+        content: [{
+          type: 'text' as const,
+          text: `Resized expression '${params.expressionId}' from ${oldW}×${oldH} to ${params.width}×${params.height}.`,
+        }],
+      };
     },
   );
 

@@ -66,7 +66,6 @@ export const K8S_SECRET_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="
 /** Kubernetes Namespace — dashed boundary (large container). */
 export const K8S_NAMESPACE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 150" fill="none" stroke="currentColor" stroke-width="2">
   <rect x="4" y="4" width="192" height="142" rx="6" stroke-dasharray="8 4" />
-  <text x="14" y="22" font-family="sans-serif" font-size="14" fill="currentColor" stroke="none">NS</text>
   <line x1="4" y1="30" x2="50" y2="30" stroke-dasharray="8 4" />
 </svg>`;
 
@@ -97,7 +96,6 @@ export const K8S_NODE_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 
 /** Kubernetes Cluster — grouped nodes (large container). */
 export const K8S_CLUSTER_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 250 200" fill="none" stroke="currentColor" stroke-width="2">
   <rect x="4" y="4" width="242" height="192" rx="8" />
-  <text x="14" y="26" font-family="sans-serif" font-size="14" fill="currentColor" stroke="none">Cluster</text>
   <line x1="4" y1="34" x2="80" y2="34" />
   <rect x="20" y="50" width="80" height="56" rx="4" stroke-dasharray="4 2" />
   <circle cx="60" cy="78" r="10" />

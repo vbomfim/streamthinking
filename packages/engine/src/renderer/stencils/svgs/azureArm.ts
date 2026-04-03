@@ -15,7 +15,6 @@
 export const ARM_RESOURCE_GROUP_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 150" fill="none" stroke="currentColor" stroke-width="2">
   <path d="M4 20h60l10-16h122a4 4 0 0 1 4 4v138a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4V20z" />
   <line x1="0" y1="28" x2="200" y2="28" />
-  <text x="10" y="22" font-family="sans-serif" font-size="11" fill="currentColor" stroke="none">Resource Group</text>
 </svg>`;
 
 /** ARM Subscription — key/billing icon (large container). */
@@ -26,7 +25,6 @@ export const ARM_SUBSCRIPTION_SVG = `<svg xmlns="http://www.w3.org/2000/svg" vie
   <line x1="30" y1="20" x2="42" y2="20" />
   <line x1="36" y1="20" x2="36" y2="28" />
   <line x1="42" y1="20" x2="42" y2="28" />
-  <text x="52" y="24" font-family="sans-serif" font-size="12" fill="currentColor" stroke="none">Subscription</text>
 </svg>`;
 
 /** ARM Management Group — hierarchy/tree icon (large container). */
@@ -38,7 +36,6 @@ export const ARM_MANAGEMENT_GROUP_SVG = `<svg xmlns="http://www.w3.org/2000/svg"
   <rect x="40" y="10" width="16" height="16" rx="2" />
   <line x1="48" y1="26" x2="48" y2="32" />
   <line x1="32" y1="32" x2="64" y2="32" />
-  <text x="62" y="24" font-family="sans-serif" font-size="12" fill="currentColor" stroke="none">Management Group</text>
 </svg>`;
 
 /** ARM Virtual Machine — computer/VM icon. */
@@ -71,7 +68,6 @@ export const ARM_SUBNET_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="
   <circle cx="24" cy="32" r="6" />
   <circle cx="40" cy="32" r="6" />
   <line x1="30" y1="32" x2="34" y2="32" />
-  <text x="32" y="10" text-anchor="middle" font-family="sans-serif" font-size="8" fill="currentColor" stroke="none">subnet</text>
 </svg>`;
 
 /** ARM Network Security Group (NSG) — shield icon. */

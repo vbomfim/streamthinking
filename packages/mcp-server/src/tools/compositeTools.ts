@@ -515,8 +515,20 @@ export async function executeDrawSequenceDiagram(
     const fromRect = { x: fromX - lifeW / 2, y: y - lifeW / 2, width: lifeW, height: lifeW };
     const toRect = { x: toX - lifeW / 2, y: y - lifeW / 2, width: lifeW, height: lifeW };
     const pts = smartArrowPoints(fromRect, toRect);
-    const arrow = buildArrow({ points: pts, endArrowhead: true, label: msg.label });
-    client.sendCreate(arrow);
+
+    if (msg.type === 'reply') {
+      const expr = buildExpression(
+        'arrow',
+        { x: Math.min(fromX, toX), y: y - 10 },
+        { width: Math.abs(toX - fromX), height: 20 },
+        { kind: 'arrow', points: pts, startArrowhead: 'none', endArrowhead: 'triangle', label: msg.label } as VisualExpression['data'],
+        { strokeStyle: 'dashed' as const },
+      );
+      client.sendCreate(expr);
+    } else {
+      const arrow = buildArrow({ points: pts, endArrowhead: true, label: msg.label });
+      client.sendCreate(arrow);
+    }
   });
 
   // Lifelines — vertical dashed lines from participant bottom to below last message
