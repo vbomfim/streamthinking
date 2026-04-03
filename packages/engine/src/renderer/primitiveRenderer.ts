@@ -474,6 +474,35 @@ function renderArrow(
   if (offset.x !== 0 || offset.y !== 0) {
     ctx.restore();
   }
+
+  // Draw label at arrow midpoint
+  if (data.label) {
+    const midIdx = Math.floor(points.length / 2);
+    const p1 = points[midIdx - 1] ?? points[0]!;
+    const p2 = points[midIdx] ?? points[points.length - 1]!;
+    const midX = (p1[0] + p2[0]) / 2;
+    const midY = (p1[1] + p2[1]) / 2;
+
+    ctx.save();
+    const fontSize = expr.style.fontSize ?? 12;
+    ctx.font = `${fontSize}px ${expr.style.fontFamily ?? 'sans-serif'}`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+
+    const metrics = ctx.measureText(data.label);
+    const pad = 4;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(
+      midX - metrics.width / 2 - pad,
+      midY - fontSize - pad,
+      metrics.width + pad * 2,
+      fontSize + pad,
+    );
+
+    ctx.fillStyle = expr.style.strokeColor;
+    ctx.fillText(data.label, midX, midY - 4);
+    ctx.restore();
+  }
 }
 
 // ── Non-Rough.js renderers ───────────────────────────────────

@@ -60,6 +60,8 @@ export interface ArrowData {
   startBinding?: ArrowBinding;
   /** Binding for the end endpoint to a shape. */
   endBinding?: ArrowBinding;
+  /** Optional text label rendered at the arrow midpoint. */
+  label?: string;
 }
 
 /** Data for a freehand drawing expression. */
@@ -104,6 +106,10 @@ export interface StencilData {
   category: string;
   /** Optional display label rendered below the icon. */
   label?: string;
+  /** Where to render the label relative to the stencil icon. */
+  labelPosition?: 'below' | 'top-left' | 'top-center' | 'center';
+  /** Explicit font size for the label (world units, no auto-scaling). */
+  labelFontSize?: number;
 }
 
 /** Union of all primitive expression data types. */

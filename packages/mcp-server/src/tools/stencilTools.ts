@@ -29,6 +29,10 @@ export interface PlaceStencilParams {
   y: number;
   /** Override the default label text. */
   label?: string;
+  /** Label position relative to the stencil icon. */
+  labelPosition?: 'below' | 'top-left' | 'top-center' | 'center';
+  /** Explicit label font size in pixels. */
+  fontSize?: number;
   /** Override the default width. */
   width?: number;
   /** Override the default height. */
@@ -66,6 +70,8 @@ export function buildStencil(params: PlaceStencilParams): VisualExpression {
     stencilId: entry.id,
     category: entry.category,
     label: params.label ?? entry.label,
+    labelPosition: params.labelPosition,
+    labelFontSize: params.fontSize,
   };
 
   const width = params.width ?? entry.defaultSize.width;

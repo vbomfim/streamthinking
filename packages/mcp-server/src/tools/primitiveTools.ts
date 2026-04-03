@@ -147,6 +147,7 @@ export function buildArrow(params: DrawArrowParams): VisualExpression {
     points: params.points,
     endArrowhead: params.endArrowhead !== false ? 'triangle' : 'none',
     startArrowhead: params.startArrowhead ? 'triangle' : 'none',
+    label: params.label,
   };
 
   // Compute bounding box from points

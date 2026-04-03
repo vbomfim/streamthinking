@@ -123,6 +123,7 @@ export const arrowDataSchema = z.object({
   endArrowhead: z.union([z.boolean(), arrowheadTypeSchema]).optional(),
   startBinding: arrowBindingSchema.optional(),
   endBinding: arrowBindingSchema.optional(),
+  label: z.string().max(500).optional(),
 });
 
 const point3dSchema = z.tuple([z.number(), z.number(), z.number()]);
@@ -160,6 +161,8 @@ export const stencilDataSchema = z.object({
   stencilId: z.string().min(1).max(100),
   category: z.string().min(1).max(100),
   label: z.string().max(200).optional(),
+  labelPosition: z.enum(['below', 'top-left', 'top-center', 'center']).optional(),
+  labelFontSize: z.number().positive().optional(),
 });
 
 // ── Composite Data Schemas ─────────────────────────────────

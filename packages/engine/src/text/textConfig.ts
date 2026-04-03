@@ -208,32 +208,76 @@ function resolveShapeLabelKind(expr: VisualExpression): TextConfig {
 /**
  * Resolve config for stencil labels.
  *
- * Label is positioned BELOW the icon with a small gap.
- * Font defaults to 12px. Center-aligned horizontally.
+ * Label position is controlled by `data.labelPosition`:
+ *   - 'below' (default): below the icon with a small gap
+ *   - 'top-left': inside the stencil, top-left corner
+ *   - 'top-center': inside the stencil, top-center
+ *   - 'center': centered inside the stencil
+ *
+ * If `data.labelFontSize` is set, it is used directly (no scaling).
+ * Otherwise the auto-scale formula (proportional to icon size) applies.
  */
 function resolveStencilKind(expr: VisualExpression): TextConfig {
-  const data = expr.data as { label?: string };
+  const data = expr.data as { label?: string; labelPosition?: string; labelFontSize?: number };
   const fontFamily = expr.style.fontFamily ?? DEFAULT_FONT_FAMILY;
-  // Both auto and explicit fontSize scale with stencil size so the label
-  // always appears proportional to the icon regardless of zoom level.
-  // scaleFactor is 1.0 at base 44px icon (zoom=1), larger when zoomed out.
+  const position = data.labelPosition ?? 'below';
+
+  // Font size: explicit labelFontSize bypasses auto-scaling.
+  let fontSize: number;
+  if (data.labelFontSize != null) {
+    fontSize = data.labelFontSize;
+  } else {
+    const scaleFactor = Math.min(expr.size.width, expr.size.height) / 44;
+    const baseSize = expr.style.fontSize ?? STENCIL_LABEL_FONT_SIZE;
+    fontSize = Math.round(baseSize * scaleFactor);
+  }
+
+  // Defaults for the 'below' position (original behaviour).
   const scaleFactor = Math.min(expr.size.width, expr.size.height) / 44;
-  const baseSize = expr.style.fontSize ?? STENCIL_LABEL_FONT_SIZE;
-  const fontSize = Math.round(baseSize * scaleFactor);
   const gap = Math.round(STENCIL_LABEL_GAP * scaleFactor);
+
+  let worldX = expr.position.x;
+  let worldY = expr.position.y + expr.size.height + gap;
+  let worldWidth = expr.size.width;
+  let worldHeight = fontSize * 1.4;
+  let textAlign: 'left' | 'center' = 'center';
+  let verticalAlign: 'top' | 'middle' = 'top';
+
+  if (position === 'top-left') {
+    worldX = expr.position.x + 8;
+    worldY = expr.position.y + 8;
+    worldWidth = expr.size.width - 16;
+    worldHeight = fontSize * 1.4;
+    textAlign = 'left';
+    verticalAlign = 'top';
+  } else if (position === 'top-center') {
+    worldX = expr.position.x;
+    worldY = expr.position.y + 8;
+    worldWidth = expr.size.width;
+    worldHeight = fontSize * 1.4;
+    textAlign = 'center';
+    verticalAlign = 'top';
+  } else if (position === 'center') {
+    worldX = expr.position.x;
+    worldY = expr.position.y;
+    worldWidth = expr.size.width;
+    worldHeight = expr.size.height;
+    textAlign = 'center';
+    verticalAlign = 'middle';
+  }
 
   return {
     text: data.label ?? '',
     field: 'label',
-    worldX: expr.position.x,
-    worldY: expr.position.y + expr.size.height + gap,
-    worldWidth: expr.size.width,
-    worldHeight: fontSize * 1.4, // Single line height
+    worldX,
+    worldY,
+    worldWidth,
+    worldHeight,
     fontSize,
     fontFamily,
     color: expr.style.strokeColor,
-    textAlign: 'center',
-    verticalAlign: 'top',
+    textAlign,
+    verticalAlign,
     deleteOnEmpty: false,
     background: 'transparent',
   };
