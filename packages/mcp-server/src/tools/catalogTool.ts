@@ -39,6 +39,12 @@ function buildStencilsSection(): string {
     }
   }
 
+  lines.push(`
+### Stencil Label Placement
+- **Container stencils** (zones, clusters, namespaces): Use \`labelPosition: 'top-left'\` and \`fontSize: 14\`. This renders the label inside the container at the top-left.
+- **Icon stencils** (server, database, pod, etc.): Use \`labelPosition: 'below'\` (default) and \`fontSize: 10\`.
+- **Inner components**: When placing stencils inside containers, use at least 64×64 size. Leave 40px margin from container edges.`);
+
   return lines.join('\n');
 }
 
@@ -48,7 +54,9 @@ function buildLayoutGuideSection(): string {
 - Gap between connected nodes: 60-80px vertically, 80-100px horizontally
 - Minimum margin from edges: 40px
 - Inner objects: place 20px inside container borders
-- Standard grid: align objects to 20px grid for clean layouts`;
+- Standard grid: align objects to 20px grid for clean layouts
+- Container inner padding: place inner objects at least 40px from container edges
+- Inner stencils: use 64×64 minimum size (override with width/height params)`;
 }
 
 function buildFontGuideSection(): string {
@@ -67,7 +75,12 @@ function buildArrowGuideSection(): string {
 - Arrowhead types: triangle (filled), chevron (open V), diamond, circle
 - Default: endArrowhead='triangle', startArrowhead='none'
 - For bidirectional: both ends = 'triangle'
-- For plain line: both ends = 'none'`;
+- For plain line: both ends = 'none'
+
+### Arrow Labels
+- Use the \`label\` parameter to add text labels to arrows (e.g., "HTTPS", "/api", "TCP/443")
+- Labels render at the arrow midpoint with a white background for readability
+- Font size defaults to 12px, uses the arrow's strokeColor`;
 }
 
 // ── Section registry ───────────────────────────────────────
