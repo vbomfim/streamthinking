@@ -8,7 +8,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { Excalidraw, exportToBlob } from '@excalidraw/excalidraw';
+import { Excalidraw, exportToBlob, convertToExcalidrawElements } from '@excalidraw/excalidraw';
 import '@excalidraw/excalidraw/index.css';
 
 // Excalidraw types — using any for now to avoid deep import issues
@@ -60,22 +60,20 @@ function useGatewaySync(api: ExcalidrawImperativeAPI | null) {
 
       if (msg.type === 'state-sync' && apiRef.current) {
         // Initial state from gateway — load existing elements
-        if (msg.elements && typeof msg.elements === 'object') {
-          const elements = Array.isArray(msg.elements)
-            ? msg.elements
-            : Object.values(msg.elements);
-          if (elements.length > 0) {
-            suppressRemoteUpdate.current = true;
-            apiRef.current.updateScene({ elements: elements as any[] });
-            suppressRemoteUpdate.current = false;
-          }
+        const excalElements = msg.excalidrawElements ?? [];
+        if (excalElements.length > 0) {
+          suppressRemoteUpdate.current = true;
+          const converted = convertToExcalidrawElements(excalElements as any[]);
+          apiRef.current.updateScene({ elements: converted as any[] });
+          suppressRemoteUpdate.current = false;
         }
       }
 
       if (msg.type === 'scene-update' && apiRef.current) {
         // Remote change from another client (AI or human)
         suppressRemoteUpdate.current = true;
-        apiRef.current.updateScene({ elements: msg.elements as any[] });
+        const converted = convertToExcalidrawElements(msg.elements as any[]);
+        apiRef.current.updateScene({ elements: converted as any[] });
         suppressRemoteUpdate.current = false;
       }
 
