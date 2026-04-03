@@ -176,6 +176,20 @@ export function createRenderLoop(
       cb();
     }
 
+    // Check for global screenshot request (from gateway connection)
+    const globalReq = (window as unknown as Record<string, unknown>).__infinicanvas_screenshot as
+      { requestId: string; respond: (img: string, w: number, h: number) => void } | undefined;
+    if (globalReq) {
+      (window as unknown as Record<string, unknown>).__infinicanvas_screenshot = undefined;
+      try {
+        const canvasEl = ctx.canvas;
+        const imageBase64 = canvasEl.toDataURL('image/png');
+        globalReq.respond(imageBase64, canvasEl.width, canvasEl.height);
+      } catch {
+        globalReq.respond('', 0, 0);
+      }
+    }
+
     // Schedule next frame
     frameId = requestAnimationFrame(renderFrame);
   }
