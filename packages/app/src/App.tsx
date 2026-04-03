@@ -9,7 +9,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { Excalidraw, exportToBlob } from '@excalidraw/excalidraw';
-import '@excalidraw/excalidraw/dist/prod/index.css';
+import '@excalidraw/excalidraw/index.css';
 
 // Excalidraw types — using any for now to avoid deep import issues
 type ExcalidrawImperativeAPI = any;
