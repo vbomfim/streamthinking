@@ -66,6 +66,7 @@ import {
   executePlaceStencil,
   executeListStencils,
 } from './tools/stencilTools.js';
+import { executeCatalog } from './tools/catalogTool.js';
 import {
   executeAddWaypoint,
   executeListWaypoints,
@@ -630,6 +631,24 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
     },
     async (params) => ({
       content: [{ type: 'text' as const, text: executeRemoveWaypoint(gatewayClient, params) }],
+    }),
+  );
+
+  // ── Catalog tool ─────────────────────────────────────────
+
+  server.tool(
+    'canvas_catalog',
+    "Get the complete catalog of available canvas elements, stencils, layout guidelines, and best practices for creating diagrams. Call this first to understand what's available.",
+    {
+      section: z
+        .string()
+        .optional()
+        .describe(
+          'Optional section filter: primitives, stencils, layout, fonts, arrows. Omit for full catalog.',
+        ),
+    },
+    async (params) => ({
+      content: [{ type: 'text' as const, text: executeCatalog(params) }],
     }),
   );
 
