@@ -29,10 +29,13 @@ interface AppSettings {
 
 function useGatewaySync(api: ExcalidrawImperativeAPI | null) {
   const wsRef = useRef<WebSocket | null>(null);
+  const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
   const [status, setStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const suppressRemoteUpdate = useRef(false);
   const lastSentElements = useRef<string>('');
 
+  // Keep apiRef in sync
+  apiRef.current = api;
   const connect = useCallback(() => {
     const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
     if (!raw) return;
@@ -55,7 +58,7 @@ function useGatewaySync(api: ExcalidrawImperativeAPI | null) {
     ws.onmessage = (event) => {
       const msg = JSON.parse(event.data);
 
-      if (msg.type === 'state-sync' && api) {
+      if (msg.type === 'state-sync' && apiRef.current) {
         // Initial state from gateway — load existing elements
         if (msg.elements && typeof msg.elements === 'object') {
           const elements = Array.isArray(msg.elements)
@@ -63,28 +66,28 @@ function useGatewaySync(api: ExcalidrawImperativeAPI | null) {
             : Object.values(msg.elements);
           if (elements.length > 0) {
             suppressRemoteUpdate.current = true;
-            api.updateScene({ elements: elements as any[] });
+            apiRef.current.updateScene({ elements: elements as any[] });
             suppressRemoteUpdate.current = false;
           }
         }
       }
 
-      if (msg.type === 'scene-update' && api) {
+      if (msg.type === 'scene-update' && apiRef.current) {
         // Remote change from another client (AI or human)
         suppressRemoteUpdate.current = true;
-        api.updateScene({ elements: msg.elements as any[] });
+        apiRef.current.updateScene({ elements: msg.elements as any[] });
         suppressRemoteUpdate.current = false;
       }
 
       if (msg.type === 'screenshot-request') {
         // AI wants a screenshot — export via Excalidraw API
-        if (api) {
-          const elements = api.getSceneElements();
+        if (apiRef.current) {
+          const elements = apiRef.current.getSceneElements();
           if (elements.length > 0) {
             exportToBlob({
               elements,
-              appState: api.getAppState(),
-              files: api.getFiles(),
+              appState: apiRef.current.getAppState(),
+              files: apiRef.current.getFiles(),
               mimeType: 'image/png',
             }).then((blob: Blob) => {
               const reader = new FileReader();
@@ -120,25 +123,25 @@ function useGatewaySync(api: ExcalidrawImperativeAPI | null) {
     ws.onerror = () => {
       setStatus('disconnected');
     };
-  }, [api]);
+  }, []);
 
   // Connect on mount and when API becomes available
   useEffect(() => {
-    if (api) connect();
+    connect();
     return () => {
       wsRef.current?.close();
     };
-  }, [api, connect]);
+  }, [connect]);
 
   // Reconnect on settings change
   useEffect(() => {
     const handler = () => {
       wsRef.current?.close();
-      if (api) setTimeout(connect, 100);
+      setTimeout(connect, 100);
     };
     window.addEventListener('infinicanvas:settings-changed', handler);
     return () => window.removeEventListener('infinicanvas:settings-changed', handler);
-  }, [api, connect]);
+  }, [connect]);
 
   // Send local changes to gateway
   const onLocalChange = useCallback((elements: readonly any[]) => {
