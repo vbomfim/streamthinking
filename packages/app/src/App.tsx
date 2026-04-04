@@ -145,6 +145,7 @@ function useGatewaySync(api: ExcalidrawImperativeAPI | null) {
   const onLocalChange = useCallback((elements: readonly any[]) => {
     if (suppressRemoteUpdate.current) return;
     const ws = wsRef.current;
+    console.log('[infinicanvas] onLocalChange', elements.length, 'ws:', ws?.readyState, 'suppress:', suppressRemoteUpdate.current);
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
 
     // Simple debounce: only send if elements actually changed
@@ -173,6 +174,7 @@ export default function App() {
       <Excalidraw
         excalidrawAPI={(excalidrawApi) => setApi(excalidrawApi)}
         onChange={(elements) => {
+          console.log('[infinicanvas] onChange fired, elements:', elements.length, 'ws:', !!gateway);
           gateway.onLocalChange(elements);
         }}
       />
