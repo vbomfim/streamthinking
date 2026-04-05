@@ -84,9 +84,10 @@ export async function executeDrawRectangle(
   const elements = [...existingElements, excalRect];
   if (params.label) {
     const textEl = createExcalidrawText({
-      x: params.x + params.width / 2 - 50,
+      x: params.x + 10,
       y: params.y + params.height / 2 - 12,
       text: params.label,
+      width: params.width - 20,
       containerId: excalRect.id as string,
     });
     (excalRect as Record<string, unknown>).boundElements = [{ id: textEl.id, type: 'text' }];
@@ -110,9 +111,10 @@ export async function executeDrawEllipse(
   const elements = [...existingElements, excalEllipse];
   if (params.label) {
     const textEl = createExcalidrawText({
-      x: params.x + params.width / 2 - 50,
+      x: params.x + 10,
       y: params.y + params.height / 2 - 12,
       text: params.label,
+      width: params.width - 20,
       containerId: excalEllipse.id as string,
     });
     (excalEllipse as Record<string, unknown>).boundElements = [{ id: textEl.id, type: 'text' }];

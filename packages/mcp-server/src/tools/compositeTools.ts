@@ -441,8 +441,8 @@ function excalidrawLabeledRect(params: {
 }): Record<string, unknown>[] {
   const rect = createExcalidrawRectangle(params);
   const text = createExcalidrawText({
-    x: params.x + params.width / 2 - 50,
-    y: params.y + params.height / 2 - 12,
+    x: params.x + 10,
+    y: params.y + params.height / 2 - 12, width: params.width - 20,
     text: params.label,
     containerId: rect.id as string,
   });
@@ -457,8 +457,8 @@ function excalidrawLabeledEllipse(params: {
 }): Record<string, unknown>[] {
   const ellipse = createExcalidrawEllipse(params);
   const text = createExcalidrawText({
-    x: params.x + params.width / 2 - 50,
-    y: params.y + params.height / 2 - 12,
+    x: params.x + 10,
+    y: params.y + params.height / 2 - 12, width: params.width - 20,
     text: params.label,
     containerId: ellipse.id as string,
   });
@@ -473,8 +473,8 @@ function excalidrawLabeledDiamond(params: {
 }): Record<string, unknown>[] {
   const diamond = createExcalidrawDiamond(params);
   const text = createExcalidrawText({
-    x: params.x + params.width / 2 - 50,
-    y: params.y + params.height / 2 - 12,
+    x: params.x + 10,
+    y: params.y + params.height / 2 - 12, width: params.width - 20,
     text: params.label,
     containerId: diamond.id as string,
   });
