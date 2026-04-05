@@ -131,6 +131,29 @@ export function createExcalidrawEllipse(params: {
   };
 }
 
+export function createExcalidrawLine(params: {
+  points: [number, number][];
+}): Record<string, unknown> {
+  const xs = params.points.map((p) => p[0]);
+  const ys = params.points.map((p) => p[1]);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  const maxX = Math.max(...xs);
+  const maxY = Math.max(...ys);
+  const relativePoints = params.points.map(([px, py]) => [px - minX, py - minY]);
+  return {
+    ...baseProps({
+      x: minX,
+      y: minY,
+      width: Math.max(maxX - minX, 1),
+      height: Math.max(maxY - minY, 1),
+    }),
+    type: 'line',
+    points: relativePoints,
+    lastCommittedPoint: null,
+  };
+}
+
 export function createExcalidrawDiamond(params: {
   x: number;
   y: number;

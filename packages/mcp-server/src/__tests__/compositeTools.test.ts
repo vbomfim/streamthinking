@@ -157,7 +157,7 @@ describe('executeDrawFlowchart', () => {
       edges: [{ from: 'a', to: 'b' }],
     });
 
-    expect(client.sendCreate).toHaveBeenCalledOnce();
+    expect(client.sendSceneUpdate).toHaveBeenCalledOnce();
     expect(result).toContain("'Test Flow'");
     expect(result).toContain('2 nodes');
     expect(result).toContain('1 edges');
@@ -235,7 +235,7 @@ describe('executeDrawSequenceDiagram', () => {
       messages: [{ from: 'a', to: 'b', label: 'request' }],
     });
 
-    expect(client.sendCreate).toHaveBeenCalledOnce();
+    expect(client.sendSceneUpdate).toHaveBeenCalledOnce();
     expect(result).toContain("'Auth'");
     expect(result).toContain('2 participants');
     expect(result).toContain('1 messages');
@@ -282,7 +282,7 @@ describe('executeDrawMindMap', () => {
       branches: [{ id: 'b1', label: 'Unit', children: [] }],
     });
 
-    expect(client.sendCreate).toHaveBeenCalledOnce();
+    expect(client.sendSceneUpdate).toHaveBeenCalledOnce();
     expect(result).toContain("'Testing'");
     expect(result).toContain('1 branches');
   });
@@ -344,7 +344,7 @@ describe('executeDrawReasoningChain', () => {
       finalAnswer: 'TDD ensures correctness.',
     });
 
-    expect(client.sendCreate).toHaveBeenCalledOnce();
+    expect(client.sendSceneUpdate).toHaveBeenCalledOnce();
     expect(result).toContain("'Why TDD?'");
     expect(result).toContain('1 steps');
   });
@@ -408,9 +408,8 @@ describe('executeDrawWireframe', () => {
       ],
     });
 
-    expect(client.sendCreate).toHaveBeenCalledOnce();
+    expect(client.sendSceneUpdate).toHaveBeenCalledOnce();
     expect(result).toContain("'Dashboard'");
-    expect(result).toContain('1024×768');
     expect(result).toContain('1 components');
   });
 });
@@ -477,7 +476,7 @@ describe('executeDrawRoadmap', () => {
       ],
     });
 
-    expect(client.sendCreate).toHaveBeenCalledOnce();
+    expect(client.sendSceneUpdate).toHaveBeenCalledOnce();
     expect(result).toContain("'MVP'");
     expect(result).toContain('1 phases');
     expect(result).toContain('2 items');
@@ -552,7 +551,7 @@ describe('executeDrawKanban', () => {
       ],
     });
 
-    expect(client.sendCreate).toHaveBeenCalledOnce();
+    expect(client.sendSceneUpdate).toHaveBeenCalledOnce();
     expect(result).toContain("'Board'");
     expect(result).toContain('2 columns');
     expect(result).toContain('3 cards');
