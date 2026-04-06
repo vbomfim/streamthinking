@@ -44,8 +44,6 @@ function createMockClient(options: {
       if (index >= 0 && index < waypoints.length) waypoints.splice(index, 1);
     }),
     sendWaypointReorder: vi.fn(),
-    sendSceneUpdate: vi.fn().mockResolvedValue(undefined),
-    getExcalidrawElements: vi.fn().mockReturnValue([]),
   };
 }
 

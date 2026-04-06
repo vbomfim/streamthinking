@@ -29,13 +29,13 @@ export {
 } from './defaults.js';
 
 // ── Primitive tools ────────────────────────────────────────
-export type {
-  DrawRectangleParams,
-  DrawEllipseParams,
-  DrawLineParams,
-  DrawArrowParams,
-  DrawTextParams,
-  AddStickyNoteParams,
+export {
+  buildRectangle,
+  buildEllipse,
+  buildLine,
+  buildArrow,
+  buildText,
+  buildStickyNote,
 } from './tools/primitiveTools.js';
 
 // ── Composite tools ────────────────────────────────────────

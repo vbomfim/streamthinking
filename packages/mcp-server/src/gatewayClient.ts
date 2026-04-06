@@ -48,12 +48,6 @@ interface StateSyncMessage {
   expressions: VisualExpression[];
   expressionOrder: string[];
   waypoints?: CameraWaypoint[];
-  excalidrawElements?: unknown[];
-}
-
-interface SceneUpdateMessage {
-  type: 'scene-update';
-  elements: unknown[];
 }
 
 interface OperationBroadcast {
@@ -123,8 +117,7 @@ type ServerMessage =
   | WaypointAddInbound
   | WaypointRemoveInbound
   | WaypointReorderInbound
-  | ScreenshotResponseInbound
-  | SceneUpdateMessage;
+  | ScreenshotResponseInbound;
 
 /** Options for creating a gateway client. */
 export interface GatewayClientOptions {
@@ -199,10 +192,6 @@ export interface IGatewayClient {
   sendWaypointReorder(fromIndex: number, toIndex: number): void;
   /** Request a screenshot from a connected browser client. */
   requestScreenshot(timeoutMs?: number): Promise<{ imageBase64: string; width: number; height: number }>;
-  /** Send a scene-update with Excalidraw elements to the gateway. */
-  sendSceneUpdate(elements: unknown[]): Promise<void>;
-  /** Get the current Excalidraw elements from the canvas. */
-  getExcalidrawElements(): unknown[];
 }
 
 /**
@@ -215,7 +204,6 @@ export class GatewayClient implements IGatewayClient {
   private ws: WebSocket | null = null;
   private sessionId: string | null = null;
   private expressions: VisualExpression[] = [];
-  private excalidrawElements: unknown[] = [];
   private waypoints: CameraWaypoint[] = [];
   private pendingRequests: PendingAgentRequest[] = [];
   private screenshotResolvers = new Map<string, (data: { imageBase64: string; width: number; height: number }) => void>();
@@ -295,7 +283,6 @@ export class GatewayClient implements IGatewayClient {
     }
     this.sessionId = null;
     this.expressions = [];
-    this.excalidrawElements = [];
     this.waypoints = [];
   }
 
@@ -471,15 +458,6 @@ export class GatewayClient implements IGatewayClient {
     });
   }
 
-  async sendSceneUpdate(elements: unknown[]): Promise<void> {
-    this.send({ type: 'scene-update', elements });
-    this.excalidrawElements = elements;
-  }
-
-  getExcalidrawElements(): unknown[] {
-    return [...this.excalidrawElements];
-  }
-
   // ── Private helpers ──────────────────────────────────────
 
   private setupMessageHandler(
@@ -510,9 +488,6 @@ export class GatewayClient implements IGatewayClient {
         case 'state-sync':
           this.sessionId = msg.sessionId;
           this.expressions = msg.expressions;
-          if (msg.excalidrawElements) {
-            this.excalidrawElements = msg.excalidrawElements;
-          }
           this.waypoints = msg.waypoints ?? [];
           this.sendIdentify();
           if (!settled) {
@@ -562,11 +537,6 @@ export class GatewayClient implements IGatewayClient {
           if (resolver) {
             resolver({ imageBase64: msg.imageBase64, width: msg.width, height: msg.height });
           }
-          break;
-        }
-
-        case 'scene-update': {
-          this.excalidrawElements = msg.elements;
           break;
         }
       }

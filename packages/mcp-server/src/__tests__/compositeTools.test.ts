@@ -40,8 +40,6 @@ function createMockClient(): IGatewayClient {
     sendMorph: vi.fn().mockResolvedValue(undefined),
     sendStyle: vi.fn().mockResolvedValue(undefined),
     getState: vi.fn().mockReturnValue([]),
-    sendSceneUpdate: vi.fn().mockResolvedValue(undefined),
-    getExcalidrawElements: vi.fn().mockReturnValue([]),
   };
 }
 
@@ -157,7 +155,7 @@ describe('executeDrawFlowchart', () => {
       edges: [{ from: 'a', to: 'b' }],
     });
 
-    expect(client.sendSceneUpdate).toHaveBeenCalledOnce();
+    expect(client.sendCreate).toHaveBeenCalled();
     expect(result).toContain("'Test Flow'");
     expect(result).toContain('2 nodes');
     expect(result).toContain('1 edges');
@@ -235,7 +233,7 @@ describe('executeDrawSequenceDiagram', () => {
       messages: [{ from: 'a', to: 'b', label: 'request' }],
     });
 
-    expect(client.sendSceneUpdate).toHaveBeenCalledOnce();
+    expect(client.sendCreate).toHaveBeenCalled();
     expect(result).toContain("'Auth'");
     expect(result).toContain('2 participants');
     expect(result).toContain('1 messages');
@@ -282,7 +280,7 @@ describe('executeDrawMindMap', () => {
       branches: [{ id: 'b1', label: 'Unit', children: [] }],
     });
 
-    expect(client.sendSceneUpdate).toHaveBeenCalledOnce();
+    expect(client.sendCreate).toHaveBeenCalled();
     expect(result).toContain("'Testing'");
     expect(result).toContain('1 branches');
   });
@@ -344,7 +342,7 @@ describe('executeDrawReasoningChain', () => {
       finalAnswer: 'TDD ensures correctness.',
     });
 
-    expect(client.sendSceneUpdate).toHaveBeenCalledOnce();
+    expect(client.sendCreate).toHaveBeenCalled();
     expect(result).toContain("'Why TDD?'");
     expect(result).toContain('1 steps');
   });
@@ -408,7 +406,7 @@ describe('executeDrawWireframe', () => {
       ],
     });
 
-    expect(client.sendSceneUpdate).toHaveBeenCalledOnce();
+    expect(client.sendCreate).toHaveBeenCalled();
     expect(result).toContain("'Dashboard'");
     expect(result).toContain('1 components');
   });
@@ -476,7 +474,7 @@ describe('executeDrawRoadmap', () => {
       ],
     });
 
-    expect(client.sendSceneUpdate).toHaveBeenCalledOnce();
+    expect(client.sendCreate).toHaveBeenCalled();
     expect(result).toContain("'MVP'");
     expect(result).toContain('1 phases');
     expect(result).toContain('2 items');
@@ -551,7 +549,7 @@ describe('executeDrawKanban', () => {
       ],
     });
 
-    expect(client.sendSceneUpdate).toHaveBeenCalledOnce();
+    expect(client.sendCreate).toHaveBeenCalled();
     expect(result).toContain("'Board'");
     expect(result).toContain('2 columns');
     expect(result).toContain('3 cards');

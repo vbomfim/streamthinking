@@ -172,7 +172,6 @@ function handleMessage(
         expressionOrder: state.expressionOrder,
         agents: state.agents,
         waypoints: state.waypoints,
-        excalidrawElements: state.excalidrawElements ?? [],
       });
       break;
     }
@@ -437,27 +436,6 @@ function handleMessage(
       if (!session) return;
 
       // Relay back to the requester (MCP server)
-      broadcastToOthers(session, ws, message);
-      break;
-    }
-
-    case 'scene-update': {
-      const sessionId = clientSessions.get(ws);
-      if (!sessionId) {
-        sendError(ws, 'NOT_IN_SESSION', 'Join a session before sending scene updates');
-        return;
-      }
-
-      const session = sessionManager.getSession(sessionId);
-      if (!session) {
-        sendError(ws, 'SESSION_NOT_FOUND', 'Session no longer exists');
-        return;
-      }
-
-      // Store the latest scene in the session for state-sync on join
-      session.excalidrawElements = message.elements;
-
-      // Broadcast to all other clients
       broadcastToOthers(session, ws, message);
       break;
     }

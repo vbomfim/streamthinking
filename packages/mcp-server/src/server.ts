@@ -47,7 +47,11 @@ import {
   executeAddComment,
 } from './tools/annotationTools.js';
 import {
+  executeGetState,
+  executeClear,
+  executeDeleteExpression,
   executeMorph,
+  formatStructuredState,
 } from './tools/managementTools.js';
 import {
   executeCanvasQuery,
@@ -401,26 +405,12 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
     'Get the current state of the canvas — lists all expressions with their IDs, kinds, positions, and labels. Use to inspect what is currently on the canvas before making changes.',
     {},
     async () => {
-      const excalElements = gatewayClient.getExcalidrawElements() as Record<string, unknown>[];
-      if (excalElements.length === 0) {
-        return { content: [{ type: 'text' as const, text: 'Canvas is empty — no elements on the canvas.' }] };
-      }
-      const summaries = excalElements.map((el: Record<string, unknown>) => ({
-        id: el.id,
-        type: el.type,
-        x: el.x,
-        y: el.y,
-        width: el.width,
-        height: el.height,
-        text: el.type === 'text' ? el.text : undefined,
-      }));
+      const textResult = await executeGetState(gatewayClient);
+      const structuredResult = formatStructuredState(gatewayClient.getState());
       return {
         content: [
-          { type: 'text' as const, text: `Canvas has ${excalElements.length} element(s):\n` + summaries.map((s: Record<string, unknown>) => {
-            const textStr = s.text ? ` — "${s.text}"` : '';
-            return `  • [${s.id}] ${s.type}${textStr} at (${s.x}, ${s.y}) size ${s.width}×${s.height}`;
-          }).join('\n') },
-          { type: 'text' as const, text: JSON.stringify({ count: excalElements.length, elements: summaries }) },
+          { type: 'text' as const, text: textResult },
+          { type: 'text' as const, text: structuredResult },
         ],
       };
     },
@@ -431,8 +421,8 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
     'Clear all expressions from the canvas. Use to start with a blank canvas.',
     {},
     async () => {
-      await gatewayClient.sendSceneUpdate([]);
-      return { content: [{ type: 'text' as const, text: 'Canvas cleared.' }] };
+      const result = await executeClear(gatewayClient);
+      return { content: [{ type: 'text' as const, text: result }] };
     },
   );
 
@@ -443,19 +433,8 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
       expressionIds: z.array(z.string()).min(1).describe('Array of expression IDs to delete'),
     },
     async (params) => {
-      const elements = gatewayClient.getExcalidrawElements() as Record<string, unknown>[];
-      const idsToDelete = new Set(params.expressionIds);
-      const remaining = elements.filter((e) => !idsToDelete.has(e.id as string));
-      const deletedCount = elements.length - remaining.length;
-      await gatewayClient.sendSceneUpdate(remaining);
-      if (deletedCount === 0) {
-        return { content: [{ type: 'text' as const, text: `No matching elements found for IDs: ${params.expressionIds.join(', ')}` }] };
-      }
-      let msg = `Deleted ${deletedCount} element(s).`;
-      if (deletedCount < params.expressionIds.length) {
-        msg += ` ${params.expressionIds.length - deletedCount} ID(s) not found.`;
-      }
-      return { content: [{ type: 'text' as const, text: msg }] };
+      const result = await executeDeleteExpression(gatewayClient, params.expressionIds);
+      return { content: [{ type: 'text' as const, text: result }] };
     },
   );
 
@@ -489,26 +468,20 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
       y: z.number().describe('New Y position'),
     },
     async (params) => {
-      const elements = gatewayClient.getExcalidrawElements() as Record<string, unknown>[];
-      let found = false;
-      let oldX = 0, oldY = 0;
-      const updated = elements.map((e) => {
-        if (e.id === params.expressionId) {
-          found = true;
-          oldX = e.x as number;
-          oldY = e.y as number;
-          return { ...e, x: params.x, y: params.y };
-        }
-        return e;
-      });
-      if (!found) {
-        throw new Error(`Element '${params.expressionId}' not found on canvas`);
+      const expressions = gatewayClient.getState();
+      const target = expressions.find((e) => e.id === params.expressionId);
+      if (!target) {
+        throw new Error(`Expression '${params.expressionId}' not found on canvas`);
       }
-      await gatewayClient.sendSceneUpdate(updated);
+      const oldX = target.position.x;
+      const oldY = target.position.y;
+      await gatewayClient.sendUpdate(params.expressionId, {
+        position: { x: params.x, y: params.y },
+      });
       return {
         content: [{
           type: 'text' as const,
-          text: `Moved element '${params.expressionId}' from (${oldX}, ${oldY}) to (${params.x}, ${params.y}).`,
+          text: `Moved expression '${params.expressionId}' from (${oldX}, ${oldY}) to (${params.x}, ${params.y}).`,
         }],
       };
     },
@@ -523,26 +496,20 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
       height: z.number().positive().describe('New height'),
     },
     async (params) => {
-      const elements = gatewayClient.getExcalidrawElements() as Record<string, unknown>[];
-      let found = false;
-      let oldW = 0, oldH = 0;
-      const updated = elements.map((e) => {
-        if (e.id === params.expressionId) {
-          found = true;
-          oldW = e.width as number;
-          oldH = e.height as number;
-          return { ...e, width: params.width, height: params.height };
-        }
-        return e;
-      });
-      if (!found) {
-        throw new Error(`Element '${params.expressionId}' not found on canvas`);
+      const expressions = gatewayClient.getState();
+      const target = expressions.find((e) => e.id === params.expressionId);
+      if (!target) {
+        throw new Error(`Expression '${params.expressionId}' not found on canvas`);
       }
-      await gatewayClient.sendSceneUpdate(updated);
+      const oldW = target.size.width;
+      const oldH = target.size.height;
+      await gatewayClient.sendUpdate(params.expressionId, {
+        size: { width: params.width, height: params.height },
+      });
       return {
         content: [{
           type: 'text' as const,
-          text: `Resized element '${params.expressionId}' from ${oldW}×${oldH} to ${params.width}×${params.height}.`,
+          text: `Resized expression '${params.expressionId}' from ${oldW}×${oldH} to ${params.width}×${params.height}.`,
         }],
       };
     },

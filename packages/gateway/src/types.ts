@@ -40,8 +40,6 @@ export interface Session {
   agents: Map<string, AuthorInfo>;
   /** Saved camera waypoints for presentation mode. */
   waypoints: CameraWaypoint[];
-  /** Latest Excalidraw scene elements (for state-sync on join). */
-  excalidrawElements?: unknown[];
   /** Unix timestamp (ms) when the session was created. */
   createdAt: number;
   /** Unix timestamp (ms) of the last activity in this session. */
@@ -127,12 +125,6 @@ export interface ScreenshotResponseMessage {
   height: number;
 }
 
-/** Excalidraw scene update — client sends the full element array. */
-export interface SceneUpdateMessage {
-  type: 'scene-update';
-  elements: unknown[];
-}
-
 export type ClientMessage =
   | CreateSessionMessage
   | JoinMessage
@@ -144,8 +136,7 @@ export type ClientMessage =
   | WaypointRemoveMessage
   | WaypointReorderMessage
   | ScreenshotRequestMessage
-  | ScreenshotResponseMessage
-  | SceneUpdateMessage;
+  | ScreenshotResponseMessage;
 
 /** Client identifies itself as an agent (sent after joining a session). */
 export interface IdentifyMessage {
@@ -167,7 +158,6 @@ export interface StateSyncMessage {
   expressionOrder: string[];
   waypoints?: CameraWaypoint[];
   agents?: AuthorInfo[];
-  excalidrawElements?: unknown[];
 }
 
 export interface OperationBroadcast {
