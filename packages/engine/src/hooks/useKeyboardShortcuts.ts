@@ -23,6 +23,7 @@
  * - `Ctrl+A` / `Cmd+A` → Select all
  * - `Ctrl+G` / `Cmd+G` → Group selected expressions
  * - `Ctrl+Shift+G` / `Cmd+Shift+G` → Ungroup selected expressions
+ * - `Ctrl+Shift+'` → Toggle snap to grid
  * - `Delete` / `Backspace` → Delete selected
  * - `Escape` → Cancel current operation / deselect
  * - `?` → Toggle shortcuts help panel
@@ -286,6 +287,13 @@ export function useKeyboardShortcuts(
           event.preventDefault();
           const ids = Array.from(useCanvasStore.getState().selectedIds);
           if (ids.length > 0) useCanvasStore.getState().sendBackward(ids);
+          return;
+        }
+
+        // Ctrl+Shift+' → toggle snap to grid
+        if (key === "'" && event.shiftKey) {
+          event.preventDefault();
+          useCanvasStore.getState().toggleSnapToGrid();
           return;
         }
 

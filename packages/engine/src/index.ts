@@ -195,6 +195,9 @@ export { ShortcutsHelpPanel } from './components/ShortcutsHelpPanel.js';
 export { resolveTextConfig } from './text/textConfig.js';
 export type { TextConfig } from './text/textConfig.js';
 
+// ── Utilities ──────────────────────────────────────────────
+export { snapToGrid, snapPosition } from './utils/snapToGrid.js';
+
 // ── Types ──────────────────────────────────────────────────
 export type {
   ToolType,

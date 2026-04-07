@@ -33,6 +33,7 @@ import {
   isPointBasedKind,
 } from '../interaction/manipulationHelpers.js';
 import type { HandleHit, PointHandleHit } from '../interaction/manipulationHelpers.js';
+import { snapToGrid } from '../utils/snapToGrid.js';
 
 export interface ManipulationInteraction {
   /** Current cursor style based on pointer target. */
@@ -169,8 +170,22 @@ export function useManipulationInteraction(
 
     if (drag.kind === 'move') {
       // ── Transient move preview (AC9) ────────────────────
-      const dx = worldPoint.x - drag.startWorld.x;
-      const dy = worldPoint.y - drag.startWorld.y;
+      let dx = worldPoint.x - drag.startWorld.x;
+      let dy = worldPoint.y - drag.startWorld.y;
+
+      // Snap delta to grid when snap-to-grid is enabled
+      const { snapToGrid: isSnapping, gridSize } = state;
+      if (isSnapping) {
+        // Snap based on the first expression's target position
+        const firstEntry = drag.originalPositions.entries().next().value;
+        if (firstEntry) {
+          const [, orig] = firstEntry;
+          const rawX = orig.x + dx;
+          const rawY = orig.y + dy;
+          dx = snapToGrid(rawX, gridSize) - orig.x;
+          dy = snapToGrid(rawY, gridSize) - orig.y;
+        }
+      }
 
       useCanvasStore.setState((draft) => {
         const movedIds = new Set<string>();
@@ -331,8 +346,21 @@ export function useManipulationInteraction(
     const worldPoint = screenToWorld(e.offsetX, e.offsetY, camera);
 
     if (drag.kind === 'move') {
-      const dx = worldPoint.x - drag.startWorld.x;
-      const dy = worldPoint.y - drag.startWorld.y;
+      let dx = worldPoint.x - drag.startWorld.x;
+      let dy = worldPoint.y - drag.startWorld.y;
+
+      // Snap delta to grid when snap-to-grid is enabled
+      const { snapToGrid: isSnapping, gridSize } = state;
+      if (isSnapping) {
+        const firstEntry = drag.originalPositions.entries().next().value;
+        if (firstEntry) {
+          const [, orig] = firstEntry;
+          const rawX = orig.x + dx;
+          const rawY = orig.y + dy;
+          dx = snapToGrid(rawX, gridSize) - orig.x;
+          dy = snapToGrid(rawY, gridSize) - orig.y;
+        }
+      }
 
       // Only commit if there was actual movement
       if (Math.abs(dx) > 0.001 || Math.abs(dy) > 0.001) {

@@ -334,6 +334,12 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     presentationIndex: -1,
     waypointPanelOpen: false,
 
+    // ── Grid & snap state (UI-only, no operations or snapshots) ──
+    gridVisible: true,
+    gridType: 'dot' as const,
+    gridSize: 20,
+    snapToGrid: true,
+
     // ── Content mutations (emit ProtocolOperations + push snapshots) ──
 
     addExpression: (expression: VisualExpression) => {
@@ -1293,6 +1299,32 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     setWaypointPanelOpen: (open: boolean) => {
       set((state) => {
         state.waypointPanelOpen = open;
+      });
+    },
+
+    // ── Grid & snap actions (UI-only, no operations or snapshots) ──
+
+    toggleGrid: () => {
+      set((state) => {
+        state.gridVisible = !state.gridVisible;
+      });
+    },
+
+    setGridType: (type: 'dot' | 'line') => {
+      set((state) => {
+        state.gridType = type;
+      });
+    },
+
+    setGridSize: (size: number) => {
+      set((state) => {
+        state.gridSize = size;
+      });
+    },
+
+    toggleSnapToGrid: () => {
+      set((state) => {
+        state.snapToGrid = !state.snapToGrid;
       });
     },
   })),

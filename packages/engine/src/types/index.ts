@@ -55,6 +55,14 @@ export interface CanvasState {
   operationLog: ProtocolOperation[];
   /** Last style used for drawing — applied to new expressions. */
   lastUsedStyle: ExpressionStyle;
+  /** Whether the background grid is visible. */
+  gridVisible: boolean;
+  /** Grid rendering style: dots or lines. */
+  gridType: 'dot' | 'line';
+  /** Grid spacing in world units. */
+  gridSize: number;
+  /** Whether shapes snap to grid intersections during drag. */
+  snapToGrid: boolean;
 }
 
 /** Actions available on the canvas store. */
@@ -174,4 +182,12 @@ export interface CanvasActions {
   exitPresentation: () => void;
   /** Set whether the waypoint panel is open. */
   setWaypointPanelOpen: (open: boolean) => void;
+  /** Toggle background grid visibility. */
+  toggleGrid: () => void;
+  /** Set the grid rendering type. */
+  setGridType: (type: 'dot' | 'line') => void;
+  /** Set the grid spacing in world units. */
+  setGridSize: (size: number) => void;
+  /** Toggle snap-to-grid for shape dragging. */
+  toggleSnapToGrid: () => void;
 }

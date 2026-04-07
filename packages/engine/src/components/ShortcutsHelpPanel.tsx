@@ -40,6 +40,7 @@ const ACTION_SHORTCUTS: ShortcutEntry[] = [
   { keys: 'Ctrl+D', description: 'Duplicate selected' },
   { keys: 'Ctrl+A', description: 'Select All' },
   { keys: 'Delete / Backspace', description: 'Delete selected' },
+  { keys: 'Ctrl+Shift+\'', description: 'Toggle snap to grid' },
   { keys: 'Escape', description: 'Cancel / Deselect' },
   { keys: '?', description: 'Toggle this panel' },
 ];

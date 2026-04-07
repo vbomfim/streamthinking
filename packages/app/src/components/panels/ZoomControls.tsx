@@ -18,7 +18,7 @@ import {
   computeFitToContent,
   ZOOM_STEP,
 } from '@infinicanvas/engine';
-import { ZoomIn, ZoomOut, Maximize } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize, Magnet } from 'lucide-react';
 import type { VisualExpression } from '@infinicanvas/protocol';
 
 /** Button size in pixels. */
@@ -30,6 +30,7 @@ const ICON_SIZE = 16;
 /** ZoomControls — bottom-right zoom panel. */
 export function ZoomControls() {
   const camera = useCanvasStore((s) => s.camera);
+  const snapToGrid = useCanvasStore((s) => s.snapToGrid);
 
   const handleZoomIn = useCallback(() => {
     const { camera: cam, setCamera: setCam } = useCanvasStore.getState();
@@ -61,6 +62,10 @@ export function ZoomControls() {
       viewportHeight,
     );
     setCam(newCamera);
+  }, []);
+
+  const handleToggleSnap = useCallback(() => {
+    useCanvasStore.getState().toggleSnapToGrid();
   }, []);
 
   const zoomPercent = Math.round(camera.zoom * 100);
@@ -130,6 +135,32 @@ export function ZoomControls() {
         style={buttonStyle}
       >
         <Maximize size={ICON_SIZE} />
+      </button>
+
+      {/* Snap divider */}
+      <div
+        style={{
+          width: 1,
+          height: 20,
+          backgroundColor: 'var(--border, #e0e0e0)',
+          margin: '0 2px',
+        }}
+      />
+
+      {/* Snap to grid toggle */}
+      <button
+        type="button"
+        data-testid="snap-toggle"
+        aria-label="Snap to grid"
+        title="Snap to grid (Ctrl+Shift+')"
+        onClick={handleToggleSnap}
+        style={{
+          ...buttonStyle,
+          backgroundColor: snapToGrid ? 'var(--accent-bg, #e8f0fe)' : 'transparent',
+          color: snapToGrid ? 'var(--accent, #1a73e8)' : 'var(--text-primary, #333333)',
+        }}
+      >
+        <Magnet size={ICON_SIZE} />
       </button>
     </div>
   );
