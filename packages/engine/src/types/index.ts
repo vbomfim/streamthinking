@@ -221,4 +221,16 @@ export interface CanvasActions {
   reorderLayers: (layerIds: string[]) => void;
   /** Move expressions to a different layer. */
   moveToLayer: (expressionIds: string[], layerId: string) => void;
+  /**
+   * Compute and apply an automatic layout to canvas expressions.
+   *
+   * Uses the specified algorithm to calculate new positions, then
+   * moves expressions with undo support and move operations.
+   * Skips locked expressions and expressions on hidden/locked layers.
+   *
+   * @param options - Layout algorithm and configuration
+   * @param scope - 'all' to layout all expressions, 'selected' for only selected ones
+   * @returns Number of expressions that were repositioned
+   */
+  applyLayout: (options: import('../layout/types.js').LayoutOptions, scope: 'all' | 'selected') => number;
 }
