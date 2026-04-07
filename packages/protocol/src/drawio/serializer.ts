@@ -24,34 +24,9 @@ import type {
   StickyNoteData,
   StencilData,
 } from '../schema/primitives.js';
+import { escapeXml, unescapeXml } from './xmlUtils.js';
 
 // ── XML helpers ───────────────────────────────────────────
-
-/** Escape special characters for safe XML attribute values. */
-function escapeXml(text: string): string {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
-
-/**
- * Unescape standard XML entities.
- *
- * Required because `processEntities: false` in fast-xml-parser disables
- * ALL entity processing (including the 5 predefined XML entities).
- * We re-enable just the safe, predefined set here.
- */
-function unescapeXml(text: string): string {
-  return text
-    .replace(/&apos;/g, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/&gt;/g, '>')
-    .replace(/&lt;/g, '<')
-    .replace(/&amp;/g, '&');
-}
 
 /** Render an XML attribute if the value is defined. */
 function attr(name: string, value: string | number | undefined): string {

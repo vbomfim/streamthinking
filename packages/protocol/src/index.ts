@@ -165,3 +165,16 @@ export {
   expressionsToDrawio,
   drawioToExpressions,
 } from './drawio/serializer.js';
+
+// ── draw.io stencil parser ───────────────────────────────
+
+export type {
+  ConnectionPoint,
+  DrawioShape,
+  DrawioStencilLibrary,
+} from './drawio/stencilParser.js';
+
+export {
+  shapeToSvg,
+  parseStencilLibrary,
+} from './drawio/stencilParser.js';
