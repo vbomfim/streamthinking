@@ -607,15 +607,25 @@ export const STENCIL_CATALOG: Map<string, StencilEntry> = new Map([
 
 // ── Initialize metadata from eager catalog ────────────────
 
-for (const [_id, entry] of STENCIL_CATALOG) {
-  STENCIL_META.set(entry.id, {
-    id: entry.id,
-    label: entry.label,
-    category: entry.category,
-    defaultSize: { width: entry.defaultSize.width, height: entry.defaultSize.height },
-  });
-  LOADED_CATEGORIES.add(entry.category);
+function syncMetaFromCatalog(): void {
+  for (const [_id, entry] of STENCIL_CATALOG) {
+    if (!STENCIL_META.has(entry.id)) {
+      STENCIL_META.set(entry.id, {
+        id: entry.id,
+        label: entry.label,
+        category: entry.category,
+        defaultSize: { width: entry.defaultSize.width, height: entry.defaultSize.height },
+      });
+      LOADED_CATEGORIES.add(entry.category);
+    }
+  }
 }
+
+// Run once for hand-crafted stencils registered above
+syncMetaFromCatalog();
+
+/** Re-sync metadata after late registrations (e.g., draw.io side-effect imports). */
+export { syncMetaFromCatalog as _syncMetaFromCatalog };
 
 // ── Internal: lazy loading engine ─────────────────────────
 
