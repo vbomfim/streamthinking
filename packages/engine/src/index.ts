@@ -196,7 +196,7 @@ export { resolveTextConfig } from './text/textConfig.js';
 export type { TextConfig } from './text/textConfig.js';
 
 // ── Utilities ──────────────────────────────────────────────
-export { snapToGrid, snapPosition } from './utils/snapToGrid.js';
+export { snapToGrid, snapPosition, computeSnappedDelta } from './utils/snapToGrid.js';
 
 // ── Types ──────────────────────────────────────────────────
 export type {

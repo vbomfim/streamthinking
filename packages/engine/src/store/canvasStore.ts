@@ -338,7 +338,7 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     gridVisible: true,
     gridType: 'dot' as const,
     gridSize: 20,
-    snapToGrid: true,
+    snapEnabled: true,
 
     // ── Content mutations (emit ProtocolOperations + push snapshots) ──
 
@@ -1317,14 +1317,15 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     },
 
     setGridSize: (size: number) => {
+      if (size <= 0 || !Number.isFinite(size)) return;
       set((state) => {
         state.gridSize = size;
       });
     },
 
-    toggleSnapToGrid: () => {
+    toggleSnapEnabled: () => {
       set((state) => {
-        state.snapToGrid = !state.snapToGrid;
+        state.snapEnabled = !state.snapEnabled;
       });
     },
   })),

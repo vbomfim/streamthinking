@@ -293,7 +293,7 @@ export function useKeyboardShortcuts(
         // Ctrl+Shift+' → toggle snap to grid
         if (key === "'" && event.shiftKey) {
           event.preventDefault();
-          useCanvasStore.getState().toggleSnapToGrid();
+          useCanvasStore.getState().toggleSnapEnabled();
           return;
         }
 

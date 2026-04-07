@@ -2,8 +2,8 @@
  * Unit tests for grid snap store integration.
  *
  * Tests written FIRST following TDD [Red → Green → Refactor].
- * Covers: snapToGrid toggle state, grid state fields (gridVisible,
- * gridType, gridSize), and toggleSnapToGrid action.
+ * Covers: snapEnabled toggle state, grid state fields (gridVisible,
+ * gridType, gridSize), and toggleSnapEnabled action.
  *
  * @module
  */
@@ -27,7 +27,7 @@ beforeEach(() => {
     gridVisible: true,
     gridType: 'dot' as const,
     gridSize: 20,
-    snapToGrid: true,
+    snapEnabled: true,
   });
   useCanvasStore.getState().clearHistory();
 });
@@ -71,36 +71,56 @@ describe('grid actions', () => {
     useCanvasStore.getState().setGridSize(10);
     expect(useCanvasStore.getState().gridSize).toBe(10);
   });
+
+  it('setGridSize rejects zero', () => {
+    useCanvasStore.getState().setGridSize(0);
+    expect(useCanvasStore.getState().gridSize).toBe(20);
+  });
+
+  it('setGridSize rejects negative values', () => {
+    useCanvasStore.getState().setGridSize(-10);
+    expect(useCanvasStore.getState().gridSize).toBe(20);
+  });
+
+  it('setGridSize rejects Infinity', () => {
+    useCanvasStore.getState().setGridSize(Infinity);
+    expect(useCanvasStore.getState().gridSize).toBe(20);
+  });
+
+  it('setGridSize rejects NaN', () => {
+    useCanvasStore.getState().setGridSize(NaN);
+    expect(useCanvasStore.getState().gridSize).toBe(20);
+  });
 });
 
-// ── Snap to grid state ───────────────────────────────────────
+// ── Snap enabled state ───────────────────────────────────────
 
-describe('snapToGrid state', () => {
+describe('snapEnabled state', () => {
   it('defaults to true', () => {
-    expect(useCanvasStore.getState().snapToGrid).toBe(true);
+    expect(useCanvasStore.getState().snapEnabled).toBe(true);
   });
 
-  it('toggleSnapToGrid toggles the state', () => {
-    useCanvasStore.getState().toggleSnapToGrid();
-    expect(useCanvasStore.getState().snapToGrid).toBe(false);
-    useCanvasStore.getState().toggleSnapToGrid();
-    expect(useCanvasStore.getState().snapToGrid).toBe(true);
+  it('toggleSnapEnabled toggles the state', () => {
+    useCanvasStore.getState().toggleSnapEnabled();
+    expect(useCanvasStore.getState().snapEnabled).toBe(false);
+    useCanvasStore.getState().toggleSnapEnabled();
+    expect(useCanvasStore.getState().snapEnabled).toBe(true);
   });
 
-  it('toggleSnapToGrid does not affect grid visibility', () => {
-    useCanvasStore.getState().toggleSnapToGrid();
+  it('toggleSnapEnabled does not affect grid visibility', () => {
+    useCanvasStore.getState().toggleSnapEnabled();
     expect(useCanvasStore.getState().gridVisible).toBe(true);
   });
 
-  it('toggleSnapToGrid does not emit protocol operations', () => {
+  it('toggleSnapEnabled does not emit protocol operations', () => {
     const logBefore = useCanvasStore.getState().operationLog.length;
-    useCanvasStore.getState().toggleSnapToGrid();
+    useCanvasStore.getState().toggleSnapEnabled();
     const logAfter = useCanvasStore.getState().operationLog.length;
     expect(logAfter).toBe(logBefore);
   });
 
-  it('toggleSnapToGrid does not push undo snapshots', () => {
-    useCanvasStore.getState().toggleSnapToGrid();
+  it('toggleSnapEnabled does not push undo snapshots', () => {
+    useCanvasStore.getState().toggleSnapEnabled();
     expect(useCanvasStore.getState().canUndo).toBe(false);
   });
 });

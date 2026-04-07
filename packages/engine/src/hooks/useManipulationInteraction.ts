@@ -33,7 +33,7 @@ import {
   isPointBasedKind,
 } from '../interaction/manipulationHelpers.js';
 import type { HandleHit, PointHandleHit } from '../interaction/manipulationHelpers.js';
-import { snapToGrid } from '../utils/snapToGrid.js';
+import { computeSnappedDelta } from '../utils/snapToGrid.js';
 
 export interface ManipulationInteraction {
   /** Current cursor style based on pointer target. */
@@ -174,17 +174,8 @@ export function useManipulationInteraction(
       let dy = worldPoint.y - drag.startWorld.y;
 
       // Snap delta to grid when snap-to-grid is enabled
-      const { snapToGrid: isSnapping, gridSize } = state;
-      if (isSnapping) {
-        // Snap based on the first expression's target position
-        const firstEntry = drag.originalPositions.entries().next().value;
-        if (firstEntry) {
-          const [, orig] = firstEntry;
-          const rawX = orig.x + dx;
-          const rawY = orig.y + dy;
-          dx = snapToGrid(rawX, gridSize) - orig.x;
-          dy = snapToGrid(rawY, gridSize) - orig.y;
-        }
+      if (state.snapEnabled) {
+        ({ dx, dy } = computeSnappedDelta(dx, dy, drag.originalPositions, state.gridSize));
       }
 
       useCanvasStore.setState((draft) => {
@@ -350,16 +341,8 @@ export function useManipulationInteraction(
       let dy = worldPoint.y - drag.startWorld.y;
 
       // Snap delta to grid when snap-to-grid is enabled
-      const { snapToGrid: isSnapping, gridSize } = state;
-      if (isSnapping) {
-        const firstEntry = drag.originalPositions.entries().next().value;
-        if (firstEntry) {
-          const [, orig] = firstEntry;
-          const rawX = orig.x + dx;
-          const rawY = orig.y + dy;
-          dx = snapToGrid(rawX, gridSize) - orig.x;
-          dy = snapToGrid(rawY, gridSize) - orig.y;
-        }
+      if (state.snapEnabled) {
+        ({ dx, dy } = computeSnappedDelta(dx, dy, drag.originalPositions, state.gridSize));
       }
 
       // Only commit if there was actual movement

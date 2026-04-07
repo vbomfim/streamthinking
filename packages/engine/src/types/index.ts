@@ -62,7 +62,7 @@ export interface CanvasState {
   /** Grid spacing in world units. */
   gridSize: number;
   /** Whether shapes snap to grid intersections during drag. */
-  snapToGrid: boolean;
+  snapEnabled: boolean;
 }
 
 /** Actions available on the canvas store. */
@@ -189,5 +189,5 @@ export interface CanvasActions {
   /** Set the grid spacing in world units. */
   setGridSize: (size: number) => void;
   /** Toggle snap-to-grid for shape dragging. */
-  toggleSnapToGrid: () => void;
+  toggleSnapEnabled: () => void;
 }

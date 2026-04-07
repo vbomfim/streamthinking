@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { snapToGrid, snapPosition } from '../utils/snapToGrid.js';
+import { snapToGrid, snapPosition, computeSnappedDelta } from '../utils/snapToGrid.js';
 
 // ── snapToGrid (single value) ──────────────────────────────────
 
@@ -56,6 +56,22 @@ describe('snapToGrid', () => {
     expect(snapToGrid(1009, 20)).toBe(1000);
     expect(snapToGrid(1011, 20)).toBe(1020);
   });
+
+  it('returns value unchanged when gridSize is zero', () => {
+    expect(snapToGrid(15, 0)).toBe(15);
+  });
+
+  it('returns value unchanged when gridSize is negative', () => {
+    expect(snapToGrid(15, -20)).toBe(15);
+  });
+
+  it('works with gridSize of 1', () => {
+    expect(snapToGrid(15, 1)).toBe(15);
+  });
+
+  it('works with fractional gridSize', () => {
+    expect(snapToGrid(7, 2.5)).toBe(7.5);
+  });
 });
 
 // ── snapPosition (x, y pair) ───────────────────────────────────
@@ -80,5 +96,39 @@ describe('snapPosition', () => {
   it('snaps with different grid sizes', () => {
     expect(snapPosition(7, 13, 10)).toEqual({ x: 10, y: 10 });
     expect(snapPosition(12, 3, 5)).toEqual({ x: 10, y: 5 });
+  });
+});
+
+// ── computeSnappedDelta ────────────────────────────────────────
+
+describe('computeSnappedDelta', () => {
+  it('snaps delta based on lead expression position', () => {
+    const positions = new Map([['a', { x: 100, y: 200 }]]);
+    // raw target: (100+13, 200+7) = (113, 207) → snapped (120, 200)
+    const result = computeSnappedDelta(13, 7, positions, 20);
+    expect(result).toEqual({ dx: 20, dy: 0 });
+  });
+
+  it('preserves relative offsets for multi-select', () => {
+    const positions = new Map([
+      ['a', { x: 100, y: 200 }],
+      ['b', { x: 130, y: 250 }],
+    ]);
+    // Lead expr 'a' raw target: (113, 207) → snapped (120, 200)
+    const result = computeSnappedDelta(13, 7, positions, 20);
+    expect(result).toEqual({ dx: 20, dy: 0 });
+    // 'b' would get (130+20, 250+0) = (150, 250) — relative offset preserved
+  });
+
+  it('returns raw delta when positions map is empty', () => {
+    const positions = new Map<string, { x: number; y: number }>();
+    const result = computeSnappedDelta(13, 7, positions, 20);
+    expect(result).toEqual({ dx: 13, dy: 7 });
+  });
+
+  it('handles zero delta', () => {
+    const positions = new Map([['a', { x: 100, y: 200 }]]);
+    const result = computeSnappedDelta(0, 0, positions, 20);
+    expect(result).toEqual({ dx: 0, dy: 0 });
   });
 });
