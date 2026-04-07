@@ -5,23 +5,40 @@
  * showing a grid of stencil thumbnails. Supports click-to-place
  * (at viewport center) and drag-to-place (at drop position).
  *
+ * Features:
+ * - Search/filter across all categories (uses sync metadata)
+ * - Category count badges from metadata
+ * - "Show more" pagination for large categories (>50 stencils)
+ * - Priority-based category sort order
+ * - Tooltip on stencil hover
+ * - Debounced search input (200ms)
+ *
  * Categories are listed immediately from metadata. SVGs are loaded
  * lazily when a category is expanded, with a loading indicator.
  *
  * @module
  */
 
-import { useState, useCallback, useEffect, type DragEvent } from 'react';
+import { useState, useCallback, useEffect, useMemo, memo, type DragEvent } from 'react';
 import { nanoid } from 'nanoid';
-import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader2, Search, X } from 'lucide-react';
 import type { VisualExpression, ExpressionData } from '@infinicanvas/protocol';
 import { DEFAULT_EXPRESSION_STYLE } from '@infinicanvas/protocol';
 import {
-  getCategories,
   getCategoryStencils,
+  getAllStencilMeta,
   svgToDataUri,
 } from '@infinicanvas/engine';
 import type { StencilEntry } from '@infinicanvas/engine';
+import { useDebouncedValue } from '../../hooks/useDebouncedValue.js';
+import {
+  filterStencilsBySearch,
+  sortCategories,
+  getCategoryCounts,
+  getCategoryDisplayName,
+  INITIAL_RENDER_LIMIT,
+  SEARCH_DEBOUNCE_MS,
+} from './stencilPaletteUtils.js';
 
 // ── Constants ──────────────────────────────────────────────
 
@@ -33,17 +50,6 @@ const THUMBNAIL_SIZE = 48;
 
 /** Number of columns in the stencil grid. */
 const GRID_COLUMNS = 3;
-
-/** Map from kebab-case category IDs to human-readable display names. */
-const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
-  architecture: 'Architecture',
-  azure: 'Azure',
-  'azure-arm': 'Azure ARM',
-  'generic-it': 'Generic IT',
-  kubernetes: 'Kubernetes',
-  network: 'Network',
-  security: 'Security',
-};
 
 // ── Props ──────────────────────────────────────────────────
 
@@ -89,34 +95,24 @@ function createStencilExpression(entry: StencilEntry): VisualExpression {
   };
 }
 
-/**
- * Returns a human-readable display name for a category slug.
- * Falls back to title-casing the slug if not found in the map.
- */
-function getCategoryDisplayName(category: string): string {
-  return (
-    CATEGORY_DISPLAY_NAMES[category] ??
-    category
-      .split('-')
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(' ')
-  );
-}
-
 // ── Component ──────────────────────────────────────────────
 
 /**
- * StencilPalette — scrollable panel with collapsible category sections.
+ * StencilPalette — scrollable panel with search, collapsible categories,
+ * count badges, and "show more" pagination.
  *
  * Each category shows a grid of stencil thumbnails with labels.
  * Clicking a stencil calls onInsert with a new VisualExpression.
  * Dragging a stencil sets transfer data for canvas drop handling.
  *
  * Categories are listed immediately from sync metadata. SVGs load
- * lazily when a category is expanded.
+ * lazily when a category is expanded or matched by search.
  */
 export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
-  const categories = getCategories();
+  const [searchInput, setSearchInput] = useState('');
+  const debouncedQuery = useDebouncedValue(searchInput, SEARCH_DEBOUNCE_MS);
+  const isSearching = debouncedQuery.trim().length > 0;
+
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(
     new Set(),
   );
@@ -126,13 +122,61 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
   const [loadingCategories, setLoadingCategories] = useState<Set<string>>(
     new Set(),
   );
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
+    new Set(),
+  );
 
-  // Load stencils for all expanded categories
+  // Stable reference to all metadata (sync — no SVG content)
+  const allMeta = useMemo(() => getAllStencilMeta(), []);
+
+  // Compute category counts from metadata (stable across renders)
+  const categoryCounts = useMemo(() => getCategoryCounts(allMeta), [allMeta]);
+
+  // Sorted categories from metadata
+  const sortedCategories = useMemo(
+    () => sortCategories([...categoryCounts.keys()]),
+    [categoryCounts],
+  );
+
+  // Filter metadata by search query (operates on sync metadata — instant)
+  const filteredByCategory = useMemo(
+    () => filterStencilsBySearch(allMeta, debouncedQuery),
+    [allMeta, debouncedQuery],
+  );
+
+  // Determine which categories to show
+  const visibleCategories = useMemo(() => {
+    if (isSearching) {
+      return [...filteredByCategory.keys()];
+    }
+    return sortedCategories;
+  }, [isSearching, filteredByCategory, sortedCategories]);
+
+  // Set of stencil IDs that match the current search (for filtering loaded stencils)
+  const matchingStencilIds = useMemo(() => {
+    if (!isSearching) return null;
+    const ids = new Set<string>();
+    for (const metas of filteredByCategory.values()) {
+      for (const meta of metas) {
+        ids.add(meta.id);
+      }
+    }
+    return ids;
+  }, [isSearching, filteredByCategory]);
+
+  // Reset "show more" expansion when search changes
+  useEffect(() => {
+    setExpandedCategories(new Set());
+  }, [debouncedQuery]);
+
+  // Load stencils for visible categories
   useEffect(() => {
     if (!isOpen) return;
+    let cancelled = false;
 
-    for (const category of categories) {
-      if (collapsedCategories.has(category)) continue;
+    for (const category of visibleCategories) {
+      // Skip collapsed categories (but always load if searching)
+      if (!isSearching && collapsedCategories.has(category)) continue;
       if (loadedStencils.has(category)) continue;
       if (loadingCategories.has(category)) continue;
 
@@ -140,6 +184,7 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
 
       getCategoryStencils(category).then(
         (stencils) => {
+          if (cancelled) return;
           setLoadedStencils((prev) => new Map(prev).set(category, stencils));
           setLoadingCategories((prev) => {
             const next = new Set(prev);
@@ -148,7 +193,7 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
           });
         },
         () => {
-          // On error, clear loading state so it can be retried
+          if (cancelled) return;
           setLoadingCategories((prev) => {
             const next = new Set(prev);
             next.delete(category);
@@ -157,10 +202,27 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
         },
       );
     }
-  }, [isOpen, categories, collapsedCategories, loadedStencils, loadingCategories]);
+
+    return () => {
+      cancelled = true;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, visibleCategories, isSearching, collapsedCategories]);
 
   const toggleCategory = useCallback((category: string) => {
     setCollapsedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(category)) {
+        next.delete(category);
+      } else {
+        next.add(category);
+      }
+      return next;
+    });
+  }, []);
+
+  const toggleShowMore = useCallback((category: string) => {
+    setExpandedCategories((prev) => {
       const next = new Set(prev);
       if (next.has(category)) {
         next.delete(category);
@@ -201,6 +263,10 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
     [],
   );
 
+  const handleClearSearch = useCallback(() => {
+    setSearchInput('');
+  }, []);
+
   if (!isOpen) {
     return null;
   }
@@ -227,13 +293,109 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
         fontFamily: 'system-ui, -apple-system, sans-serif',
       }}
     >
-      {categories.map((category) => {
-        const isCollapsed = collapsedCategories.has(category);
+      {/* Search input */}
+      <div style={{ position: 'relative', marginBottom: 8 }}>
+        <Search
+          size={14}
+          style={{
+            position: 'absolute',
+            left: 8,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            color: '#999',
+            pointerEvents: 'none',
+          }}
+        />
+        <input
+          data-testid="stencil-search-input"
+          type="text"
+          placeholder="Search stencils…"
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          aria-label="Search stencils"
+          style={{
+            width: '100%',
+            padding: '6px 28px 6px 28px',
+            border: '1px solid var(--border, #e0e0e0)',
+            borderRadius: 6,
+            fontSize: 12,
+            fontFamily: 'inherit',
+            backgroundColor: 'var(--bg-toolbar, #ffffff)',
+            color: 'var(--text-primary, #333333)',
+            outline: 'none',
+            boxSizing: 'border-box',
+          }}
+        />
+        {searchInput && (
+          <button
+            type="button"
+            data-testid="stencil-search-clear"
+            aria-label="Clear search"
+            onClick={handleClearSearch}
+            style={{
+              position: 'absolute',
+              right: 4,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 2,
+              color: '#999',
+              display: 'flex',
+              alignItems: 'center',
+            }}
+          >
+            <X size={12} />
+          </button>
+        )}
+      </div>
+
+      {/* No results message */}
+      {isSearching && visibleCategories.length === 0 && (
+        <div
+          data-testid="stencil-search-no-results"
+          style={{
+            textAlign: 'center',
+            padding: '16px 0',
+            fontSize: 12,
+            color: '#999',
+          }}
+        >
+          No stencils found
+        </div>
+      )}
+
+      {/* Category list */}
+      {visibleCategories.map((category) => {
+        const isCollapsed = !isSearching && collapsedCategories.has(category);
         const stencils = loadedStencils.get(category);
         const isLoading = loadingCategories.has(category);
         const displayName = getCategoryDisplayName(category);
-        const stencilCount = stencils?.length;
+        const totalCount = categoryCounts.get(category) ?? 0;
+        const isExpanded = expandedCategories.has(category);
         const ChevronIcon = isCollapsed ? ChevronRight : ChevronDown;
+
+        // Filter loaded stencils by search matches
+        const visibleStencils = stencils
+          ? (matchingStencilIds
+              ? stencils.filter((s) => matchingStencilIds.has(s.id))
+              : stencils)
+          : undefined;
+
+        // Apply "show more" limit (only when not searching)
+        const needsShowMore =
+          !isSearching &&
+          visibleStencils !== undefined &&
+          visibleStencils.length > INITIAL_RENDER_LIMIT;
+        const renderedStencils =
+          needsShowMore && !isExpanded
+            ? visibleStencils!.slice(0, INITIAL_RENDER_LIMIT)
+            : visibleStencils;
+        const remainingCount =
+          needsShowMore && visibleStencils
+            ? visibleStencils.length - INITIAL_RENDER_LIMIT
+            : 0;
 
         return (
           <div key={category} style={{ marginBottom: 4 }}>
@@ -271,6 +433,7 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
               <ChevronIcon size={14} />
               <span>{displayName}</span>
               <span
+                data-testid={`category-count-${category}`}
                 style={{
                   marginLeft: 'auto',
                   fontSize: 10,
@@ -278,7 +441,7 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
                   fontWeight: 400,
                 }}
               >
-                {stencilCount !== undefined ? stencilCount : ''}
+                {totalCount}
               </span>
             </button>
 
@@ -297,23 +460,76 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
               </div>
             )}
 
-            {!isCollapsed && stencils && (
+            {!isCollapsed && renderedStencils && (
               <div
                 style={{
-                  display: 'grid',
-                  gridTemplateColumns: `repeat(${GRID_COLUMNS}, 1fr)`,
-                  gap: 4,
-                  padding: '4px 0',
+                  maxHeight: 400,
+                  overflowY: 'auto',
                 }}
               >
-                {stencils.map((entry) => (
-                  <StencilItem
-                    key={entry.id}
-                    entry={entry}
-                    onClick={handleStencilClick}
-                    onDragStart={handleDragStart}
-                  />
-                ))}
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: `repeat(${GRID_COLUMNS}, 1fr)`,
+                    gap: 4,
+                    padding: '4px 0',
+                  }}
+                >
+                  {renderedStencils.map((entry) => (
+                    <StencilItem
+                      key={entry.id}
+                      entry={entry}
+                      onClick={handleStencilClick}
+                      onDragStart={handleDragStart}
+                    />
+                  ))}
+                </div>
+
+                {/* Show more button */}
+                {needsShowMore && !isExpanded && (
+                  <button
+                    type="button"
+                    data-testid={`show-more-${category}`}
+                    onClick={() => toggleShowMore(category)}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      padding: '4px 0',
+                      border: 'none',
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                      backgroundColor: 'transparent',
+                      color: '#4A90D9',
+                      fontSize: 11,
+                      fontFamily: 'inherit',
+                      textAlign: 'center',
+                    }}
+                  >
+                    Show {remainingCount} more…
+                  </button>
+                )}
+                {needsShowMore && isExpanded && (
+                  <button
+                    type="button"
+                    data-testid={`show-less-${category}`}
+                    onClick={() => toggleShowMore(category)}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      padding: '4px 0',
+                      border: 'none',
+                      borderRadius: 4,
+                      cursor: 'pointer',
+                      backgroundColor: 'transparent',
+                      color: '#4A90D9',
+                      fontSize: 11,
+                      fontFamily: 'inherit',
+                      textAlign: 'center',
+                    }}
+                  >
+                    Show less
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -333,15 +549,21 @@ interface StencilItemProps {
 }
 
 /**
- * Individual stencil thumbnail with label.
+ * Individual stencil thumbnail with label and tooltip.
  *
  * Renders a small SVG preview (48×48) with the stencil label below.
  * Supports click-to-place and drag-to-place interactions.
+ * Memoized to avoid unnecessary re-renders when parent state changes.
  */
-function StencilItem({ entry, onClick, onDragStart }: StencilItemProps) {
+const StencilItem = memo(function StencilItem({
+  entry,
+  onClick,
+  onDragStart,
+}: StencilItemProps) {
   return (
     <div
       data-testid={`stencil-item-${entry.id}`}
+      title={entry.label}
       draggable="true"
       onClick={() => onClick(entry)}
       onDragStart={(e) => onDragStart(e, entry)}
@@ -399,4 +621,4 @@ function StencilItem({ entry, onClick, onDragStart }: StencilItemProps) {
       </span>
     </div>
   );
-}
+});
