@@ -205,4 +205,11 @@ export interface CanvasActions {
   setGridSize: (size: number) => void;
   /** Toggle snap-to-grid for shape dragging. */
   toggleSnapEnabled: () => void;
+  /**
+   * Apply a theme preset to expressions on the canvas.
+   * Emits `style` ProtocolOperations and pushes an undo snapshot.
+   * @param themeId — ID of the theme preset to apply.
+   * @param scope — 'all' applies to every expression; 'selected' applies only to selected.
+   */
+  applyTheme: (themeId: string, scope: 'all' | 'selected') => void;
 }

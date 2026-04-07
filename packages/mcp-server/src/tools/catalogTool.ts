@@ -11,6 +11,7 @@
 import {
   getAllCategories,
   getStencilsByCategory,
+  THEME_PRESETS,
 } from '@infinicanvas/engine';
 
 // ── Section builders ───────────────────────────────────────
@@ -112,6 +113,24 @@ function buildArrowGuideSection(): string {
 - Font size defaults to 12px, uses the arrow's strokeColor`;
 }
 
+function buildThemesSection(): string {
+  const themeLines = THEME_PRESETS.map((t) =>
+    `- **${t.id}** — "${t.name}": ${t.description} (font: ${t.fontFamily})`,
+  );
+
+  return `## Color Themes
+One-click professional color themes. Use \`canvas_apply_theme\` to apply.
+
+### Available Themes
+${themeLines.join('\n')}
+
+### Usage
+- \`canvas_apply_theme\` — Apply a theme to all or selected expressions
+- \`canvas_list_themes\` — List available themes with color details
+- Themes assign: primary fill to shapes, accent to sticky notes, stroke color, and font family
+- Theme application is undo-able`;
+}
+
 // ── Section registry ───────────────────────────────────────
 
 const SECTIONS: Record<string, () => string> = {
@@ -120,6 +139,7 @@ const SECTIONS: Record<string, () => string> = {
   layout: buildLayoutGuideSection,
   fonts: buildFontGuideSection,
   arrows: buildArrowGuideSection,
+  themes: buildThemesSection,
 };
 
 const VALID_SECTIONS = Object.keys(SECTIONS);
@@ -158,5 +178,7 @@ export function executeCatalog(params: CatalogParams): string {
     buildFontGuideSection(),
     '',
     buildArrowGuideSection(),
+    '',
+    buildThemesSection(),
   ].join('\n');
 }

@@ -19,6 +19,7 @@ import type { AgentActionType } from './components/toolbar/AgentActions.js';
 import { AgentSidebar } from './components/sidebar/AgentSidebar.js';
 import { StylePanel } from './components/panels/StylePanel.js';
 import { ThemeToggle } from './components/panels/ThemeToggle.js';
+import { ThemePickerPanel } from './components/panels/ThemePickerPanel.js';
 import { ExportMenu } from './components/panels/ExportMenu.js';
 import { ZoomControls } from './components/panels/ZoomControls.js';
 import { WaypointPanel } from './components/panels/WaypointPanel.js';
@@ -127,6 +128,7 @@ export function App() {
         }}
       >
         <ThemeToggle />
+        <ThemePickerPanel />
         <ExportMenu />
         <ConnectionStatus {...gatewayState} />
         <button
