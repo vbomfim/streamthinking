@@ -89,6 +89,7 @@ import {
   executeMoveToLayer,
 } from './tools/layerTools.js';
 import type { ILayerGatewayClient } from './tools/layerTools.js';
+import { executeAutoLayout } from './tools/layoutTools.js';
 
 // ── Zod schemas for tool parameters ────────────────────────
 
@@ -883,6 +884,30 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
     async (params) => ({
       content: [{ type: 'text' as const, text: executeMoveToLayer(layerClient, params) }],
     }),
+  );
+
+  // ── Auto-layout tool ─────────────────────────────────────
+
+  const layoutDirectionSchema = z.enum(['TB', 'BT', 'LR', 'RL']);
+  const layoutAlgorithmSchema = z.enum(['tree', 'force', 'grid']);
+
+  server.tool(
+    'canvas_auto_layout',
+    'Automatically arrange expressions on the canvas using a layout algorithm. Tree layout creates a hierarchy from arrow connections. Force layout uses spring/repulsion physics for organic arrangements. Grid layout arranges shapes in rows and columns.',
+    {
+      algorithm: layoutAlgorithmSchema.describe('Layout algorithm: "tree" (hierarchical from arrows), "force" (spring/repulsion), or "grid" (rows/columns)'),
+      direction: layoutDirectionSchema.optional().describe('Direction for tree layout: TB (top→bottom), BT (bottom→top), LR (left→right), RL (right→left)'),
+      spacing: z.object({
+        horizontal: z.number().positive().finite().max(5000).describe('Horizontal spacing between elements'),
+        vertical: z.number().positive().finite().max(5000).describe('Vertical spacing between elements'),
+      }).optional().describe('Spacing between arranged elements (default: 50 horizontal, 80 vertical)'),
+      columns: z.number().positive().int().optional().describe('Number of columns for grid layout (default: 4)'),
+      iterations: z.number().positive().int().max(10000).optional().describe('Number of simulation iterations for force layout (default: 100, max: 10000)'),
+    },
+    async (params) => {
+      const result = await executeAutoLayout(gatewayClient, params);
+      return { content: [{ type: 'text' as const, text: result }] };
+    },
   );
 
   return server;
