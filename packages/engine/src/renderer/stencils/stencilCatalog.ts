@@ -82,6 +82,28 @@ import {
   ARM_APP_SERVICE_SVG,
   ARM_CONTAINER_REGISTRY_SVG,
 } from './svgs/azureArm.js';
+import {
+  FORTI_GATE_SVG,
+  FORTI_SWITCH_SVG,
+  FORTI_AP_SVG,
+  FORTI_MANAGER_SVG,
+  FORTI_ANALYZER_SVG,
+  FORTI_WEB_SVG,
+  FORTI_MAIL_SVG,
+  FORTI_CLIENT_SVG,
+  FORTI_SANDBOX_SVG,
+  FORTI_SIEM_SVG,
+  FORTI_NAC_SVG,
+  FORTI_EDR_SVG,
+  FORTI_PROXY_SVG,
+  FORTI_DDOS_SVG,
+  FORTI_ADC_SVG,
+  FORTI_AUTHENTICATOR_SVG,
+  FORTI_TOKEN_SVG,
+  FORTI_EXTENDER_SVG,
+  FORTI_DECEPTOR_SVG,
+  FORTI_SOAR_SVG,
+} from './svgs/fortinet.js';
 
 /**
  * Lightweight stencil metadata — always available, no SVG content.
@@ -559,6 +581,28 @@ export const STENCIL_CATALOG: Map<string, StencilEntry> = new Map([
       defaultSize: { width: 64, height: 64 },
     },
   ],
+
+  // ── Fortinet ──────────────────────────────────────────────
+  ['forti-gate', { id: 'forti-gate', category: 'fortinet', label: 'FortiGate', svgContent: FORTI_GATE_SVG, defaultSize: ICON_SIZE }],
+  ['forti-switch', { id: 'forti-switch', category: 'fortinet', label: 'FortiSwitch', svgContent: FORTI_SWITCH_SVG, defaultSize: ICON_SIZE }],
+  ['forti-ap', { id: 'forti-ap', category: 'fortinet', label: 'FortiAP', svgContent: FORTI_AP_SVG, defaultSize: ICON_SIZE }],
+  ['forti-manager', { id: 'forti-manager', category: 'fortinet', label: 'FortiManager', svgContent: FORTI_MANAGER_SVG, defaultSize: ICON_SIZE }],
+  ['forti-analyzer', { id: 'forti-analyzer', category: 'fortinet', label: 'FortiAnalyzer', svgContent: FORTI_ANALYZER_SVG, defaultSize: ICON_SIZE }],
+  ['forti-web', { id: 'forti-web', category: 'fortinet', label: 'FortiWeb', svgContent: FORTI_WEB_SVG, defaultSize: ICON_SIZE }],
+  ['forti-mail', { id: 'forti-mail', category: 'fortinet', label: 'FortiMail', svgContent: FORTI_MAIL_SVG, defaultSize: ICON_SIZE }],
+  ['forti-client', { id: 'forti-client', category: 'fortinet', label: 'FortiClient', svgContent: FORTI_CLIENT_SVG, defaultSize: ICON_SIZE }],
+  ['forti-sandbox', { id: 'forti-sandbox', category: 'fortinet', label: 'FortiSandbox', svgContent: FORTI_SANDBOX_SVG, defaultSize: ICON_SIZE }],
+  ['forti-siem', { id: 'forti-siem', category: 'fortinet', label: 'FortiSIEM', svgContent: FORTI_SIEM_SVG, defaultSize: ICON_SIZE }],
+  ['forti-nac', { id: 'forti-nac', category: 'fortinet', label: 'FortiNAC', svgContent: FORTI_NAC_SVG, defaultSize: ICON_SIZE }],
+  ['forti-edr', { id: 'forti-edr', category: 'fortinet', label: 'FortiEDR', svgContent: FORTI_EDR_SVG, defaultSize: ICON_SIZE }],
+  ['forti-proxy', { id: 'forti-proxy', category: 'fortinet', label: 'FortiProxy', svgContent: FORTI_PROXY_SVG, defaultSize: ICON_SIZE }],
+  ['forti-ddos', { id: 'forti-ddos', category: 'fortinet', label: 'FortiDDoS', svgContent: FORTI_DDOS_SVG, defaultSize: ICON_SIZE }],
+  ['forti-adc', { id: 'forti-adc', category: 'fortinet', label: 'FortiADC', svgContent: FORTI_ADC_SVG, defaultSize: ICON_SIZE }],
+  ['forti-authenticator', { id: 'forti-authenticator', category: 'fortinet', label: 'FortiAuthenticator', svgContent: FORTI_AUTHENTICATOR_SVG, defaultSize: ICON_SIZE }],
+  ['forti-token', { id: 'forti-token', category: 'fortinet', label: 'FortiToken', svgContent: FORTI_TOKEN_SVG, defaultSize: ICON_SIZE }],
+  ['forti-extender', { id: 'forti-extender', category: 'fortinet', label: 'FortiExtender', svgContent: FORTI_EXTENDER_SVG, defaultSize: ICON_SIZE }],
+  ['forti-deceptor', { id: 'forti-deceptor', category: 'fortinet', label: 'FortiDeceptor', svgContent: FORTI_DECEPTOR_SVG, defaultSize: ICON_SIZE }],
+  ['forti-soar', { id: 'forti-soar', category: 'fortinet', label: 'FortiSOAR', svgContent: FORTI_SOAR_SVG, defaultSize: ICON_SIZE }],
 ]);
 
 // ── Initialize metadata from eager catalog ────────────────

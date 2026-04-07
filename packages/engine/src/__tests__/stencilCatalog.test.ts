@@ -156,6 +156,63 @@ describe('getStencil — architecture stencils', () => {
   });
 });
 
+// ── getStencil — Fortinet category ────────────────────────
+
+describe('getStencil — fortinet stencils', () => {
+  const fortinetStencils: Array<{ id: string; label: string }> = [
+    { id: 'forti-gate', label: 'FortiGate' },
+    { id: 'forti-switch', label: 'FortiSwitch' },
+    { id: 'forti-ap', label: 'FortiAP' },
+    { id: 'forti-manager', label: 'FortiManager' },
+    { id: 'forti-analyzer', label: 'FortiAnalyzer' },
+    { id: 'forti-web', label: 'FortiWeb' },
+    { id: 'forti-mail', label: 'FortiMail' },
+    { id: 'forti-client', label: 'FortiClient' },
+    { id: 'forti-sandbox', label: 'FortiSandbox' },
+    { id: 'forti-siem', label: 'FortiSIEM' },
+    { id: 'forti-nac', label: 'FortiNAC' },
+    { id: 'forti-edr', label: 'FortiEDR' },
+    { id: 'forti-proxy', label: 'FortiProxy' },
+    { id: 'forti-ddos', label: 'FortiDDoS' },
+    { id: 'forti-adc', label: 'FortiADC' },
+    { id: 'forti-authenticator', label: 'FortiAuthenticator' },
+    { id: 'forti-token', label: 'FortiToken' },
+    { id: 'forti-extender', label: 'FortiExtender' },
+    { id: 'forti-deceptor', label: 'FortiDeceptor' },
+    { id: 'forti-soar', label: 'FortiSOAR' },
+  ];
+
+  for (const { id, label } of fortinetStencils) {
+    it(`returns the ${id} stencil entry`, async () => {
+      const entry = await getStencil(id);
+      expect(entry).toBeDefined();
+      expect(entry!.id).toBe(id);
+      expect(entry!.category).toBe('fortinet');
+      expect(entry!.label).toBe(label);
+      expect(entry!.svgContent).toContain('<svg');
+      expect(entry!.svgContent).toContain('</svg>');
+      expect(entry!.svgContent).toContain('currentColor');
+      expect(entry!.defaultSize).toEqual({ width: 44, height: 44 });
+    });
+  }
+
+  it('all fortinet SVGs use viewBox="0 0 64 64"', async () => {
+    for (const { id } of fortinetStencils) {
+      const entry = await getStencil(id);
+      expect(entry).toBeDefined();
+      expect(entry!.svgContent).toContain('viewBox="0 0 64 64"');
+    }
+  });
+
+  it('all fortinet SVGs contain xmlns attribute', async () => {
+    for (const { id } of fortinetStencils) {
+      const entry = await getStencil(id);
+      expect(entry).toBeDefined();
+      expect(entry!.svgContent).toContain('xmlns="http://www.w3.org/2000/svg"');
+    }
+  });
+});
+
 // ── getStencil — Kubernetes placeholder ───────────────────
 
 describe('getStencil — kubernetes placeholder', () => {
@@ -205,6 +262,34 @@ describe('getStencilsByCategory', () => {
     expect(entries.some((e) => e.id === 'k8s-pod')).toBe(true);
   });
 
+  it('returns 20 stencils in the fortinet category', () => {
+    const entries = getStencilsByCategory('fortinet');
+    expect(entries).toHaveLength(20);
+    const ids = entries.map((e) => e.id).sort();
+    expect(ids).toEqual([
+      'forti-adc',
+      'forti-analyzer',
+      'forti-ap',
+      'forti-authenticator',
+      'forti-client',
+      'forti-ddos',
+      'forti-deceptor',
+      'forti-edr',
+      'forti-extender',
+      'forti-gate',
+      'forti-mail',
+      'forti-manager',
+      'forti-nac',
+      'forti-proxy',
+      'forti-sandbox',
+      'forti-siem',
+      'forti-soar',
+      'forti-switch',
+      'forti-token',
+      'forti-web',
+    ]);
+  });
+
   it('returns empty array for unknown category', () => {
     expect(getStencilsByCategory('nonexistent')).toEqual([]);
   });
@@ -217,26 +302,27 @@ describe('getStencilsByCategory', () => {
 // ── getAllCategories ───────────────────────────────────────
 
 describe('getAllCategories', () => {
-  it('returns all 6 unique categories', () => {
+  it('returns all 8 unique categories', () => {
     const categories = getAllCategories();
     expect(categories).toContain('architecture');
     expect(categories).toContain('azure');
     expect(categories).toContain('azure-arm');
+    expect(categories).toContain('fortinet');
     expect(categories).toContain('generic-it');
     expect(categories).toContain('kubernetes');
     expect(categories).toContain('network');
   });
 
   it('returns the correct number of categories', () => {
-    expect(getAllCategories()).toHaveLength(7);
+    expect(getAllCategories()).toHaveLength(8);
   });
 });
 
 // ── STENCIL_CATALOG integrity ─────────────────────────────
 
 describe('STENCIL_CATALOG', () => {
-  it('contains all 56 eager stencil entries', () => {
-    expect(STENCIL_CATALOG.size).toBe(56);
+  it('contains all 76 eager stencil entries', () => {
+    expect(STENCIL_CATALOG.size).toBe(76);
   });
 
   it('has map keys matching entry IDs', () => {
