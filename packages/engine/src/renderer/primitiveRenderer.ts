@@ -20,6 +20,7 @@ import { createDrawableCache } from './drawableCache.js';
 import type { DrawableCache } from './drawableCache.js';
 import { getCompositeRenderer } from './compositeRegistry.js';
 import { resolveBindings } from '../interaction/connectorHelpers.js';
+import { computeOrthogonalRoute } from '../connectors/orthogonalRouter.js';
 import { getStencil, svgToDataUri } from './stencils/index.js';
 import { resolveTextConfig } from '../text/textConfig.js';
 
@@ -365,8 +366,37 @@ function renderArrow(
   const arrowSize = Math.max(baseArrowSize, minArrowSize);
 
   // Resolve binding positions for connected arrows
-  const points = resolveBindings(expr, expressions);
+  let points = resolveBindings(expr, expressions);
   if (points.length < 2) return;
+
+  // Apply orthogonal routing if requested
+  if (data.routing === 'orthogonal' && points.length === 2) {
+    const startBounds = data.startBinding
+      ? expressions[data.startBinding.expressionId]
+      : undefined;
+    const endBounds = data.endBinding
+      ? expressions[data.endBinding.expressionId]
+      : undefined;
+
+    points = computeOrthogonalRoute(
+      { x: points[0]![0], y: points[0]![1] },
+      { x: points[1]![0], y: points[1]![1] },
+      data.startBinding?.anchor,
+      data.endBinding?.anchor,
+      startBounds ? {
+        x: startBounds.position.x,
+        y: startBounds.position.y,
+        width: startBounds.size.width,
+        height: startBounds.size.height,
+      } : undefined,
+      endBounds ? {
+        x: endBounds.position.x,
+        y: endBounds.position.y,
+        width: endBounds.size.width,
+        height: endBounds.size.height,
+      } : undefined,
+    );
+  }
 
   // Skip position offset for bound arrows — resolveBindings returns absolute
   // world coordinates, so applying an offset would double-shift the arrow.

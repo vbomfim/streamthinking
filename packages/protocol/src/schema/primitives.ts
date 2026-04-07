@@ -32,7 +32,8 @@ export interface LineData {
 }
 
 /** Anchor position on a shape's edge for arrow binding. */
-export type ArrowAnchor = 'center' | 'top' | 'right' | 'bottom' | 'left' | 'auto';
+export type ArrowAnchor = 'center' | 'top' | 'right' | 'bottom' | 'left'
+  | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'auto';
 
 /** Binding that connects an arrow endpoint to a shape. */
 export interface ArrowBinding {
@@ -62,6 +63,8 @@ export interface ArrowData {
   endBinding?: ArrowBinding;
   /** Optional text label rendered at the arrow midpoint. */
   label?: string;
+  /** Routing mode: 'straight' (default) or 'orthogonal' (right-angle segments). */
+  routing?: RoutingMode;
 }
 
 /** Data for a freehand drawing expression. */
@@ -111,6 +114,9 @@ export interface StencilData {
   /** Explicit font size for the label (world units, no auto-scaling). */
   labelFontSize?: number;
 }
+
+/** Routing mode for arrow connectors. */
+export type RoutingMode = 'straight' | 'orthogonal';
 
 /** Union of all primitive expression data types. */
 export type PrimitiveData =

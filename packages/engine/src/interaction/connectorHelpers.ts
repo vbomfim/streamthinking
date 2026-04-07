@@ -97,6 +97,14 @@ export function getAnchorPoint(
       return { x: x + width * ratio, y: y + height };
     case 'left':
       return { x, y: y + height * ratio };
+    case 'top-left':
+      return { x, y };
+    case 'top-right':
+      return { x: x + width, y };
+    case 'bottom-left':
+      return { x, y: y + height };
+    case 'bottom-right':
+      return { x: x + width, y: y + height };
     default:
       return { x: x + width / 2, y: y + height / 2 };
   }

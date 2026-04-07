@@ -93,6 +93,26 @@ export {
   svgToDataUri,
 } from './renderer/stencils/index.js';
 
+// ── Connector Helpers ──────────────────────────────────────
+export {
+  findSnapPoint,
+  getAnchorPoint,
+  resolveBindings,
+  findBoundArrows,
+  clearBindingsForDeletedExpression,
+} from './interaction/connectorHelpers.js';
+
+// ── Connection Points & Routing ───────────────────────────
+export {
+  getConnectionPoints,
+  findNearestConnectionPoint,
+} from './connectors/connectionPoints.js';
+export type {
+  ConnectionPoint,
+  ConnectionPointPosition,
+} from './connectors/connectionPoints.js';
+export { computeOrthogonalRoute } from './connectors/orthogonalRouter.js';
+
 // ── Interaction ────────────────────────────────────────────
 export {
   hitTestRectangle,
