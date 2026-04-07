@@ -8,7 +8,7 @@
  * @module
  */
 
-import type { VisualExpression } from '@infinicanvas/protocol';
+import type { VisualExpression, Layer } from '@infinicanvas/protocol';
 import { hitTestExpression } from './hitTest.js';
 import type { WorldPoint } from './hitTest.js';
 
@@ -18,6 +18,21 @@ export interface Marquee {
   y: number;
   width: number;
   height: number;
+}
+
+/**
+ * Check if an expression is on a hidden or locked layer.
+ *
+ * @param expr - The expression to check
+ * @param layers - All layers on the canvas
+ * @returns true if the expression should be excluded from selection
+ */
+function isExcludedByLayer(expr: VisualExpression, layers?: Layer[]): boolean {
+  if (!layers || layers.length === 0) return false;
+  const layerId = expr.layerId ?? 'default';
+  const layer = layers.find((l) => l.id === layerId);
+  if (!layer) return false;
+  return !layer.visible || layer.locked;
 }
 
 /**
@@ -31,18 +46,23 @@ export interface Marquee {
  * @param expressions - All expressions keyed by ID
  * @param expressionOrder - Z-order array (index 0 = back, last = front)
  * @param tolerance - Hit tolerance in world units
+ * @param layers - Optional layer list for visibility/lock filtering [#109]
  */
 export function findExpressionAtPoint(
   worldPoint: WorldPoint,
   expressions: Record<string, VisualExpression>,
   expressionOrder: string[],
   tolerance: number,
+  layers?: Layer[],
 ): string | null {
   // Iterate back-to-front: last element is topmost
   for (let i = expressionOrder.length - 1; i >= 0; i--) {
     const id = expressionOrder[i]!;
     const expr = expressions[id];
     if (!expr) continue;
+
+    // Skip expressions on hidden or locked layers [#109]
+    if (isExcludedByLayer(expr, layers)) continue;
 
     if (hitTestExpression(worldPoint, expr, tolerance)) {
       return id;
@@ -60,11 +80,13 @@ export function findExpressionAtPoint(
  *
  * @param marquee - Selection rectangle in world coordinates
  * @param expressions - All expressions keyed by ID
+ * @param layers - Optional layer list for visibility/lock filtering [#109]
  * @returns Array of expression IDs that intersect the marquee
  */
 export function findExpressionsInMarquee(
   marquee: Marquee,
   expressions: Record<string, VisualExpression>,
+  layers?: Layer[],
 ): string[] {
   // Normalize marquee (handle negative width/height from reverse drag)
   const mx = marquee.width >= 0 ? marquee.x : marquee.x + marquee.width;
@@ -78,6 +100,9 @@ export function findExpressionsInMarquee(
   const result: string[] = [];
 
   for (const [id, expr] of Object.entries(expressions)) {
+    // Skip expressions on hidden or locked layers [#109]
+    if (isExcludedByLayer(expr, layers)) continue;
+
     const { x, y } = expr.position;
     const { width, height } = expr.size;
 

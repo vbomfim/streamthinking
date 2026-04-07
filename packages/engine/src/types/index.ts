@@ -4,7 +4,7 @@
  * @module
  */
 
-import type { VisualExpression, ProtocolOperation, ExpressionStyle } from '@infinicanvas/protocol';
+import type { VisualExpression, ProtocolOperation, ExpressionStyle, Layer } from '@infinicanvas/protocol';
 
 /** Tools available for canvas interaction. */
 export type ToolType =
@@ -70,6 +70,10 @@ export interface CanvasState {
   pageVisible: boolean;
   /** Page dimensions in world units (pixels at 96 DPI). */
   pageSize: { width: number; height: number };
+  /** All layers on the canvas, ordered by `order` field. */
+  layers: Layer[];
+  /** ID of the layer where new expressions are created. */
+  activeLayerId: string;
 }
 
 /** Actions available on the canvas store. */
@@ -201,4 +205,20 @@ export interface CanvasActions {
   togglePage: () => void;
   /** Set page dimensions. Rejects non-positive or non-finite values. */
   setPageSize: (size: { width: number; height: number }) => void;
+  /** Add a new layer. Returns the new layer's ID. */
+  addLayer: (name?: string) => string;
+  /** Remove a layer by ID. Moves its expressions to the default layer. Cannot remove the default layer. */
+  removeLayer: (layerId: string) => void;
+  /** Rename a layer. */
+  renameLayer: (layerId: string, name: string) => void;
+  /** Toggle a layer's visibility. */
+  toggleLayerVisibility: (layerId: string) => void;
+  /** Toggle a layer's locked state. */
+  toggleLayerLock: (layerId: string) => void;
+  /** Set the active layer for new expressions. */
+  setActiveLayer: (layerId: string) => void;
+  /** Reorder layers by providing the full ordered array of layer IDs. */
+  reorderLayers: (layerIds: string[]) => void;
+  /** Move expressions to a different layer. */
+  moveToLayer: (expressionIds: string[], layerId: string) => void;
 }

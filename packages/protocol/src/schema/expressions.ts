@@ -18,6 +18,20 @@ export type ExpressionData = PrimitiveData | CompositeData | AnnotationData;
 /** All valid expression kind strings, derived from ExpressionData. */
 export type ExpressionKind = ExpressionData['kind'];
 
+/** A canvas layer for organizing expressions with visibility and lock controls. */
+export interface Layer {
+  /** Unique identifier for this layer. */
+  id: string;
+  /** Human-readable display name. */
+  name: string;
+  /** Whether expressions on this layer are rendered. */
+  visible: boolean;
+  /** Whether expressions on this layer are locked from editing. */
+  locked: boolean;
+  /** Z-order position (lower = further back, rendered first). */
+  order: number;
+}
+
 /** A visual expression on the InfiniCanvas. */
 export interface VisualExpression {
   /** Unique identifier for this expression. */
@@ -51,6 +65,8 @@ export interface VisualExpression {
   parentId?: string;
   /** IDs of child expressions. */
   children?: string[];
+  /** ID of the layer this expression belongs to (default: 'default'). */
+  layerId?: string;
   /** Kind-specific data payload (discriminated by `kind`). */
   data: ExpressionData;
 }

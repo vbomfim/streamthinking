@@ -8,7 +8,7 @@
  */
 
 // ── State store ────────────────────────────────────────────
-export { useCanvasStore, _resetWaypointCounter } from './store/canvasStore.js';
+export { useCanvasStore, _resetWaypointCounter, _resetLayerCounter } from './store/canvasStore.js';
 export { useAgentStore } from './store/agentStore.js';
 export type { AgentState, AgentActions } from './store/agentStore.js';
 export { useUiStore, applyThemeToDocument, THEME_STORAGE_KEY } from './store/uiStore.js';
@@ -36,7 +36,7 @@ export { renderGrid, getGridSpacing } from './renderer/gridRenderer.js';
 export { renderPages, computePageGrid, PAGE_SIZES } from './renderer/pageRenderer.js';
 export type { PageGrid } from './renderer/pageRenderer.js';
 export { createRenderLoop } from './renderer/renderLoop.js';
-export type { RenderLoop, ExpressionProvider, SelectionProvider, DrawPreviewProvider, EditingProvider, GridProvider, PageProvider } from './renderer/renderLoop.js';
+export type { RenderLoop, ExpressionProvider, SelectionProvider, DrawPreviewProvider, EditingProvider, GridProvider, PageProvider, LayerProvider } from './renderer/renderLoop.js';
 export {
   renderExpressions,
   renderLabel,
@@ -213,4 +213,6 @@ export type {
   CanvasState,
   CanvasActions,
 } from './types/index.js';
+
+export type { Layer } from '@infinicanvas/protocol';
 

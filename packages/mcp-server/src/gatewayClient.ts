@@ -24,6 +24,7 @@ import type {
   ExpressionKind,
   ExpressionData,
   ExpressionStyle,
+  Layer,
 } from '@infinicanvas/protocol';
 import { DEFAULT_EXPRESSION_STYLE } from '@infinicanvas/protocol';
 import { MCP_AUTHOR } from './defaults.js';
@@ -194,6 +195,18 @@ export interface IGatewayClient {
   sendWaypointReorder(fromIndex: number, toIndex: number): void;
   /** Request a screenshot from a connected browser client. */
   requestScreenshot(timeoutMs?: number): Promise<{ imageBase64: string; width: number; height: number }>;
+  /** Get all layers in the current session. */
+  getLayers(): Layer[];
+  /** Get the active layer ID. */
+  getActiveLayerId(): string;
+  /** Add a new layer. Returns the layer ID. */
+  sendLayerAdd(name?: string): string;
+  /** Set the active layer. */
+  sendSetActiveLayer(layerId: string): void;
+  /** Toggle a layer's visibility. */
+  sendToggleLayerVisibility(layerId: string): void;
+  /** Move expressions to a different layer. */
+  sendMoveToLayer(expressionIds: string[], layerId: string): void;
 }
 
 /**
@@ -207,6 +220,9 @@ export class GatewayClient implements IGatewayClient {
   private sessionId: string | null = null;
   private expressions: VisualExpression[] = [];
   private waypoints: CameraWaypoint[] = [];
+  private layers: Layer[] = [{ id: 'default', name: 'Layer 1', visible: true, locked: false, order: 0 }];
+  private activeLayerId = 'default';
+  private layerCounter = 1;
   private pendingRequests: PendingAgentRequest[] = [];
   private screenshotResolvers = new Map<string, (data: { imageBase64: string; width: number; height: number }) => void>();
   private readonly url: string;
@@ -685,6 +701,58 @@ export class GatewayClient implements IGatewayClient {
   private send(message: unknown): void {
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.send(JSON.stringify(message));
+    }
+  }
+
+  // ── Layer operations ────────────────────────────────────────
+
+  getLayers(): Layer[] {
+    return [...this.layers];
+  }
+
+  getActiveLayerId(): string {
+    return this.activeLayerId;
+  }
+
+  sendLayerAdd(name?: string): string {
+    this.layerCounter += 1;
+    const id = `layer-${Date.now()}-${this.layerCounter}`;
+    const maxOrder = this.layers.reduce((max, l) => Math.max(max, l.order), -1);
+    const layerName = name ?? `Layer ${this.layerCounter}`;
+
+    this.layers.push({
+      id,
+      name: layerName,
+      visible: true,
+      locked: false,
+      order: maxOrder + 1,
+    });
+
+    return id;
+  }
+
+  sendSetActiveLayer(layerId: string): void {
+    const exists = this.layers.some((l) => l.id === layerId);
+    if (exists) {
+      this.activeLayerId = layerId;
+    }
+  }
+
+  sendToggleLayerVisibility(layerId: string): void {
+    const layer = this.layers.find((l) => l.id === layerId);
+    if (layer) {
+      layer.visible = !layer.visible;
+    }
+  }
+
+  sendMoveToLayer(expressionIds: string[], layerId: string): void {
+    const layerExists = this.layers.some((l) => l.id === layerId);
+    if (!layerExists) return;
+
+    for (const expr of this.expressions) {
+      if (expressionIds.includes(expr.id)) {
+        expr.layerId = layerId;
+      }
     }
   }
 }

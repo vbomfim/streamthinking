@@ -45,6 +45,14 @@ export interface SelectionProvider {
   getSelectedIds(): Set<string>;
 }
 
+/** Callback that returns layer visibility and ordering info for rendering. */
+export interface LayerProvider {
+  /** Set of layer IDs whose expressions should be rendered. */
+  getVisibleLayerIds(): Set<string>;
+  /** Get expression order sorted by layer order, then by position in expressionOrder. */
+  getLayerSortedOrder(expressionOrder: string[], expressions: Record<string, VisualExpression>): string[];
+}
+
 /** Callback that returns the current draw preview for rendering. */
 export interface DrawPreviewProvider {
   /** Current draw preview from the active tool, or null. */
@@ -107,6 +115,7 @@ export function createRenderLoop(
   editingProvider?: EditingProvider,
   gridProvider?: GridProvider,
   pageProvider?: PageProvider,
+  layerProvider?: LayerProvider,
 ): RenderLoop {
   let width = initialWidth;
   let height = initialHeight;
@@ -141,13 +150,28 @@ export function createRenderLoop(
       renderGrid(ctx, camera, width, height, gridType, gridSize);
     }
 
-    // 4. Render expressions in z-order [AC1]
+    // 4. Render expressions in z-order [AC1], filtered by visible layers [#109]
     if (roughCanvas && expressionProvider) {
+      const expressions = expressionProvider.getExpressions();
+      let order = expressionProvider.getExpressionOrder();
+
+      // Apply layer sorting and visibility filtering
+      if (layerProvider) {
+        order = layerProvider.getLayerSortedOrder(order, expressions);
+        const visibleLayerIds = layerProvider.getVisibleLayerIds();
+        order = order.filter((id) => {
+          const expr = expressions[id];
+          if (!expr) return false;
+          const layerId = expr.layerId ?? 'default';
+          return visibleLayerIds.has(layerId);
+        });
+      }
+
       renderExpressions(
         ctx,
         roughCanvas,
-        expressionProvider.getExpressions(),
-        expressionProvider.getExpressionOrder(),
+        expressions,
+        order,
         camera,
         width,
         height,

@@ -443,6 +443,7 @@ export const visualExpressionSchema = z.object({
   meta: expressionMetaSchema,
   parentId: z.string().optional(),
   children: z.array(z.string()).optional(),
+  layerId: z.string().optional(),
   data: expressionDataSchema,
 }).refine(
   (expr) => expr.kind === (expr.data as { kind: string }).kind,
