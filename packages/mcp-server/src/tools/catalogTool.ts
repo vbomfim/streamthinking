@@ -11,6 +11,7 @@
 import {
   getAllCategories,
   getStencilsByCategory,
+  getAllStencilMeta,
   THEME_PRESETS,
 } from '@infinicanvas/engine';
 
@@ -28,11 +29,15 @@ function buildPrimitivesSection(): string {
 
 function buildStencilsSection(): string {
   const categories = getAllCategories();
+  const allMeta = getAllStencilMeta();
   const lines: string[] = ['## Stencils'];
+
+  lines.push(`\nTotal: ${allMeta.length} stencils across ${categories.length} categories.`);
+  lines.push('Use `canvas_search_stencils` to find stencils by name, or `canvas_list_stencils` with search/pagination.');
 
   for (const category of categories) {
     const stencils = getStencilsByCategory(category);
-    lines.push(`\n### ${category}`);
+    lines.push(`\n### ${category} (${stencils.length})`);
     for (const s of stencils) {
       const size = `${s.defaultSize.width}×${s.defaultSize.height}`;
       const container = s.defaultSize.width >= 150 ? ' [container]' : '';
@@ -41,6 +46,11 @@ function buildStencilsSection(): string {
   }
 
   lines.push(`
+### draw.io Stencils
+Additional stencils from draw.io libraries may be available as lazy-loaded categories.
+Use \`canvas_list_stencils\` or \`canvas_search_stencils\` to discover all available stencils,
+including any registered draw.io stencil packs.
+
 ### Stencil Label Placement
 - **Container stencils** (zones, clusters, namespaces): Use \`labelPosition: 'top-left'\` and \`fontSize: 14\`. This renders the label inside the container at the top-left.
 - **Icon stencils** (server, database, pod, etc.): Use \`labelPosition: 'below'\` (default) and \`fontSize: 10\`.

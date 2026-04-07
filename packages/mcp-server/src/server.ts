@@ -65,6 +65,7 @@ import {
 import {
   executePlaceStencil,
   executeListStencils,
+  executeSearchStencils,
 } from './tools/stencilTools.js';
 import { executeCatalog } from './tools/catalogTool.js';
 import {
@@ -647,7 +648,7 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
     'canvas_place_stencil',
     'Place a pre-built stencil icon on the canvas. Use for architecture diagrams with servers, databases, Kubernetes resources, Azure services, etc. Check canvas_catalog for available stencils with sizes. Container stencils (zones, clusters) are 200×150+. Icon stencils are 44×44.',
     {
-      stencilId: z.string().describe("Stencil identifier (e.g., 'server', 'k8s-pod', 'database')"),
+      stencilId: z.string().describe("Stencil identifier (e.g., 'server', 'k8s-pod', 'database'). Supports fuzzy name matching — if exact ID not found, searches by name substring."),
       x: z.number().describe('X position on the canvas'),
       y: z.number().describe('Y position on the canvas'),
       label: z.string().optional().describe('Text label for the stencil'),
@@ -663,12 +664,28 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
 
   server.tool(
     'canvas_list_stencils',
-    'List available stencil icons, optionally filtered by category. Categories: network, azure, generic-it, architecture, kubernetes, azure-arm.',
+    'List available stencil icons, optionally filtered by category and search. Supports pagination. Returns JSON with stencils array, total count, page, and pageSize.',
     {
       category: z.string().optional().describe('Filter by category (e.g., "network", "kubernetes")'),
+      search: z.string().optional().describe('Filter by name substring (case-insensitive, matches id or label)'),
+      page: z.number().min(1).optional().describe('Page number for pagination (default: 1)'),
+      pageSize: z.number().min(1).max(100).optional().describe('Results per page (default: 50, max: 100)'),
     },
     async (params) => ({
       content: [{ type: 'text' as const, text: await executeListStencils(params) }],
+    }),
+  );
+
+  server.tool(
+    'canvas_search_stencils',
+    'Search for stencils by name. Returns matching stencils with ID, name, category, and size. Fast metadata search — no SVG loading. Use to discover the right stencil before placing.',
+    {
+      query: z.string().describe('Search query — matches against stencil id and label (case-insensitive)'),
+      category: z.string().optional().describe('Optional category filter to narrow results'),
+      limit: z.number().min(1).max(50).optional().describe('Maximum number of results (default: 10)'),
+    },
+    async (params) => ({
+      content: [{ type: 'text' as const, text: await executeSearchStencils(params) }],
     }),
   );
 
