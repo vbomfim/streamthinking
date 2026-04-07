@@ -4,6 +4,9 @@
  * @module
  */
 
+// Side-effect import: registers draw.io stencils into STENCIL_CATALOG
+import './drawio/index.js';
+
 export type { StencilEntry, StencilMeta, CategoryLoader } from './stencilCatalog.js';
 export {
   STENCIL_CATALOG,
