@@ -1,10 +1,19 @@
 # StreamThinking — InfiniCanvas
 
-A visual communication protocol for humans & AI — an infinite canvas where AI agents express reasoning, diagrams, wireframes, and workflows, and humans respond by drawing, annotating, and editing. Both sides speak the same visual protocol.
+An infinite canvas whiteboard with real-time bidirectional AI↔human collaboration. AI agents and humans co-create diagrams, flowcharts, wireframes, and visual explanations on the same canvas using a shared visual protocol.
 
 ## What is InfiniCanvas?
 
 InfiniCanvas is an infinite canvas where AI and humans co-create using a shared visual protocol. AI agents can draw diagrams, flowcharts, wireframes, and visual explanations — and humans can respond by drawing, annotating, and rearranging on the same canvas. The shared protocol means both sides understand each other's visual expressions natively.
+
+### Key Features
+
+- **Custom canvas engine** with clean geometry (roughness=0 default) and optional hand-drawn style
+- **56+ SVG stencils** across 7 categories (Network, Azure, Kubernetes, ARM, Generic IT, Architecture, Security)
+- **Real-time collaboration** via WebSocket gateway — all changes sync instantly
+- **MCP server** with 30+ canvas tools for AI agent integration (GitHub Copilot, Claude, etc.)
+- **Presentation mode** with camera waypoints and keyboard navigation
+- **draw.io format support** — export/import to mxGraphModel XML for interop with draw.io, Confluence, and VS Code
 
 ## Architecture
 
@@ -12,12 +21,12 @@ Monorepo with 6 packages:
 
 | Package | Description |
 |---------|-------------|
-| `protocol` | Shared schema, types, and validation (ICP — InfiniCanvas Protocol) |
-| `engine` | Rendering engine — Zustand state store, Rough.js renderer, Canvas component |
+| `protocol` | Shared schema, types, and validation (ICP — InfiniCanvas Protocol), including draw.io serializer |
+| `engine` | Custom rendering engine — Zustand state store, Rough.js renderer, Canvas component |
 | `gateway` | WebSocket gateway — real-time collaboration server for canvas sessions |
 | `mcp-server` | MCP server — 30+ canvas tools for AI agents via Model Context Protocol |
 | `agents` | AI agent adapters (future) |
-| `app` | React web application — toolbar, style panel, stencil palette |
+| `app` | React web application — toolbar, style panel, stencil palette, export/import UI |
 
 **Data flow:**
 
@@ -140,6 +149,7 @@ npx tsx packages/mcp-server/src/main.ts
 | **Annotations** | `canvas_annotate`, `canvas_highlight`, `canvas_add_comment` |
 | **Waypoints** | `canvas_add_waypoint`, `canvas_list_waypoints`, `canvas_remove_waypoint` |
 | **Persistence** | `canvas_save`, `canvas_load`, `canvas_list_saves` |
+| **draw.io** | `canvas_export_drawio`, `canvas_import_drawio` |
 | **Canvas** | `canvas_clear` |
 
 ---
@@ -185,9 +195,50 @@ npm run dev -w @infinicanvas/app
 - **56 stencils**: Network, Azure, Kubernetes, ARM, Generic IT, Architecture, Security
 - **Arrow types**: Triangle, chevron, diamond, circle — configurable per-end
 - **Styles**: Stroke color, fill, roughness, opacity, dashed/dotted, font family/size
-- **Rough.js rendering**: Hand-drawn sketchy style with deterministic seeds
-- **Clean shapes**: Perfect geometry at roughness=0
+- **Clean geometry**: Smooth rendering by default (roughness=0), optional hand-drawn sketchy style via Rough.js
 - **Presentation mode**: Camera waypoints with keyboard navigation
 - **Z-order**: Bring forward/back with overlap-aware stacking
 - **Real-time sync**: All changes sync via WebSocket gateway
 - **AI collaboration**: Bidirectional — AI draws, human edits, AI sees changes
+
+---
+
+## draw.io Integration
+
+InfiniCanvas supports bidirectional conversion with [draw.io](https://draw.io) (diagrams.net) via the **mxGraphModel XML** format.
+
+### What's supported
+
+- **Shapes**: Rectangles, ellipses, diamonds, text, sticky notes, stencils
+- **Connectors**: Arrows and lines with waypoints, start/end bindings
+- **Styles**: Colors, stroke width, opacity, dashed/dotted patterns, rotation
+- **Labels**: Text labels on shapes and connectors
+
+### From the UI
+
+Use the **Export menu** (download icon) in the toolbar:
+- **Export .drawio** — downloads the canvas as `infinicanvas-export.drawio`
+- **Import .drawio** — opens a file picker for `.drawio` or `.xml` files
+
+Exported files open directly in draw.io, Confluence draw.io plugin, and VS Code draw.io extensions.
+
+### From AI agents (MCP tools)
+
+| Tool | Description |
+|------|-------------|
+| `canvas_export_drawio` | Exports the current canvas as mxGraphModel XML |
+| `canvas_import_drawio` | Imports mxGraphModel XML onto the canvas |
+
+### Serializer (protocol package)
+
+The `@infinicanvas/protocol` package exports two functions:
+
+```typescript
+import { expressionsToDrawio, drawioToExpressions } from '@infinicanvas/protocol';
+
+// Canvas → draw.io XML
+const xml = expressionsToDrawio(expressions);
+
+// draw.io XML → Canvas expressions
+const expressions = drawioToExpressions(xml);
+```
