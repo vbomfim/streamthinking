@@ -18,7 +18,7 @@ import {
   computeFitToContent,
   ZOOM_STEP,
 } from '@infinicanvas/engine';
-import { ZoomIn, ZoomOut, Maximize, Magnet } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize, Grid3x3, Magnet } from 'lucide-react';
 import type { VisualExpression } from '@infinicanvas/protocol';
 
 /** Button size in pixels. */
@@ -30,6 +30,7 @@ const ICON_SIZE = 16;
 /** ZoomControls — bottom-right zoom panel. */
 export function ZoomControls() {
   const camera = useCanvasStore((s) => s.camera);
+  const gridVisible = useCanvasStore((s) => s.gridVisible);
   const snapEnabled = useCanvasStore((s) => s.snapEnabled);
 
   const handleZoomIn = useCallback(() => {
@@ -62,6 +63,10 @@ export function ZoomControls() {
       viewportHeight,
     );
     setCam(newCamera);
+  }, []);
+
+  const handleToggleGrid = useCallback(() => {
+    useCanvasStore.getState().toggleGrid();
   }, []);
 
   const handleToggleSnap = useCallback(() => {
@@ -137,28 +142,36 @@ export function ZoomControls() {
         <Maximize size={ICON_SIZE} />
       </button>
 
-      {/* Snap divider */}
-      <div
+      {/* Grid toggle */}
+      <button
+        type="button"
+        data-testid="grid-toggle"
+        aria-label={gridVisible ? 'Hide grid' : 'Show grid'}
+        title={gridVisible ? "Hide grid (Ctrl+')" : "Show grid (Ctrl+')"}
+        onClick={handleToggleGrid}
         style={{
-          width: 1,
-          height: 20,
-          backgroundColor: 'var(--border, #e0e0e0)',
-          margin: '0 2px',
+          ...buttonStyle,
+          color: gridVisible
+            ? 'var(--accent, #4A90D9)'
+            : 'var(--text-primary, #333333)',
         }}
-      />
+      >
+        <Grid3x3 size={ICON_SIZE} />
+      </button>
 
-      {/* Snap to grid toggle */}
+      {/* Snap toggle */}
       <button
         type="button"
         data-testid="snap-toggle"
-        aria-label="Snap to grid"
+        aria-label={snapEnabled ? 'Disable snap to grid' : 'Enable snap to grid'}
         aria-pressed={snapEnabled}
-        title="Snap to grid (Ctrl+Shift+')"
+        title={snapEnabled ? "Disable snap (Ctrl+Shift+')" : "Enable snap (Ctrl+Shift+')"}
         onClick={handleToggleSnap}
         style={{
           ...buttonStyle,
-          backgroundColor: snapEnabled ? 'var(--accent-bg, #e8f0fe)' : 'transparent',
-          color: snapEnabled ? 'var(--accent, #1a73e8)' : 'var(--text-primary, #333333)',
+          color: snapEnabled
+            ? 'var(--accent, #4A90D9)'
+            : 'var(--text-primary, #333333)',
         }}
       >
         <Magnet size={ICON_SIZE} />

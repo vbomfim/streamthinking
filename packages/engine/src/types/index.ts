@@ -33,6 +33,9 @@ export interface CameraWaypoint {
   label?: string;
 }
 
+/** Grid display type — dots or lines. */
+export type GridType = 'dot' | 'line';
+
 /** Complete canvas state shape managed by Zustand. */
 export interface CanvasState {
   /** All expressions on the canvas, keyed by ID. */
@@ -45,6 +48,12 @@ export interface CanvasState {
   activeTool: ToolType;
   /** Camera viewport state. */
   camera: Camera;
+  /** Whether the background grid is visible. */
+  gridVisible: boolean;
+  /** Background grid display type (dot or line). */
+  gridType: GridType;
+  /** Background grid spacing in world units. */
+  gridSize: number;
   /** Saved camera waypoints for presentation mode. */
   waypoints: CameraWaypoint[];
   /** Active waypoint index (-1 = not in presentation mode). */
@@ -79,6 +88,12 @@ export interface CanvasActions {
   setActiveTool: (tool: ToolType) => void;
   /** Set the camera viewport state. */
   setCamera: (camera: Camera) => void;
+  /** Toggle grid visibility on/off. */
+  toggleGrid: () => void;
+  /** Set the grid display type (dot or line). */
+  setGridType: (type: GridType) => void;
+  /** Set the grid spacing in world units. */
+  setGridSize: (size: number) => void;
   /** Undo the last content mutation, restoring previous canvas state. */
   undo: () => void;
   /** Redo the last undone action, restoring next canvas state. */

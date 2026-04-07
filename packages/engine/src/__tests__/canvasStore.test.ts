@@ -49,6 +49,9 @@ beforeEach(() => {
     selectedIds: new Set<string>(),
     activeTool: 'select',
     camera: { x: 0, y: 0, zoom: 1 },
+    gridVisible: true,
+    gridType: 'dot',
+    gridSize: 20,
     operationLog: [],
     canUndo: false,
     canRedo: false,
@@ -620,6 +623,90 @@ describe('meta.locked enforcement in canvasStore (S5-3)', () => {
 
     expect(useCanvasStore.getState().expressions['locked-1']).toBeDefined();
     // No new operation should be logged for a no-op delete
+    expect(useCanvasStore.getState().operationLog.length).toBe(logBefore);
+  });
+});
+
+// ── Grid state actions ─────────────────────────────────────
+
+describe('toggleGrid', () => {
+  it('toggles gridVisible from true to false', () => {
+    expect(useCanvasStore.getState().gridVisible).toBe(true);
+    useCanvasStore.getState().toggleGrid();
+    expect(useCanvasStore.getState().gridVisible).toBe(false);
+  });
+
+  it('toggles gridVisible from false back to true', () => {
+    useCanvasStore.getState().toggleGrid(); // true → false
+    useCanvasStore.getState().toggleGrid(); // false → true
+    expect(useCanvasStore.getState().gridVisible).toBe(true);
+  });
+
+  it('does NOT emit a ProtocolOperation (UI-only action)', () => {
+    const logBefore = useCanvasStore.getState().operationLog.length;
+    useCanvasStore.getState().toggleGrid();
+    expect(useCanvasStore.getState().operationLog.length).toBe(logBefore);
+  });
+});
+
+describe('setGridType', () => {
+  it('defaults to dot grid', () => {
+    expect(useCanvasStore.getState().gridType).toBe('dot');
+  });
+
+  it('changes grid type to line', () => {
+    useCanvasStore.getState().setGridType('line');
+    expect(useCanvasStore.getState().gridType).toBe('line');
+  });
+
+  it('changes grid type back to dot', () => {
+    useCanvasStore.getState().setGridType('line');
+    useCanvasStore.getState().setGridType('dot');
+    expect(useCanvasStore.getState().gridType).toBe('dot');
+  });
+
+  it('does NOT emit a ProtocolOperation (UI-only action)', () => {
+    const logBefore = useCanvasStore.getState().operationLog.length;
+    useCanvasStore.getState().setGridType('line');
+    expect(useCanvasStore.getState().operationLog.length).toBe(logBefore);
+  });
+});
+
+describe('setGridSize', () => {
+  it('defaults to 20', () => {
+    expect(useCanvasStore.getState().gridSize).toBe(20);
+  });
+
+  it('updates grid size', () => {
+    useCanvasStore.getState().setGridSize(40);
+    expect(useCanvasStore.getState().gridSize).toBe(40);
+  });
+
+  it('clamps grid size to minimum of 5', () => {
+    useCanvasStore.getState().setGridSize(2);
+    expect(useCanvasStore.getState().gridSize).toBe(5);
+  });
+
+  it('clamps grid size to maximum of 200', () => {
+    useCanvasStore.getState().setGridSize(500);
+    expect(useCanvasStore.getState().gridSize).toBe(200);
+  });
+
+  it('rejects NaN without changing state', () => {
+    useCanvasStore.getState().setGridSize(40);
+    useCanvasStore.getState().setGridSize(NaN);
+    expect(useCanvasStore.getState().gridSize).toBe(40);
+  });
+
+  it('rejects Infinity without changing state', () => {
+    useCanvasStore.getState().setGridSize(40);
+    useCanvasStore.getState().setGridSize(Infinity);
+    expect(useCanvasStore.getState().gridSize).toBe(40);
+  });
+
+  it('does NOT emit a ProtocolOperation (UI-only action)', () => {
+    const logBefore = useCanvasStore.getState().operationLog.length;
+    useCanvasStore.getState().setGridSize(40);
     expect(useCanvasStore.getState().operationLog.length).toBe(logBefore);
   });
 });

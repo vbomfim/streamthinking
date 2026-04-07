@@ -52,6 +52,9 @@ function createMockCtx() {
     fillRect: vi.fn(),
     strokeRect: vi.fn(),
     setLineDash: vi.fn(),
+    moveTo: vi.fn(),
+    lineTo: vi.fn(),
+    stroke: vi.fn(),
     fillStyle: '',
     strokeStyle: '',
     lineWidth: 1,
@@ -68,6 +71,10 @@ describe('createRenderLoop', () => {
     raf = createRafMock();
     vi.stubGlobal('requestAnimationFrame', raf.requestAnimationFrame);
     vi.stubGlobal('cancelAnimationFrame', raf.cancelAnimationFrame);
+    // Stub window for global screenshot request handling in renderFrame
+    if (typeof window === 'undefined') {
+      vi.stubGlobal('window', {});
+    }
   });
 
   afterEach(() => {
@@ -201,6 +208,9 @@ describe('createRenderLoop — marquee rendering (#68)', () => {
     raf = createRafMock();
     vi.stubGlobal('requestAnimationFrame', raf.requestAnimationFrame);
     vi.stubGlobal('cancelAnimationFrame', raf.cancelAnimationFrame);
+    if (typeof window === 'undefined') {
+      vi.stubGlobal('window', {});
+    }
   });
 
   afterEach(() => {
@@ -304,6 +314,104 @@ describe('createRenderLoop — marquee rendering (#68)', () => {
     );
     // At least 2: one for clear, one for marquee
     expect(dprIdentityCalls.length).toBeGreaterThanOrEqual(2);
+    loop.stop();
+  });
+});
+
+// ── Grid provider rendering ──────────────────────────────────
+
+describe('createRenderLoop — grid provider', () => {
+  let raf: ReturnType<typeof createRafMock>;
+
+  beforeEach(() => {
+    raf = createRafMock();
+    vi.stubGlobal('requestAnimationFrame', raf.requestAnimationFrame);
+    vi.stubGlobal('cancelAnimationFrame', raf.cancelAnimationFrame);
+    if (typeof window === 'undefined') {
+      vi.stubGlobal('window', {});
+    }
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('renders grid when gridProvider.getGridVisible() returns true', () => {
+    const ctx = createMockCtx();
+    const getCamera = (): Camera => ({ x: 0, y: 0, zoom: 1 });
+    const gridProvider = {
+      getGridVisible: vi.fn().mockReturnValue(true),
+      getGridType: vi.fn().mockReturnValue('dot' as const),
+      getGridSize: vi.fn().mockReturnValue(20),
+    };
+
+    const loop = createRenderLoop(
+      ctx, getCamera, 800, 600,
+      undefined, undefined, undefined, undefined,
+      1, undefined, undefined, gridProvider,
+    );
+
+    loop.start();
+    raf.tick();
+    // Dot grid should draw arcs
+    expect(ctx.arc).toHaveBeenCalled();
+    loop.stop();
+  });
+
+  it('does NOT render grid when gridProvider.getGridVisible() returns false', () => {
+    const ctx = createMockCtx();
+    const getCamera = (): Camera => ({ x: 0, y: 0, zoom: 1 });
+    const gridProvider = {
+      getGridVisible: vi.fn().mockReturnValue(false),
+      getGridType: vi.fn().mockReturnValue('dot' as const),
+      getGridSize: vi.fn().mockReturnValue(20),
+    };
+
+    const loop = createRenderLoop(
+      ctx, getCamera, 800, 600,
+      undefined, undefined, undefined, undefined,
+      1, undefined, undefined, gridProvider,
+    );
+
+    loop.start();
+    raf.tick();
+    // No arcs or lines should be drawn
+    expect(ctx.arc).not.toHaveBeenCalled();
+    loop.stop();
+  });
+
+  it('renders line grid when gridType is line', () => {
+    const ctx = createMockCtx();
+    const getCamera = (): Camera => ({ x: 0, y: 0, zoom: 1 });
+    const gridProvider = {
+      getGridVisible: vi.fn().mockReturnValue(true),
+      getGridType: vi.fn().mockReturnValue('line' as const),
+      getGridSize: vi.fn().mockReturnValue(20),
+    };
+
+    const loop = createRenderLoop(
+      ctx, getCamera, 800, 600,
+      undefined, undefined, undefined, undefined,
+      1, undefined, undefined, gridProvider,
+    );
+
+    loop.start();
+    raf.tick();
+    // Line grid should use moveTo/lineTo, not arcs
+    expect((ctx as unknown as Record<string, { mock: { calls: unknown[] } }>).moveTo.mock.calls.length).toBeGreaterThan(0);
+    expect(ctx.arc).not.toHaveBeenCalled();
+    loop.stop();
+  });
+
+  it('renders grid by default when no gridProvider is given', () => {
+    const ctx = createMockCtx();
+    const getCamera = (): Camera => ({ x: 0, y: 0, zoom: 1 });
+    const loop = createRenderLoop(ctx, getCamera, 800, 600);
+
+    loop.start();
+    raf.tick();
+    // Default behavior: grid is visible with dot type
+    expect(ctx.arc).toHaveBeenCalled();
     loop.stop();
   });
 });

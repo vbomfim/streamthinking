@@ -39,6 +39,7 @@ const ACTION_SHORTCUTS: ShortcutEntry[] = [
   { keys: 'Ctrl+Shift+Z / Ctrl+Y', description: 'Redo' },
   { keys: 'Ctrl+D', description: 'Duplicate selected' },
   { keys: 'Ctrl+A', description: 'Select All' },
+  { keys: "Ctrl+'", description: 'Toggle grid' },
   { keys: 'Delete / Backspace', description: 'Delete selected' },
   { keys: 'Ctrl+Shift+\'', description: 'Toggle snap to grid' },
   { keys: 'Escape', description: 'Cancel / Deselect' },

@@ -143,8 +143,13 @@ function CanvasInner() {
     const editingProvider = {
       getEditingId: () => editingIdRef.current,
     };
+    const gridProvider = {
+      getGridVisible: () => useCanvasStore.getState().gridVisible,
+      getGridType: () => useCanvasStore.getState().gridType,
+      getGridSize: () => useCanvasStore.getState().gridSize,
+    };
     const dpr = window.devicePixelRatio || 1;
-    const loop = createRenderLoop(ctx, getCamera, width, height, roughCanvas, expressionProvider, selectionProvider, drawPreviewProvider, dpr, marqueeProvider, editingProvider);
+    const loop = createRenderLoop(ctx, getCamera, width, height, roughCanvas, expressionProvider, selectionProvider, drawPreviewProvider, dpr, marqueeProvider, editingProvider, gridProvider);
 
     renderLoopRef.current = loop;
     loop.start();

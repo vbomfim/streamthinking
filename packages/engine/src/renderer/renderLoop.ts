@@ -9,9 +9,10 @@
 
 import type { VisualExpression } from '@infinicanvas/protocol';
 import type { RoughCanvas } from 'roughjs/bin/canvas.js';
-import type { Camera } from '../types/index.js';
+import type { Camera, GridType } from '../types/index.js';
 import type { DrawPreview } from '../tools/BaseTool.js';
 import { applyTransform } from '../camera.js';
+import { renderGrid } from './gridRenderer.js';
 import { renderExpressions } from './primitiveRenderer.js';
 import { renderSelection } from './selectionRenderer.js';
 import { renderDrawPreview } from './drawPreviewRenderer.js';
@@ -61,6 +62,16 @@ export interface EditingProvider {
   getEditingId(): string | null;
 }
 
+/** Callback that returns the current grid display settings. */
+export interface GridProvider {
+  /** Whether the background grid should be rendered. */
+  getGridVisible(): boolean;
+  /** Grid display type — dots or lines. */
+  getGridType(): GridType;
+  /** Grid spacing in world units. */
+  getGridSize(): number;
+}
+
 /**
  * Create a render loop bound to a canvas context.
  *
@@ -85,6 +96,7 @@ export function createRenderLoop(
   dpr: number = 1,
   marqueeProvider?: MarqueeProvider,
   editingProvider?: EditingProvider,
+  gridProvider?: GridProvider,
 ): RenderLoop {
   let width = initialWidth;
   let height = initialHeight;
@@ -104,7 +116,11 @@ export function createRenderLoop(
     applyTransform(ctx, camera, dpr);
 
     // 3. Render grid (in world coordinates)
-    // Grid removed — true infinite canvas with no visual boundaries
+    if (!gridProvider || gridProvider.getGridVisible()) {
+      const gridType = gridProvider?.getGridType() ?? 'dot';
+      const gridSize = gridProvider?.getGridSize() ?? 20;
+      renderGrid(ctx, camera, width, height, gridType, gridSize);
+    }
 
     // 4. Render expressions in z-order [AC1]
     if (roughCanvas && expressionProvider) {

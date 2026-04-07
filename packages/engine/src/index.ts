@@ -34,7 +34,7 @@ export {
 // ── Renderers ──────────────────────────────────────────────
 export { renderGrid, getGridSpacing } from './renderer/gridRenderer.js';
 export { createRenderLoop } from './renderer/renderLoop.js';
-export type { RenderLoop, ExpressionProvider, SelectionProvider, DrawPreviewProvider, EditingProvider } from './renderer/renderLoop.js';
+export type { RenderLoop, ExpressionProvider, SelectionProvider, DrawPreviewProvider, EditingProvider, GridProvider } from './renderer/renderLoop.js';
 export {
   renderExpressions,
   renderLabel,
@@ -203,6 +203,7 @@ export type {
   ToolType,
   Camera,
   CameraWaypoint,
+  GridType,
   CanvasState,
   CanvasActions,
 } from './types/index.js';

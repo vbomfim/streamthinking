@@ -34,7 +34,7 @@ import type {
   UngroupPayload,
   ExpressionStyle,
 } from '@infinicanvas/protocol';
-import type { CanvasState, CanvasActions, ToolType, Camera, CameraWaypoint } from '../types/index.js';
+import type { CanvasState, CanvasActions, ToolType, Camera, CameraWaypoint, GridType } from '../types/index.js';
 import { HistoryManager } from '../history/historyManager.js';
 import type { CanvasSnapshot } from '../history/historyManager.js';
 import { invalidateLayoutCache as invalidateFlowchartCache } from '../renderer/composites/flowchartRenderer.js';
@@ -326,6 +326,9 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     selectedIds: new Set<string>(),
     activeTool: 'select' as ToolType,
     camera: { x: 0, y: 0, zoom: 1 },
+    gridVisible: true,
+    gridType: 'dot' as GridType,
+    gridSize: 20,
     operationLog: [],
     canUndo: false,
     canRedo: false,
@@ -591,6 +594,27 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
           y: camera.y,
           zoom: Math.max(MIN_ZOOM, Math.min(camera.zoom, MAX_ZOOM)),
         };
+      });
+    },
+
+    // ── Grid state (UI-only — NO operations or snapshots) ──────
+
+    toggleGrid: () => {
+      set((state) => {
+        state.gridVisible = !state.gridVisible;
+      });
+    },
+
+    setGridType: (type: GridType) => {
+      set((state) => {
+        state.gridType = type;
+      });
+    },
+
+    setGridSize: (size: number) => {
+      if (!Number.isFinite(size)) return;
+      set((state) => {
+        state.gridSize = Math.max(5, Math.min(size, 200));
       });
     },
 
