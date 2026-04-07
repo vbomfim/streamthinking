@@ -71,12 +71,14 @@ export interface PageGrid {
  *
  * When no expressions exist, returns a single page at origin (0, 0).
  * Always includes the origin page (0, 0) in the grid.
+ * Returns a single origin page if pageSize dimensions are non-positive.
  */
 export function computePageGrid(
-  expressions: VisualExpression[],
+  expressions: Record<string, VisualExpression>,
   pageSize: { width: number; height: number },
 ): PageGrid {
-  if (expressions.length === 0) {
+  // Guard against invalid page dimensions (division by zero)
+  if (pageSize.width <= 0 || pageSize.height <= 0) {
     return { startCol: 0, startRow: 0, endCol: 0, endRow: 0 };
   }
 
@@ -85,12 +87,21 @@ export function computePageGrid(
   let minY = Infinity;
   let maxX = -Infinity;
   let maxY = -Infinity;
+  let hasExpressions = false;
 
-  for (const expr of expressions) {
+  for (const id in expressions) {
+    const expr = expressions[id]!;
+    // Skip zero-size expressions — they have no spatial extent
+    if (expr.size.width <= 0 || expr.size.height <= 0) continue;
+    hasExpressions = true;
     minX = Math.min(minX, expr.position.x);
     minY = Math.min(minY, expr.position.y);
     maxX = Math.max(maxX, expr.position.x + expr.size.width);
     maxY = Math.max(maxY, expr.position.y + expr.size.height);
+  }
+
+  if (!hasExpressions) {
+    return { startCol: 0, startRow: 0, endCol: 0, endRow: 0 };
   }
 
   // Snap outward to page boundaries
@@ -127,7 +138,7 @@ export function renderPages(
   canvasWidth: number,
   canvasHeight: number,
   pageSize: { width: number; height: number },
-  expressions: VisualExpression[],
+  expressions: Record<string, VisualExpression>,
 ): void {
   if (canvasWidth <= 0 || canvasHeight <= 0) return;
 

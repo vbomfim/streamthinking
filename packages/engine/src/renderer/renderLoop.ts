@@ -129,8 +129,8 @@ export function createRenderLoop(
     if (pageProvider?.getPageVisible()) {
       const pageSize = pageProvider.getPageSize();
       const exprs = expressionProvider
-        ? Object.values(expressionProvider.getExpressions())
-        : [];
+        ? expressionProvider.getExpressions()
+        : {};
       renderPages(ctx, camera, width, height, pageSize, exprs);
     }
 

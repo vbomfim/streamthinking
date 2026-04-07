@@ -326,9 +326,6 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     selectedIds: new Set<string>(),
     activeTool: 'select' as ToolType,
     camera: { x: 0, y: 0, zoom: 1 },
-    gridVisible: true,
-    gridType: 'dot' as GridType,
-    gridSize: 20,
     operationLog: [],
     canUndo: false,
     canRedo: false,
@@ -346,7 +343,6 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     // ── Page/paper boundary state (UI-only, no operations or snapshots) ──
     pageVisible: true,
     pageSize: { width: 1122, height: 794 },
-    pageMargin: 40,
 
     // ── Content mutations (emit ProtocolOperations + push snapshots) ──
 
@@ -599,27 +595,6 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
           y: camera.y,
           zoom: Math.max(MIN_ZOOM, Math.min(camera.zoom, MAX_ZOOM)),
         };
-      });
-    },
-
-    // ── Grid state (UI-only — NO operations or snapshots) ──────
-
-    toggleGrid: () => {
-      set((state) => {
-        state.gridVisible = !state.gridVisible;
-      });
-    },
-
-    setGridType: (type: GridType) => {
-      set((state) => {
-        state.gridType = type;
-      });
-    },
-
-    setGridSize: (size: number) => {
-      if (!Number.isFinite(size)) return;
-      set((state) => {
-        state.gridSize = Math.max(5, Math.min(size, 200));
       });
     },
 
@@ -1348,7 +1323,7 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     setGridSize: (size: number) => {
       if (size <= 0 || !Number.isFinite(size)) return;
       set((state) => {
-        state.gridSize = size;
+        state.gridSize = Math.max(5, Math.min(size, 200));
       });
     },
 

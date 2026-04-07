@@ -27,7 +27,6 @@ beforeEach(() => {
     canRedo: false,
     pageVisible: true,
     pageSize: { width: 1122, height: 794 },
-    pageMargin: 40,
   });
   useCanvasStore.getState().clearHistory();
 });
@@ -43,11 +42,6 @@ describe('page state defaults', () => {
   it('has pageSize defaulting to A4 landscape', () => {
     const state = useCanvasStore.getState();
     expect(state.pageSize).toEqual({ width: 1122, height: 794 });
-  });
-
-  it('has pageMargin defaulting to 40', () => {
-    const state = useCanvasStore.getState();
-    expect(state.pageMargin).toBe(40);
   });
 });
 
