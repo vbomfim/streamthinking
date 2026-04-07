@@ -82,6 +82,7 @@ export { renderCodeBlock } from './renderer/composites/codeBlockRenderer.js';
 export { renderSlide } from './renderer/composites/slideRenderer.js';
 export { renderCollaborationDiagram } from './renderer/composites/collaborationDiagramRenderer.js';
 export { renderDecisionTree } from './renderer/composites/decisionTreeRenderer.js';
+export { renderContainer } from './renderer/composites/containerRenderer.js';
 
 // ── Stencil catalog ────────────────────────────────────────
 export type { StencilEntry, StencilMeta, CategoryLoader } from './renderer/stencils/index.js';

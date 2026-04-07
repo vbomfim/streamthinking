@@ -35,6 +35,7 @@ import type {
   UngroupPayload,
   ExpressionStyle,
   Layer,
+  ContainerData,
 } from '@infinicanvas/protocol';
 import type { CanvasState, CanvasActions, ToolType, Camera, CameraWaypoint } from '../types/index.js';
 import { HistoryManager } from '../history/historyManager.js';
@@ -533,6 +534,16 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
           }
         }
 
+        // #112: Unparent children of deleted containers
+        for (const deletedId of existingIds) {
+          for (const [childId, childExpr] of Object.entries(state.expressions)) {
+            if (idSet.has(childId)) continue; // skip if child is also being deleted
+            if (childExpr.parentId === deletedId) {
+              delete childExpr.parentId;
+            }
+          }
+        }
+
         for (const id of existingIds) {
           delete state.expressions[id];
           state.selectedIds.delete(id);
@@ -891,6 +902,23 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
       set((state) => {
         const movedIds = new Set(allowedMoves.map((m) => m.id));
 
+        // #112: Cascade container moves to children.
+        // Collect child moves for containers being moved, excluding
+        // children already in the explicit move list.
+        const childMoves: Array<{ id: string; dx: number; dy: number }> = [];
+        for (const move of allowedMoves) {
+          const expr = state.expressions[move.id];
+          if (!expr || expr.kind !== 'container') continue;
+          const dx = move.to.x - move.from.x;
+          const dy = move.to.y - move.from.y;
+          for (const [childId, childExpr] of Object.entries(state.expressions)) {
+            if (childExpr.parentId === move.id && !movedIds.has(childId)) {
+              childMoves.push({ id: childId, dx, dy });
+              movedIds.add(childId);
+            }
+          }
+        }
+
         for (const move of allowedMoves) {
           const expr = state.expressions[move.id];
           if (expr) {
@@ -912,6 +940,18 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
             } else {
               translateExpressionPoints(expr, dx, dy);
             }
+          }
+        }
+
+        // #112: Apply cascaded child moves
+        for (const cm of childMoves) {
+          const child = state.expressions[cm.id];
+          if (child) {
+            child.position = {
+              x: child.position.x + cm.dx,
+              y: child.position.y + cm.dy,
+            };
+            translateExpressionPoints(child, cm.dx, cm.dy);
           }
         }
 
@@ -1517,6 +1557,188 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
           expr.layerId = layerId;
         }
       });
+    },
+
+    // ── Container actions (#112) ──────────────────────────────
+
+    createContainer: (
+      title: string,
+      position: { x: number; y: number },
+      size: { width: number; height: number },
+    ): string => {
+      const currentState = get();
+      const containerId = nanoid();
+      const now = Date.now();
+
+      const containerData: ContainerData = {
+        kind: 'container',
+        title,
+        headerHeight: 40,
+        padding: 20,
+        collapsed: false,
+      };
+
+      const expression: VisualExpression = {
+        id: containerId,
+        kind: 'container',
+        position: { ...position },
+        size: { ...size },
+        angle: 0,
+        style: { ...DEFAULT_EXPRESSION_STYLE },
+        meta: {
+          author: SYSTEM_AUTHOR,
+          createdAt: now,
+          updatedAt: now,
+          tags: [],
+          locked: false,
+        },
+        data: containerData,
+      };
+
+      // Validate before adding
+      const result = visualExpressionSchema.safeParse(expression);
+      if (!result.success) {
+        console.warn('[canvasStore] Invalid container expression rejected:', result.error.issues);
+        return '';
+      }
+
+      // Push snapshot for undo
+      historyManager.pushSnapshot(captureSnapshot(currentState));
+
+      set((state) => {
+        const layeredExpr = expression.layerId
+          ? expression
+          : { ...expression, layerId: state.activeLayerId };
+        state.expressions[layeredExpr.id] = layeredExpr;
+        state.expressionOrder.push(layeredExpr.id);
+
+        const operation = createOperation('create', {
+          type: 'create',
+          expressionId: containerId,
+          kind: 'container',
+          position: expression.position,
+          size: expression.size,
+          data: expression.data,
+          style: expression.style,
+          angle: 0,
+        });
+        pushOperation(state.operationLog, operation);
+
+        state.canUndo = historyManager.canUndo();
+        state.canRedo = historyManager.canRedo();
+      });
+
+      return containerId;
+    },
+
+    toggleContainerCollapse: (id: string) => {
+      const currentState = get();
+      const expr = currentState.expressions[id];
+      if (!expr || expr.kind !== 'container') return;
+
+      // Push snapshot for undo
+      historyManager.pushSnapshot(captureSnapshot(currentState));
+
+      set((state) => {
+        const container = state.expressions[id];
+        if (!container || container.data.kind !== 'container') return;
+
+        const data = container.data as ContainerData;
+        data.collapsed = !data.collapsed;
+        container.meta.updatedAt = Date.now();
+
+        const operation = createOperation('update', {
+          type: 'update',
+          expressionId: id,
+          changes: { data: { ...data } },
+        });
+        pushOperation(state.operationLog, operation);
+
+        state.canUndo = historyManager.canUndo();
+        state.canRedo = historyManager.canRedo();
+      });
+    },
+
+    autoParentOnDrop: (expressionId: string) => {
+      const currentState = get();
+      const expr = currentState.expressions[expressionId];
+      if (!expr) return;
+
+      // Find all containers that fully contain this expression
+      const containers: VisualExpression[] = [];
+      for (const [id, candidate] of Object.entries(currentState.expressions)) {
+        if (id === expressionId) continue;
+        if (candidate.kind !== 'container') continue;
+
+        // Check if the expression is inside the container body bounds
+        const cX = candidate.position.x;
+        const cY = candidate.position.y;
+        const cW = candidate.size.width;
+        const cH = candidate.size.height;
+
+        if (
+          expr.position.x >= cX &&
+          expr.position.y >= cY &&
+          expr.position.x + expr.size.width <= cX + cW &&
+          expr.position.y + expr.size.height <= cY + cH
+        ) {
+          containers.push(candidate);
+        }
+      }
+
+      if (containers.length === 0) return;
+
+      // Pick the smallest container (innermost nesting)
+      const smallest = containers.reduce((best, c) => {
+        const bestArea = best.size.width * best.size.height;
+        const cArea = c.size.width * c.size.height;
+        return cArea < bestArea ? c : best;
+      });
+
+      // Already parented to this container — no-op
+      if (expr.parentId === smallest.id) return;
+
+      set((state) => {
+        const target = state.expressions[expressionId];
+        if (target) {
+          target.parentId = smallest.id;
+        }
+      });
+    },
+
+    autoUnparentOnDrag: (expressionId: string) => {
+      const currentState = get();
+      const expr = currentState.expressions[expressionId];
+      if (!expr || !expr.parentId) return;
+
+      const parent = currentState.expressions[expr.parentId];
+      if (!parent) {
+        // Parent no longer exists — clear the reference
+        set((state) => {
+          const target = state.expressions[expressionId];
+          if (target) delete target.parentId;
+        });
+        return;
+      }
+
+      // Check if the expression is still inside the parent container bounds
+      const pX = parent.position.x;
+      const pY = parent.position.y;
+      const pW = parent.size.width;
+      const pH = parent.size.height;
+
+      const isInside =
+        expr.position.x >= pX &&
+        expr.position.y >= pY &&
+        expr.position.x + expr.size.width <= pX + pW &&
+        expr.position.y + expr.size.height <= pY + pH;
+
+      if (!isInside) {
+        set((state) => {
+          const target = state.expressions[expressionId];
+          if (target) delete target.parentId;
+        });
+      }
     },
   })),
 );

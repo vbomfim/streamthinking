@@ -115,6 +115,26 @@ export interface StencilData {
   labelFontSize?: number;
 }
 
+/**
+ * Data for a container expression.
+ *
+ * Containers are parent shapes that visually contain and manage children.
+ * They have a colored header bar with a title and a body area where
+ * child expressions can be placed. Useful for swimlanes, grouping, and
+ * organizational layouts.
+ */
+export interface ContainerData {
+  kind: 'container';
+  /** Display title shown in the header bar. */
+  title: string;
+  /** Height of the header bar in world pixels. */
+  headerHeight: number;
+  /** Inner padding between container border and child area. */
+  padding: number;
+  /** Whether the container body is collapsed (only header visible). */
+  collapsed: boolean;
+}
+
 /** Routing mode for arrow connectors. */
 export type RoutingMode = 'straight' | 'orthogonal';
 
@@ -129,4 +149,5 @@ export type PrimitiveData =
   | TextData
   | StickyNoteData
   | ImageData
-  | StencilData;
+  | StencilData
+  | ContainerData;

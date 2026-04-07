@@ -55,6 +55,7 @@ export function getExpressionLabel(expr: VisualExpression): string | undefined {
     case 'wireframe':
     case 'roadmap':
     case 'kanban':
+    case 'container':
       return data.title;
     case 'sequence-diagram':
       return data.title;

@@ -64,6 +64,16 @@ export {
   buildComment,
 } from './tools/annotationTools.js';
 
+// ── Container tools (#112) ─────────────────────────────────
+export {
+  buildContainer,
+  buildSwimlanes,
+} from './tools/containerTools.js';
+export type {
+  CreateContainerParams,
+  CreateSwimlanesParams,
+} from './tools/containerTools.js';
+
 // ── Management tools ───────────────────────────────────────
 export { formatCanvasState, formatStructuredState, getExpressionLabel } from './tools/managementTools.js';
 

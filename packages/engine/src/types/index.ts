@@ -221,4 +221,30 @@ export interface CanvasActions {
   reorderLayers: (layerIds: string[]) => void;
   /** Move expressions to a different layer. */
   moveToLayer: (expressionIds: string[], layerId: string) => void;
+  /**
+   * Create a container expression and add it to the canvas.
+   * Returns the new container's expression ID.
+   */
+  createContainer: (
+    title: string,
+    position: { x: number; y: number },
+    size: { width: number; height: number },
+  ) => string;
+  /**
+   * Toggle a container's collapsed state.
+   * When collapsed, only the header bar is visible; children are hidden.
+   * No-op if the expression is not a container or doesn't exist.
+   */
+  toggleContainerCollapse: (id: string) => void;
+  /**
+   * Check if an expression was dropped inside a container and auto-parent it.
+   * Sets `parentId` on the expression if it overlaps a container's bounds.
+   * Prefers the smallest matching container (innermost nesting).
+   */
+  autoParentOnDrop: (expressionId: string) => void;
+  /**
+   * Check if an expression was dragged outside its parent container.
+   * Clears `parentId` if the expression no longer overlaps its parent.
+   */
+  autoUnparentOnDrag: (expressionId: string) => void;
 }

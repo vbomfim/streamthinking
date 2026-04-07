@@ -89,6 +89,10 @@ import {
   executeMoveToLayer,
 } from './tools/layerTools.js';
 import type { ILayerGatewayClient } from './tools/layerTools.js';
+import {
+  executeCreateContainer,
+  executeCreateSwimlanes,
+} from './tools/containerTools.js';
 
 // ── Zod schemas for tool parameters ────────────────────────
 
@@ -883,6 +887,49 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
     async (params) => ({
       content: [{ type: 'text' as const, text: executeMoveToLayer(layerClient, params) }],
     }),
+  );
+
+  // ── Container tools (#112) ──────────────────────────────
+
+  server.tool(
+    'canvas_create_container',
+    'Create a container shape on the canvas. Containers have a colored header bar with title and a body area where child shapes can be placed. Use for swimlanes, grouping, and organizational layouts. Default size 300×250.',
+    {
+      x: z.number().describe('X position on the canvas'),
+      y: z.number().describe('Y position on the canvas'),
+      width: z.number().positive().describe('Width of the container'),
+      height: z.number().positive().describe('Height of the container'),
+      title: z.string().min(1).describe('Title displayed in the header bar'),
+      headerHeight: z.number().positive().optional().describe('Height of the header bar (default: 40)'),
+      padding: z.number().nonnegative().optional().describe('Inner padding for child area (default: 20)'),
+      collapsed: z.boolean().optional().describe('Start collapsed (header only)? Default: false'),
+      strokeColor: z.string().optional().describe('Border color in hex (e.g. "#FF0000")'),
+      backgroundColor: z.string().optional().describe('Fill color in hex or "transparent"'),
+      fillStyle: fillStyleSchema.optional().describe('Fill rendering style'),
+    },
+    async (params) => {
+      const result = await executeCreateContainer(gatewayClient, params);
+      return { content: [{ type: 'text' as const, text: result }] };
+    },
+  );
+
+  server.tool(
+    'canvas_create_swimlanes',
+    'Create multiple container shapes arranged as swimlanes (side-by-side or stacked). Each lane has a title header. Use for process flows, responsibility assignment, or organizational layouts.',
+    {
+      x: z.number().describe('X position of the first swimlane'),
+      y: z.number().describe('Y position of the first swimlane'),
+      lanes: z.array(z.object({
+        title: z.string().min(1).describe('Lane title'),
+      })).min(1).describe('Array of lane definitions with titles'),
+      orientation: z.enum(['horizontal', 'vertical']).optional().describe('Layout: horizontal (side-by-side) or vertical (stacked). Default: horizontal'),
+      laneWidth: z.number().positive().optional().describe('Width of each lane (default: 300)'),
+      laneHeight: z.number().positive().optional().describe('Height of each lane (default: 400)'),
+    },
+    async (params) => {
+      const result = await executeCreateSwimlanes(gatewayClient, params);
+      return { content: [{ type: 'text' as const, text: result }] };
+    },
   );
 
   return server;

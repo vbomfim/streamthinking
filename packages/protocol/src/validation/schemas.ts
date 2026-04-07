@@ -167,6 +167,14 @@ export const stencilDataSchema = z.object({
   labelFontSize: z.number().positive().optional(),
 });
 
+export const containerDataSchema = z.object({
+  kind: z.literal('container'),
+  title: z.string().max(500),
+  headerHeight: z.number().positive(),
+  padding: z.number().nonnegative(),
+  collapsed: z.boolean(),
+});
+
 // ── Composite Data Schemas ─────────────────────────────────
 
 const flowNodeSchema = z.object({
@@ -394,6 +402,7 @@ export const expressionDataSchema = z.discriminatedUnion('kind', [
   stickyNoteDataSchema,
   imageDataSchema,
   stencilDataSchema,
+  containerDataSchema,
   // Composites
   flowchartDataSchema,
   sequenceDiagramDataSchema,
