@@ -1101,7 +1101,7 @@ describe('DEFAULT_EXPRESSION_STYLE (I2-2)', () => {
     expect(DEFAULT_EXPRESSION_STYLE.backgroundColor).toBe('transparent');
     expect(DEFAULT_EXPRESSION_STYLE.fillStyle).toBe('hachure');
     expect(DEFAULT_EXPRESSION_STYLE.strokeWidth).toBe(2);
-    expect(DEFAULT_EXPRESSION_STYLE.roughness).toBe(1);
+    expect(DEFAULT_EXPRESSION_STYLE.roughness).toBe(0);
     expect(DEFAULT_EXPRESSION_STYLE.opacity).toBe(1);
   });
 

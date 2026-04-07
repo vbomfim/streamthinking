@@ -93,6 +93,18 @@ describe('mapStyleToRoughOptions', () => {
     expect(options.roughness).toBe(0);
   });
 
+  it('sets bowing to 0 when roughness is 0 for clean geometry', () => {
+    const style = makeStyle({ roughness: 0 });
+    const options = mapStyleToRoughOptions(style);
+    expect(options.bowing).toBe(0);
+  });
+
+  it('does not force bowing to 0 when roughness is positive', () => {
+    const style = makeStyle({ roughness: 2 });
+    const options = mapStyleToRoughOptions(style);
+    expect(options.bowing).toBeUndefined();
+  });
+
   it('handles minimum strokeWidth', () => {
     const style = makeStyle({ strokeWidth: 1 });
     const options = mapStyleToRoughOptions(style);

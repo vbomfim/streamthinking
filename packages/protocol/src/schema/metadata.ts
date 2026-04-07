@@ -45,7 +45,7 @@ export const DEFAULT_EXPRESSION_STYLE: ExpressionStyle = {
   fillStyle: 'hachure',
   strokeStyle: 'solid',
   strokeWidth: 2,
-  roughness: 1,
+  roughness: 0,
   opacity: 1,
   fontFamily: 'Architects Daughter, cursive',
 };

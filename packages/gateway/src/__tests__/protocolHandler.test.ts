@@ -307,7 +307,7 @@ describe('protocolHandler', () => {
       expect(expr.style.backgroundColor).toBe('transparent');
       expect(expr.style.fillStyle).toBe('hachure');
       expect(expr.style.strokeWidth).toBe(2);
-      expect(expr.style.roughness).toBe(1);
+      expect(expr.style.roughness).toBe(0);
       expect(expr.style.opacity).toBe(1);
     });
   });

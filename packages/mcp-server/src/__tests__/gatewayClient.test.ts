@@ -541,7 +541,7 @@ describe('GatewayClient default style uses canonical values (I2-2)', () => {
     const expr = client.getState()[0]!;
     expect(expr.style.strokeColor).toBe('#1e1e1e');
     expect(expr.style.fillStyle).toBe('hachure');
-    expect(expr.style.roughness).toBe(1);
+    expect(expr.style.roughness).toBe(0);
     expect(expr.style.backgroundColor).toBe('transparent');
     expect(expr.style.strokeWidth).toBe(2);
     expect(expr.style.opacity).toBe(1);

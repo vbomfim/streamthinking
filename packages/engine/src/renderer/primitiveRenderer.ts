@@ -237,7 +237,7 @@ function renderRectangle(
   const { x, y } = expr.position;
   const { width, height } = expr.size;
 
-  if ((expr.style.roughness ?? 1) < 0.1) {
+  if ((expr.style.roughness ?? 0) < 0.1) {
     drawCleanShape(ctx, expr, 'rectangle');
   } else {
     const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
@@ -266,7 +266,7 @@ function renderEllipse(
   const { x, y } = expr.position;
   const { width, height } = expr.size;
 
-  if ((expr.style.roughness ?? 1) < 0.1) {
+  if ((expr.style.roughness ?? 0) < 0.1) {
     drawCleanShape(ctx, expr, 'ellipse');
   } else {
     const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
@@ -294,7 +294,7 @@ function renderDiamond(
   const { x, y } = expr.position;
   const { width, height } = expr.size;
 
-  if ((expr.style.roughness ?? 1) < 0.1) {
+  if ((expr.style.roughness ?? 0) < 0.1) {
     drawCleanShape(ctx, expr, 'diamond');
   } else {
     const options = mapStyleToRoughOptions(expr.style, idToSeed(expr.id));
@@ -695,7 +695,7 @@ function renderStencil(
       ctx.fill();
     } else {
       // hachure / cross-hatch — diagonal lines only, no background fill (matches Rough.js)
-      const roughness = expr.style.roughness ?? 1;
+      const roughness = expr.style.roughness ?? 0;
 
       ctx.globalAlpha = opacity * 0.6;
       ctx.strokeStyle = bgColor;

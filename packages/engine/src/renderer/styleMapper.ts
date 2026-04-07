@@ -39,6 +39,8 @@ export function mapStyleToRoughOptions(style: ExpressionStyle, seed?: number): O
     fillStyle: noFill ? undefined : style.fillStyle,
     strokeWidth: style.strokeWidth,
     roughness: style.roughness,
+    // When roughness is 0 (clean geometry), disable line curvature too
+    ...(style.roughness === 0 ? { bowing: 0 } : {}),
     strokeLineDash: dash,
     ...(seed !== undefined ? { seed } : {}),
   };
