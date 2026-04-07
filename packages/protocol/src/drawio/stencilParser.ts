@@ -182,7 +182,11 @@ function paintAttrs(
   const parts: string[] = [];
 
   if (op === 'fill' || op === 'fillstroke') {
-    parts.push(`fill="${state.fillColor}"`);
+    // Default currentColor fills become a light gray so stencils render as
+    // professional line-art rather than solid black blobs. Explicit colors
+    // from <fillcolor color="..."/> are preserved as-is (multi-color stencils).
+    const fill = state.fillColor === 'currentColor' ? '#888888' : state.fillColor;
+    parts.push(`fill="${fill}"`);
   } else {
     parts.push('fill="none"');
   }
