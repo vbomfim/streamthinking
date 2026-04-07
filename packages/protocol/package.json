@@ -19,6 +19,7 @@
     "clean": "rm -rf dist *.tsbuildinfo"
   },
   "dependencies": {
+    "fast-xml-parser": "^5.5.10",
     "nanoid": "^5.0.9",
     "zod": "^3.24.2"
   },

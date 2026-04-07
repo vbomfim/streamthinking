@@ -158,3 +158,10 @@ export {
   TextBuilder,
   StickyNoteBuilder,
 } from './builders/expressionBuilder.js';
+
+// ── draw.io serializer ────────────────────────────────────
+
+export {
+  expressionsToDrawio,
+  drawioToExpressions,
+} from './drawio/serializer.js';
