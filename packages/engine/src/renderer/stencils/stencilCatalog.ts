@@ -136,6 +136,40 @@ import {
   CISCO_PRO_PRINTER_SVG,
   CISCO_PRO_CAMERA_SVG,
 } from './svgs/cisco-pro.js';
+import {
+  AWS_PRO_EC2_SVG,
+  AWS_PRO_LAMBDA_SVG,
+  AWS_PRO_ECS_SVG,
+  AWS_PRO_EKS_SVG,
+  AWS_PRO_FARGATE_SVG,
+  AWS_PRO_LIGHTSAIL_SVG,
+  AWS_PRO_S3_SVG,
+  AWS_PRO_EBS_SVG,
+  AWS_PRO_EFS_SVG,
+  AWS_PRO_GLACIER_SVG,
+  AWS_PRO_RDS_SVG,
+  AWS_PRO_DYNAMODB_SVG,
+  AWS_PRO_AURORA_SVG,
+  AWS_PRO_ELASTICACHE_SVG,
+  AWS_PRO_REDSHIFT_SVG,
+  AWS_PRO_VPC_SVG,
+  AWS_PRO_CLOUDFRONT_SVG,
+  AWS_PRO_ROUTE53_SVG,
+  AWS_PRO_ELB_SVG,
+  AWS_PRO_API_GATEWAY_SVG,
+  AWS_PRO_DIRECT_CONNECT_SVG,
+  AWS_PRO_IAM_SVG,
+  AWS_PRO_WAF_SVG,
+  AWS_PRO_SHIELD_SVG,
+  AWS_PRO_KMS_SVG,
+  AWS_PRO_COGNITO_SVG,
+  AWS_PRO_CLOUDWATCH_SVG,
+  AWS_PRO_CLOUDFORMATION_SVG,
+  AWS_PRO_CLOUDTRAIL_SVG,
+  AWS_PRO_SQS_SVG,
+  AWS_PRO_SNS_SVG,
+  AWS_PRO_EVENTBRIDGE_SVG,
+} from './svgs/aws-pro.js';
 
 /**
  * Lightweight stencil metadata — always available, no SVG content.
@@ -673,6 +707,47 @@ export const STENCIL_CATALOG: Map<string, StencilEntry> = new Map([
   ['cisco-pro-laptop', { id: 'cisco-pro-laptop', category: 'cisco-pro', label: 'Laptop', svgContent: CISCO_PRO_LAPTOP_SVG, defaultSize: ICON_SIZE }],
   ['cisco-pro-printer', { id: 'cisco-pro-printer', category: 'cisco-pro', label: 'Printer', svgContent: CISCO_PRO_PRINTER_SVG, defaultSize: ICON_SIZE }],
   ['cisco-pro-camera', { id: 'cisco-pro-camera', category: 'cisco-pro', label: 'IP Camera', svgContent: CISCO_PRO_CAMERA_SVG, defaultSize: ICON_SIZE }],
+
+  // ── AWS Pro (hand-crafted) ────────────────────────────────
+  // Compute
+  ['aws-pro-ec2', { id: 'aws-pro-ec2', category: 'aws-pro', label: 'EC2', svgContent: AWS_PRO_EC2_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-lambda', { id: 'aws-pro-lambda', category: 'aws-pro', label: 'Lambda', svgContent: AWS_PRO_LAMBDA_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-ecs', { id: 'aws-pro-ecs', category: 'aws-pro', label: 'ECS', svgContent: AWS_PRO_ECS_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-eks', { id: 'aws-pro-eks', category: 'aws-pro', label: 'EKS', svgContent: AWS_PRO_EKS_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-fargate', { id: 'aws-pro-fargate', category: 'aws-pro', label: 'Fargate', svgContent: AWS_PRO_FARGATE_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-lightsail', { id: 'aws-pro-lightsail', category: 'aws-pro', label: 'Lightsail', svgContent: AWS_PRO_LIGHTSAIL_SVG, defaultSize: ICON_SIZE }],
+  // Storage
+  ['aws-pro-s3', { id: 'aws-pro-s3', category: 'aws-pro', label: 'S3', svgContent: AWS_PRO_S3_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-ebs', { id: 'aws-pro-ebs', category: 'aws-pro', label: 'EBS', svgContent: AWS_PRO_EBS_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-efs', { id: 'aws-pro-efs', category: 'aws-pro', label: 'EFS', svgContent: AWS_PRO_EFS_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-glacier', { id: 'aws-pro-glacier', category: 'aws-pro', label: 'Glacier', svgContent: AWS_PRO_GLACIER_SVG, defaultSize: ICON_SIZE }],
+  // Database
+  ['aws-pro-rds', { id: 'aws-pro-rds', category: 'aws-pro', label: 'RDS', svgContent: AWS_PRO_RDS_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-dynamodb', { id: 'aws-pro-dynamodb', category: 'aws-pro', label: 'DynamoDB', svgContent: AWS_PRO_DYNAMODB_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-aurora', { id: 'aws-pro-aurora', category: 'aws-pro', label: 'Aurora', svgContent: AWS_PRO_AURORA_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-elasticache', { id: 'aws-pro-elasticache', category: 'aws-pro', label: 'ElastiCache', svgContent: AWS_PRO_ELASTICACHE_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-redshift', { id: 'aws-pro-redshift', category: 'aws-pro', label: 'Redshift', svgContent: AWS_PRO_REDSHIFT_SVG, defaultSize: ICON_SIZE }],
+  // Networking
+  ['aws-pro-vpc', { id: 'aws-pro-vpc', category: 'aws-pro', label: 'VPC', svgContent: AWS_PRO_VPC_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-cloudfront', { id: 'aws-pro-cloudfront', category: 'aws-pro', label: 'CloudFront', svgContent: AWS_PRO_CLOUDFRONT_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-route53', { id: 'aws-pro-route53', category: 'aws-pro', label: 'Route 53', svgContent: AWS_PRO_ROUTE53_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-elb', { id: 'aws-pro-elb', category: 'aws-pro', label: 'ELB/ALB', svgContent: AWS_PRO_ELB_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-api-gateway', { id: 'aws-pro-api-gateway', category: 'aws-pro', label: 'API Gateway', svgContent: AWS_PRO_API_GATEWAY_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-direct-connect', { id: 'aws-pro-direct-connect', category: 'aws-pro', label: 'Direct Connect', svgContent: AWS_PRO_DIRECT_CONNECT_SVG, defaultSize: ICON_SIZE }],
+  // Security
+  ['aws-pro-iam', { id: 'aws-pro-iam', category: 'aws-pro', label: 'IAM', svgContent: AWS_PRO_IAM_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-waf', { id: 'aws-pro-waf', category: 'aws-pro', label: 'WAF', svgContent: AWS_PRO_WAF_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-shield', { id: 'aws-pro-shield', category: 'aws-pro', label: 'Shield', svgContent: AWS_PRO_SHIELD_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-kms', { id: 'aws-pro-kms', category: 'aws-pro', label: 'KMS', svgContent: AWS_PRO_KMS_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-cognito', { id: 'aws-pro-cognito', category: 'aws-pro', label: 'Cognito', svgContent: AWS_PRO_COGNITO_SVG, defaultSize: ICON_SIZE }],
+  // Management
+  ['aws-pro-cloudwatch', { id: 'aws-pro-cloudwatch', category: 'aws-pro', label: 'CloudWatch', svgContent: AWS_PRO_CLOUDWATCH_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-cloudformation', { id: 'aws-pro-cloudformation', category: 'aws-pro', label: 'CloudFormation', svgContent: AWS_PRO_CLOUDFORMATION_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-cloudtrail', { id: 'aws-pro-cloudtrail', category: 'aws-pro', label: 'CloudTrail', svgContent: AWS_PRO_CLOUDTRAIL_SVG, defaultSize: ICON_SIZE }],
+  // Messaging
+  ['aws-pro-sqs', { id: 'aws-pro-sqs', category: 'aws-pro', label: 'SQS', svgContent: AWS_PRO_SQS_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-sns', { id: 'aws-pro-sns', category: 'aws-pro', label: 'SNS', svgContent: AWS_PRO_SNS_SVG, defaultSize: ICON_SIZE }],
+  ['aws-pro-eventbridge', { id: 'aws-pro-eventbridge', category: 'aws-pro', label: 'EventBridge', svgContent: AWS_PRO_EVENTBRIDGE_SVG, defaultSize: ICON_SIZE }],
 ]);
 
 // ── Initialize metadata from eager catalog ────────────────

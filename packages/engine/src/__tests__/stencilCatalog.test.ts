@@ -413,9 +413,10 @@ describe('getStencilsByCategory', () => {
 // ── getAllCategories ───────────────────────────────────────
 
 describe('getAllCategories', () => {
-  it('returns all 15 unique categories', () => {
+  it('returns all 16 unique categories', () => {
     const categories = getAllCategories();
     expect(categories).toContain('architecture');
+    expect(categories).toContain('aws-pro');
     expect(categories).toContain('azure');
     expect(categories).toContain('azure-arm');
     expect(categories).toContain('cisco-pro');
@@ -426,15 +427,15 @@ describe('getAllCategories', () => {
   });
 
   it('returns the correct number of categories', () => {
-    expect(getAllCategories()).toHaveLength(15);
+    expect(getAllCategories()).toHaveLength(16);
   });
 });
 
 // ── STENCIL_CATALOG integrity ─────────────────────────────
 
 describe('STENCIL_CATALOG', () => {
-  it('contains all 1857 stencil entries (76 hand-crafted + 30 cisco-pro + draw.io imports)', () => {
-    expect(STENCIL_CATALOG.size).toBe(1857);
+  it('contains all 1889 stencil entries (76 hand-crafted + 30 cisco-pro + 32 aws-pro + draw.io imports)', () => {
+    expect(STENCIL_CATALOG.size).toBe(1889);
   });
 
   it('has map keys matching entry IDs', () => {
