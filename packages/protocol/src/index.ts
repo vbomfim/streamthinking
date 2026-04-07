@@ -20,6 +20,7 @@ export type {
   ArrowBinding,
   ArrowAnchor,
   ArrowheadType,
+  RoutingMode,
   FreehandData,
   TextData,
   StickyNoteData,

@@ -9,6 +9,7 @@
  */
 
 import type { DrawPreview } from '../tools/BaseTool.js';
+import type { ShapeConnectionPoint } from '../connectors/connectionPoints.js';
 
 /** Dashed stroke color for draw previews. */
 const PREVIEW_STROKE_COLOR = '#4A90D9';
@@ -21,6 +22,15 @@ const PREVIEW_STROKE_WIDTH = 1.5;
 
 /** Preview fill color (very light blue). */
 const PREVIEW_FILL_COLOR = 'rgba(74, 144, 217, 0.08)';
+
+/** Connection point circle radius in screen pixels. */
+const CONNECTION_POINT_RADIUS = 6;
+
+/** Connection point idle fill color (light blue). */
+const CONNECTION_POINT_FILL = 'rgba(74, 144, 217, 0.3)';
+
+/** Connection point border color. */
+const CONNECTION_POINT_STROKE = '#4A90D9';
 
 /**
  * Render a draw preview on the canvas context.
@@ -80,6 +90,11 @@ export function renderDrawPreview(
     ctx.setLineDash([]);
     ctx.stroke();
     ctx.restore();
+  }
+
+  // ── Connection points: show all points on the hovered shape ──
+  if (preview.connectionPoints && preview.connectionPoints.length > 0) {
+    renderConnectionPoints(ctx, preview.connectionPoints, preview.snapPoint, zoom);
   }
 }
 
@@ -190,4 +205,43 @@ function renderStickyNotePreview(ctx: CanvasRenderingContext2D, p: DrawPreview):
   ctx.fillRect(p.x, p.y, p.width, p.height);
   ctx.strokeStyle = '#FFB300';
   ctx.strokeRect(p.x, p.y, p.width, p.height);
+}
+
+/**
+ * Render connection point circles on a shape.
+ *
+ * Shows small circles at each connection point. The currently snapped
+ * point is excluded (rendered separately as the larger snap indicator).
+ * [CLEAN-CODE]
+ */
+function renderConnectionPoints(
+  ctx: CanvasRenderingContext2D,
+  points: ShapeConnectionPoint[],
+  snapPoint: { x: number; y: number } | undefined,
+  zoom: number,
+): void {
+  const r = CONNECTION_POINT_RADIUS / zoom;
+  const strokeWidth = 1.5 / zoom;
+
+  ctx.save();
+  ctx.setLineDash([]);
+
+  for (const pt of points) {
+    // Skip the snapped point — it has its own larger indicator
+    if (snapPoint && Math.abs(pt.x - snapPoint.x) < 0.5 && Math.abs(pt.y - snapPoint.y) < 0.5) {
+      continue;
+    }
+
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = CONNECTION_POINT_FILL;
+    ctx.globalAlpha = 0.6;
+    ctx.fill();
+    ctx.strokeStyle = CONNECTION_POINT_STROKE;
+    ctx.lineWidth = strokeWidth;
+    ctx.globalAlpha = 0.8;
+    ctx.stroke();
+  }
+
+  ctx.restore();
 }

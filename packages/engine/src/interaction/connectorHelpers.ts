@@ -9,9 +9,7 @@
  */
 
 import type { VisualExpression, ArrowData } from '@infinicanvas/protocol';
-
-/** Kinds that support snap/binding (shapes with meaningful edges). */
-const BINDABLE_KINDS = new Set(['rectangle', 'ellipse', 'diamond', 'sticky-note', 'stencil']);
+import { BINDABLE_KINDS } from '../connectors/constants.js';
 
 /**
  * Find the nearest connection point on a shape's edge.
@@ -71,7 +69,10 @@ function clamp(value: number, min: number, max: number): number {
 /**
  * Get the connection point for a specific anchor on a shape.
  *
- * Supports rectangle, ellipse, diamond, and sticky-note shapes.
+ * Shape-aware: returns perimeter points for ellipse (parametric angles)
+ * and diamond (edge midpoints), matching the geometry from
+ * connectionPoints.ts. Avoids endpoint jumping on re-render.
+ *
  * For 'center' and 'auto' anchors, returns the bounding box center.
  * [CLEAN-CODE] [SRP]
  */
@@ -87,7 +88,15 @@ export function getAnchorPoint(
     return { x: x + width / 2, y: y + height / 2 };
   }
 
-  // Use ratio (0-1) along the edge for precise positioning
+  // Corner anchors need shape-specific geometry
+  const isCorner = anchor === 'top-left' || anchor === 'top-right'
+    || anchor === 'bottom-left' || anchor === 'bottom-right';
+
+  if (isCorner) {
+    return getShapeAwareCornerPoint(expression.kind, x, y, width, height, anchor);
+  }
+
+  // Edge anchors — use ratio (0-1) along the edge for precise positioning
   switch (anchor) {
     case 'top':
       return { x: x + width * ratio, y };
@@ -99,6 +108,91 @@ export function getAnchorPoint(
       return { x, y: y + height * ratio };
     default:
       return { x: x + width / 2, y: y + height / 2 };
+  }
+}
+
+/**
+ * Compute corner anchor points using shape-specific geometry.
+ *
+ * Matches the geometry from connectionPoints.ts:
+ * - Rectangle/sticky-note/stencil: bounding box corners
+ * - Ellipse: parametric angles at 45°/135°/225°/315°
+ * - Diamond: midpoints of edges between vertices
+ * [CLEAN-CODE]
+ */
+function getShapeAwareCornerPoint(
+  kind: string,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  anchor: string,
+): { x: number; y: number } {
+  if (kind === 'ellipse') {
+    return getEllipseCornerPoint(x, y, width, height, anchor);
+  }
+
+  if (kind === 'diamond') {
+    return getDiamondCornerPoint(x, y, width, height, anchor);
+  }
+
+  // Rectangle, sticky-note, stencil — use bounding box corners
+  switch (anchor) {
+    case 'top-left':      return { x, y };
+    case 'top-right':     return { x: x + width, y };
+    case 'bottom-left':   return { x, y: y + height };
+    case 'bottom-right':  return { x: x + width, y: y + height };
+    default:              return { x: x + width / 2, y: y + height / 2 };
+  }
+}
+
+/** Compute ellipse corner anchor at parametric angle on the perimeter. */
+function getEllipseCornerPoint(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  anchor: string,
+): { x: number; y: number } {
+  const cx = x + width / 2;
+  const cy = y + height / 2;
+  const rx = width / 2;
+  const ry = height / 2;
+  const cos45 = Math.cos(Math.PI / 4);
+  const sin45 = Math.sin(Math.PI / 4);
+
+  switch (anchor) {
+    case 'top-right':     return { x: cx + rx * cos45, y: cy - ry * sin45 };
+    case 'top-left':      return { x: cx - rx * cos45, y: cy - ry * sin45 };
+    case 'bottom-right':  return { x: cx + rx * cos45, y: cy + ry * sin45 };
+    case 'bottom-left':   return { x: cx - rx * cos45, y: cy + ry * sin45 };
+    default:              return { x: cx, y: cy };
+  }
+}
+
+/** Compute diamond corner anchor at the midpoint between two vertices. */
+function getDiamondCornerPoint(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  anchor: string,
+): { x: number; y: number } {
+  const cx = x + width / 2;
+  const cy = y + height / 2;
+
+  // Diamond vertices
+  const top    = { x: cx,          y };
+  const right  = { x: x + width,   y: cy };
+  const bottom = { x: cx,          y: y + height };
+  const left   = { x,              y: cy };
+
+  switch (anchor) {
+    case 'top-right':     return { x: (top.x + right.x) / 2,    y: (top.y + right.y) / 2 };
+    case 'top-left':      return { x: (top.x + left.x) / 2,     y: (top.y + left.y) / 2 };
+    case 'bottom-right':  return { x: (bottom.x + right.x) / 2, y: (bottom.y + right.y) / 2 };
+    case 'bottom-left':   return { x: (bottom.x + left.x) / 2,  y: (bottom.y + left.y) / 2 };
+    default:              return { x: cx, y: cy };
   }
 }
 

@@ -110,7 +110,8 @@ export const lineDataSchema = z.object({
 
 const arrowBindingSchema = z.object({
   expressionId: z.string().min(1),
-  anchor: z.enum(['center', 'top', 'right', 'bottom', 'left', 'auto']),
+  anchor: z.enum(['center', 'top', 'right', 'bottom', 'left',
+    'top-left', 'top-right', 'bottom-left', 'bottom-right', 'auto']),
   ratio: z.number().min(0).max(1).optional(),
 });
 
@@ -124,6 +125,7 @@ export const arrowDataSchema = z.object({
   startBinding: arrowBindingSchema.optional(),
   endBinding: arrowBindingSchema.optional(),
   label: z.string().max(500).optional(),
+  routing: z.enum(['straight', 'orthogonal']).optional(),
 });
 
 const point3dSchema = z.tuple([z.number(), z.number(), z.number()]);

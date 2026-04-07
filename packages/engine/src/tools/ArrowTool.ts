@@ -13,6 +13,11 @@ import type { VisualExpression, ArrowBinding } from '@infinicanvas/protocol';
 import type { ToolHandler, DrawPreview } from './BaseTool.js';
 import { useCanvasStore } from '../store/canvasStore.js';
 import { findSnapPoint } from '../interaction/connectorHelpers.js';
+import {
+  getConnectionPoints,
+  findNearestConnectionPoint,
+  type ShapeConnectionPoint,
+} from '../connectors/connectionPoints.js';
 
 /** Minimum arrow length in world units. */
 const MIN_ARROW_LENGTH = 5;
@@ -37,6 +42,7 @@ export class ArrowTool implements ToolHandler {
   private startBinding: ArrowBinding | undefined = undefined;
   private currentSnapPoint: { x: number; y: number } | undefined = undefined;
   private currentSnapTargetId: string | undefined = undefined;
+  private currentConnectionPoints: ShapeConnectionPoint[] | undefined = undefined;
 
   onPointerDown(worldX: number, worldY: number, _event: PointerEvent): void {
     this.isDrawing = true;
@@ -66,9 +72,11 @@ export class ArrowTool implements ToolHandler {
     if (snap) {
       this.currentSnapPoint = snap.point;
       this.currentSnapTargetId = snap.targetId;
+      this.currentConnectionPoints = snap.connectionPoints;
     } else {
       this.currentSnapPoint = undefined;
       this.currentSnapTargetId = undefined;
+      this.currentConnectionPoints = undefined;
     }
 
     if (!this.isDrawing) return;
@@ -167,6 +175,7 @@ export class ArrowTool implements ToolHandler {
           points: [],
           snapPoint: this.currentSnapPoint,
           snapTargetId: this.currentSnapTargetId,
+          connectionPoints: this.currentConnectionPoints,
         };
       }
       return null;
@@ -188,6 +197,7 @@ export class ArrowTool implements ToolHandler {
       points,
       snapPoint: this.currentSnapPoint,
       snapTargetId: this.currentSnapTargetId,
+      connectionPoints: this.currentConnectionPoints,
     };
   }
 
@@ -199,34 +209,62 @@ export class ArrowTool implements ToolHandler {
     this.startBinding = undefined;
     this.currentSnapPoint = undefined;
     this.currentSnapTargetId = undefined;
+    this.currentConnectionPoints = undefined;
   }
 
   /**
    * Find the nearest snap target among all canvas expressions.
    *
    * Iterates all expressions and returns the closest snap point
-   * within SNAP_DISTANCE, or null if none found. [SRP]
+   * within SNAP_DISTANCE, or null if none found. Also includes
+   * all connection points on the target shape for hover UI.
+   * [SRP]
    */
   private findNearestSnap(
     worldX: number,
     worldY: number,
-  ): { point: { x: number; y: number }; anchor: string; targetId: string; ratio: number } | null {
+  ): { point: { x: number; y: number }; anchor: string; targetId: string; ratio: number; connectionPoints: ShapeConnectionPoint[] } | null {
     const { expressions, camera } = useCanvasStore.getState();
     // Scale snap distance so it stays ~15 screen pixels at any zoom
     const snapDist = Math.max(SNAP_DISTANCE, SNAP_DISTANCE / camera.zoom);
-    let best: { point: { x: number; y: number }; anchor: string; targetId: string; dist: number; ratio: number } | null = null;
+    let best: { point: { x: number; y: number }; anchor: string; targetId: string; dist: number; ratio: number; connectionPoints: ShapeConnectionPoint[] } | null = null;
 
     for (const [id, expr] of Object.entries(expressions)) {
+      // Try new connection point system first (includes corners)
+      const cpSnap = findNearestConnectionPoint(worldX, worldY, expr, snapDist);
+      if (cpSnap) {
+        const dist = Math.hypot(worldX - cpSnap.x, worldY - cpSnap.y);
+        if (!best || dist < best.dist) {
+          best = {
+            point: { x: cpSnap.x, y: cpSnap.y },
+            anchor: cpSnap.position,
+            targetId: id,
+            dist,
+            ratio: 0.5,
+            connectionPoints: getConnectionPoints(expr),
+          };
+        }
+        continue;
+      }
+
+      // Fall back to legacy edge snap (for edge midpoint ratios)
       const snap = findSnapPoint({ x: worldX, y: worldY }, expr, snapDist);
       if (snap) {
         const dist = Math.hypot(worldX - snap.point.x, worldY - snap.point.y);
         if (!best || dist < best.dist) {
-          best = { point: snap.point, anchor: snap.anchor, targetId: id, dist, ratio: snap.ratio };
+          best = {
+            point: snap.point,
+            anchor: snap.anchor,
+            targetId: id,
+            dist,
+            ratio: snap.ratio,
+            connectionPoints: getConnectionPoints(expr),
+          };
         }
       }
     }
 
-    return best ? { point: best.point, anchor: best.anchor, targetId: best.targetId, ratio: best.ratio } : null;
+    return best ? { point: best.point, anchor: best.anchor, targetId: best.targetId, ratio: best.ratio, connectionPoints: best.connectionPoints } : null;
   }
 }
 
