@@ -15,6 +15,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { VisualExpression } from '@infinicanvas/protocol';
 import {
+  buildRectangle,
+  buildEllipse,
+  buildLine,
+  buildArrow,
+  buildText,
+  buildStickyNote,
   executeDrawRectangle,
   executeDrawEllipse,
   executeDrawLine,
@@ -33,10 +39,11 @@ import {
   executeDrawFlowchart,
 } from '../tools/compositeTools.js';
 import {
+  executeGetState,
+  executeClear,
   executeMorph,
   formatCanvasState,
 } from '../tools/managementTools.js';
-import { buildExpression } from '../expressionFactory.js';
 import {
   buildAnnotation,
   buildHighlight,
@@ -65,6 +72,9 @@ function createMockClient(options?: {
     sendCreate: vi.fn(async () => {
       if (throwOnSend) throw new Error('Gateway connection lost');
     }),
+    sendBatchCreate: vi.fn(async () => {
+      if (throwOnSend) throw new Error('Gateway connection lost');
+    }),
     sendDelete: vi.fn(async () => {
       if (throwOnSend) throw new Error('Gateway connection lost');
     }),
@@ -75,10 +85,6 @@ function createMockClient(options?: {
       if (throwOnSend) throw new Error('Gateway connection lost');
     }),
     getState: vi.fn().mockReturnValue(expressions),
-    sendSceneUpdate: vi.fn(async () => {
-      if (throwOnSend) throw new Error('Gateway connection lost');
-    }),
-    getExcalidrawElements: vi.fn().mockReturnValue([]),
   };
 }
 
@@ -86,6 +92,64 @@ function createMockClient(options?: {
 
 describe('Expression protocol compliance [CONTRACT][AC6 #31]', () => {
   const requiredFields = ['id', 'kind', 'position', 'size', 'angle', 'style', 'data', 'meta'];
+
+  it('buildRectangle produces all required expression fields', () => {
+    const expr = buildRectangle({ x: 0, y: 0, width: 100, height: 50 });
+    for (const field of requiredFields) {
+      expect(expr).toHaveProperty(field);
+    }
+    expect(expr.kind).toBe('rectangle');
+    expect(expr.position).toEqual({ x: 0, y: 0 });
+    expect(expr.size).toEqual({ width: 100, height: 50 });
+  });
+
+  it('buildEllipse produces all required fields with correct kind', () => {
+    const expr = buildEllipse({ x: 10, y: 20, width: 80, height: 60 });
+    for (const field of requiredFields) {
+      expect(expr).toHaveProperty(field);
+    }
+    expect(expr.kind).toBe('ellipse');
+  });
+
+  it('buildLine produces all required fields with points data', () => {
+    const expr = buildLine({
+      points: [[0, 0], [100, 100]],
+    });
+    for (const field of requiredFields) {
+      expect(expr).toHaveProperty(field);
+    }
+    expect(expr.kind).toBe('line');
+    expect(expr.data.points).toBeDefined();
+  });
+
+  it('buildArrow produces all required fields with arrowhead data', () => {
+    const expr = buildArrow({
+      points: [[0, 0], [100, 100]],
+    });
+    for (const field of requiredFields) {
+      expect(expr).toHaveProperty(field);
+    }
+    expect(expr.kind).toBe('arrow');
+    expect(expr.data.endArrowhead).toBe('triangle');
+  });
+
+  it('buildText produces all required fields with text data', () => {
+    const expr = buildText({ x: 0, y: 0, text: 'Hello' });
+    for (const field of requiredFields) {
+      expect(expr).toHaveProperty(field);
+    }
+    expect(expr.kind).toBe('text');
+    expect(expr.data.text).toBe('Hello');
+  });
+
+  it('buildStickyNote produces all required fields with color', () => {
+    const expr = buildStickyNote({ x: 0, y: 0, text: 'Note' });
+    for (const field of requiredFields) {
+      expect(expr).toHaveProperty(field);
+    }
+    expect(expr.kind).toBe('sticky-note');
+    expect(expr.data.text).toBe('Note');
+  });
 
   it('buildFlowchart produces all required fields', () => {
     const expr = buildFlowchart({
@@ -124,6 +188,20 @@ describe('Expression protocol compliance [CONTRACT][AC6 #31]', () => {
 });
 
 describe('Author attribution [CONTRACT][AC7 #31]', () => {
+  it('all primitive tools use MCP agent author', () => {
+    const tools = [
+      buildRectangle({ x: 0, y: 0, width: 100, height: 50 }),
+      buildEllipse({ x: 0, y: 0, width: 100, height: 50 }),
+      buildText({ x: 0, y: 0, text: 'Test' }),
+      buildStickyNote({ x: 0, y: 0, text: 'Note' }),
+    ];
+
+    for (const expr of tools) {
+      expect(expr.meta.author.type).toBe('agent');
+      expect(expr.meta.author.provider).toBe('mcp');
+    }
+  });
+
   it('all composite tools use MCP agent author', () => {
     const flowchart = buildFlowchart({
       title: 'Test',
@@ -150,10 +228,10 @@ describe('Author attribution [CONTRACT][AC7 #31]', () => {
 });
 
 describe('Unique IDs per expression [CONTRACT]', () => {
-  it('each composite build call generates a unique ID', () => {
+  it('each build call generates a unique ID', () => {
     const ids = new Set<string>();
     for (let i = 0; i < 50; i++) {
-      const expr = buildFlowchart({ title: 'Test', nodes: [{ id: 'n1', label: 'A' }], edges: [] });
+      const expr = buildRectangle({ x: 0, y: 0, width: 100, height: 50 });
       expect(ids.has(expr.id)).toBe(false);
       ids.add(expr.id);
     }
@@ -180,17 +258,24 @@ describe('Gateway failure handling [CONTRACT][AC5 #31]', () => {
       }),
     ).rejects.toThrow('Gateway connection lost');
   });
+
+  it('executeClear propagates gateway error', async () => {
+    const client = createMockClient({
+      throwOnSend: true,
+      expressions: [buildRectangle({ x: 0, y: 0, width: 100, height: 50 })],
+    });
+
+    await expect(executeClear(client)).rejects.toThrow('Gateway connection lost');
+  });
 });
 
 describe('Tool input validation [EDGE][AC5 #31]', () => {
-  it('executeDrawLine requires at least 2 points', async () => {
-    const client = createMockClient();
-    await expect(executeDrawLine(client, { points: [[0, 0]] })).rejects.toThrow();
+  it('buildLine requires at least 2 points', () => {
+    expect(() => buildLine({ points: [[0, 0]] })).toThrow();
   });
 
-  it('executeDrawArrow requires at least 2 points', async () => {
-    const client = createMockClient();
-    await expect(executeDrawArrow(client, { points: [[0, 0]] })).rejects.toThrow();
+  it('buildArrow requires at least 2 points', () => {
+    expect(() => buildArrow({ points: [[0, 0]] })).toThrow();
   });
 
   it('buildFlowchart requires at least 1 node', () => {
@@ -234,12 +319,7 @@ describe('Tool input validation [EDGE][AC5 #31]', () => {
 
 describe('Morph validation [EDGE][AC5 #31]', () => {
   it('morph to same kind returns rejection message', async () => {
-    const rect = buildExpression(
-      'rectangle',
-      { x: 0, y: 0 },
-      { width: 100, height: 50 },
-      { kind: 'rectangle', label: undefined },
-    );
+    const rect = buildRectangle({ x: 0, y: 0, width: 100, height: 50 });
     const client = createMockClient({ expressions: [rect] });
 
     const result = await executeMorph(client, { elementId: rect.id, toKind: 'rectangle' });
@@ -258,8 +338,8 @@ describe('Morph validation [EDGE][AC5 #31]', () => {
 describe('Canvas state formatting [CONTRACT][AC3 #31]', () => {
   it('formatCanvasState includes all expression IDs and kinds', () => {
     const expressions: VisualExpression[] = [
-      buildExpression('rectangle', { x: 0, y: 0 }, { width: 100, height: 50 }, { kind: 'rectangle', label: undefined }),
-      buildExpression('ellipse', { x: 200, y: 100 }, { width: 80, height: 60 }, { kind: 'ellipse', label: undefined }),
+      buildRectangle({ x: 0, y: 0, width: 100, height: 50 }),
+      buildEllipse({ x: 200, y: 100, width: 80, height: 60 }),
     ];
 
     const output = formatCanvasState(expressions);

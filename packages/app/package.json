@@ -13,7 +13,6 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@excalidraw/excalidraw": "^0.18.0",
     "@infinicanvas/engine": "*",
     "@infinicanvas/protocol": "*",
     "lucide-react": "^0.577.0",

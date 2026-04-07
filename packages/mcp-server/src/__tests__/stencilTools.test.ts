@@ -25,14 +25,13 @@ function createMockClient(): IGatewayClient {
     isConnected: vi.fn().mockReturnValue(true),
     getSessionId: vi.fn().mockReturnValue('test-session'),
     sendCreate: vi.fn().mockResolvedValue(undefined),
+    sendBatchCreate: vi.fn().mockResolvedValue(undefined),
     sendDelete: vi.fn().mockResolvedValue(undefined),
     sendMorph: vi.fn().mockResolvedValue(undefined),
     sendStyle: vi.fn().mockResolvedValue(undefined),
     getState: vi.fn().mockReturnValue([]),
     getPendingRequests: vi.fn().mockReturnValue([]),
     updateAgentName: vi.fn(),
-    sendSceneUpdate: vi.fn().mockResolvedValue(undefined),
-    getExcalidrawElements: vi.fn().mockReturnValue([]),
   };
 }
 

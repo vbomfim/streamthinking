@@ -32,6 +32,7 @@ function createMockClient(options?: {
     isConnected: vi.fn().mockReturnValue(connected),
     getSessionId: vi.fn().mockReturnValue('session-1'),
     sendCreate: vi.fn().mockResolvedValue(undefined),
+    sendBatchCreate: vi.fn().mockResolvedValue(undefined),
     sendDelete: vi.fn().mockResolvedValue(undefined),
     sendMorph: vi.fn().mockResolvedValue(undefined),
     sendStyle: vi.fn().mockResolvedValue(undefined),
@@ -41,8 +42,6 @@ function createMockClient(options?: {
       queue = [];
       return result;
     }),
-    sendSceneUpdate: vi.fn().mockResolvedValue(undefined),
-    getExcalidrawElements: vi.fn().mockReturnValue([]),
   };
 }
 

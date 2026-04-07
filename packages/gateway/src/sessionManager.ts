@@ -79,7 +79,7 @@ export class SessionManager {
   joinSession(
     sessionId: string,
     ws: WebSocket,
-  ): { expressions: VisualExpression[]; expressionOrder: string[]; agents: AuthorInfo[]; waypoints: import('./types.js').CameraWaypoint[]; excalidrawElements: unknown[] } | undefined {
+  ): { expressions: VisualExpression[]; expressionOrder: string[]; agents: AuthorInfo[]; waypoints: import('./types.js').CameraWaypoint[] } | undefined {
     const session = this.sessions.get(sessionId);
     if (!session) return undefined;
 
@@ -97,7 +97,6 @@ export class SessionManager {
       expressionOrder: session.expressionOrder,
       agents: [...session.agents.values()],
       waypoints: [...session.waypoints],
-      excalidrawElements: session.excalidrawElements ?? [],
     };
   }
 

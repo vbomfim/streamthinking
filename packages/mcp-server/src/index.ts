@@ -29,6 +29,14 @@ export {
 } from './defaults.js';
 
 // ── Primitive tools ────────────────────────────────────────
+export {
+  buildRectangle,
+  buildEllipse,
+  buildLine,
+  buildArrow,
+  buildText,
+  buildStickyNote,
+} from './tools/primitiveTools.js';
 export type {
   DrawRectangleParams,
   DrawEllipseParams,

@@ -30,6 +30,7 @@ function createMockClient(options: {
     isConnected: () => connected,
     getSessionId: () => connected ? 'test-session' : null,
     sendCreate: vi.fn(),
+    sendBatchCreate: vi.fn(),
     sendDelete: vi.fn(),
     sendMorph: vi.fn(),
     sendStyle: vi.fn(),
@@ -44,8 +45,6 @@ function createMockClient(options: {
       if (index >= 0 && index < waypoints.length) waypoints.splice(index, 1);
     }),
     sendWaypointReorder: vi.fn(),
-    sendSceneUpdate: vi.fn().mockResolvedValue(undefined),
-    getExcalidrawElements: vi.fn().mockReturnValue([]),
   };
 }
 

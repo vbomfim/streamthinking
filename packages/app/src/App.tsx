@@ -1,220 +1,156 @@
 /**
- * InfiniCanvas — Excalidraw-powered collaborative canvas.
+ * Root application component.
  *
- * Mounts Excalidraw as the drawing engine and wires it to our
- * WebSocket gateway for real-time AI↔human collaboration.
+ * Renders the Canvas component from @infinicanvas/engine
+ * with the Toolbar for drawing tools, ExpressionPalette for
+ * composite insertion, AgentActions for AI interactions,
+ * AgentSidebar overlay, theme toggle, and export menu.
  *
  * @module
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react';
-import { Excalidraw, exportToBlob, convertToExcalidrawElements } from '@excalidraw/excalidraw';
-import '@excalidraw/excalidraw/index.css';
-
-// Excalidraw types — using any for now to avoid deep import issues
-type ExcalidrawImperativeAPI = any;
+import { useCallback, useState } from 'react';
+import { Canvas, useCanvasStore, screenToWorld } from '@infinicanvas/engine';
+import type { VisualExpression } from '@infinicanvas/protocol';
+import { Toolbar } from './components/toolbar/Toolbar.js';
+import { StencilPalette } from './components/toolbar/StencilPalette.js';
+import { AgentActions } from './components/toolbar/AgentActions.js';
+import type { AgentActionType } from './components/toolbar/AgentActions.js';
+import { AgentSidebar } from './components/sidebar/AgentSidebar.js';
+import { StylePanel } from './components/panels/StylePanel.js';
+import { ThemeToggle } from './components/panels/ThemeToggle.js';
+import { ExportMenu } from './components/panels/ExportMenu.js';
+import { ZoomControls } from './components/panels/ZoomControls.js';
+import { WaypointPanel } from './components/panels/WaypointPanel.js';
 import { SettingsPanel } from './components/panels/SettingsPanel.js';
+import { ConnectionStatus } from './components/panels/ConnectionStatus.js';
+import { WelcomeScreen } from './components/WelcomeScreen.js';
+import { useGatewayConnection } from './hooks/useGatewayConnection.js';
+import { useAgentActionHandler } from './hooks/useAgentActionHandler.js';
 import { Settings } from 'lucide-react';
 
-// ── Constants ──────────────────────────────────────────────
-
-const SETTINGS_STORAGE_KEY = 'infinicanvas:settings';
-
-interface AppSettings {
-  gatewayUrl: string;
-  apiKey: string;
-}
-
-// ── Gateway connection hook ────────────────────────────────
-
-function useGatewaySync(api: ExcalidrawImperativeAPI | null) {
-  const wsRef = useRef<WebSocket | null>(null);
-  const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
-  const [status, setStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
-  const suppressRemoteUpdate = useRef(false);
-  const lastSentElements = useRef<string>('');
-
-  // Keep apiRef in sync
-  apiRef.current = api;
-  const connect = useCallback(() => {
-    const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
-    if (!raw) return;
-    const settings: AppSettings = JSON.parse(raw);
-    if (!settings.gatewayUrl || !settings.apiKey) return;
-
-    setStatus('connecting');
-    const ws = new WebSocket(settings.gatewayUrl);
-    wsRef.current = ws;
-
-    ws.onopen = () => {
-      setStatus('connected');
-      ws.send(JSON.stringify({
-        type: 'join',
-        sessionId: 'local-dev',
-        auth: { apiKey: settings.apiKey },
-      }));
-    };
-
-    ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data);
-
-      if (msg.type === 'state-sync' && apiRef.current) {
-        // Initial state from gateway — load existing elements
-        const excalElements = msg.excalidrawElements ?? [];
-        if (excalElements.length > 0) {
-          suppressRemoteUpdate.current = true;
-          const converted = convertToExcalidrawElements(excalElements as any[]);
-          apiRef.current.updateScene({ elements: converted as any[] });
-          suppressRemoteUpdate.current = false;
-        }
-      }
-
-      if (msg.type === 'scene-update' && apiRef.current) {
-        // Remote change from another client (AI or human)
-        suppressRemoteUpdate.current = true;
-        const converted = convertToExcalidrawElements(msg.elements as any[]);
-        apiRef.current.updateScene({ elements: converted as any[] });
-        suppressRemoteUpdate.current = false;
-      }
-
-      if (msg.type === 'screenshot-request') {
-        // AI wants a screenshot — export via Excalidraw API
-        if (apiRef.current) {
-          const elements = apiRef.current.getSceneElements();
-          if (elements.length > 0) {
-            exportToBlob({
-              elements,
-              appState: apiRef.current.getAppState(),
-              files: apiRef.current.getFiles(),
-              mimeType: 'image/png',
-            }).then((blob: Blob) => {
-              const reader = new FileReader();
-              reader.onload = () => {
-                ws.send(JSON.stringify({
-                  type: 'screenshot-response',
-                  requestId: msg.requestId,
-                  imageBase64: reader.result as string,
-                  width: 1920,
-                  height: 1080,
-                }));
-              };
-              reader.readAsDataURL(blob);
-            }).catch(() => {
-              ws.send(JSON.stringify({
-                type: 'screenshot-response',
-                requestId: msg.requestId,
-                imageBase64: '',
-                width: 0,
-                height: 0,
-              }));
-            });
-          }
-        }
-      }
-    };
-
-    ws.onclose = () => {
-      setStatus('disconnected');
-      wsRef.current = null;
-    };
-
-    ws.onerror = () => {
-      setStatus('disconnected');
-    };
-  }, []);
-
-  // Connect on mount and when API becomes available
-  useEffect(() => {
-    connect();
-    return () => {
-      wsRef.current?.close();
-    };
-  }, [connect]);
-
-  // Reconnect on settings change
-  useEffect(() => {
-    const handler = () => {
-      wsRef.current?.close();
-      setTimeout(connect, 100);
-    };
-    window.addEventListener('infinicanvas:settings-changed', handler);
-    return () => window.removeEventListener('infinicanvas:settings-changed', handler);
-  }, [connect]);
-
-  // Send local changes to gateway
-  const onLocalChange = useCallback((elements: readonly any[]) => {
-    if (suppressRemoteUpdate.current) return;
-    const ws = wsRef.current;
-    console.log('[infinicanvas] onLocalChange', elements.length, 'ws:', ws?.readyState, 'suppress:', suppressRemoteUpdate.current);
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-
-    // Simple debounce: only send if elements actually changed
-    const serialized = JSON.stringify(elements);
-    if (serialized === lastSentElements.current) return;
-    lastSentElements.current = serialized;
-
-    ws.send(JSON.stringify({
-      type: 'scene-update',
-      elements,
-    }));
-  }, []);
-
-  return { status, onLocalChange };
-}
-
-// ── App component ──────────────────────────────────────────
-
-export default function App() {
-  const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
+export function App() {
+  const addExpression = useCanvasStore((s) => s.addExpression);
+  const expressions = useCanvasStore((s) => s.expressions);
+  const selectedIds = useCanvasStore((s) => s.selectedIds);
+  const setSelectedIds = useCanvasStore((s) => s.setSelectedIds);
   const [showSettings, setShowSettings] = useState(false);
-  const gateway = useGatewaySync(api);
+  const [showStencilPalette, setShowStencilPalette] = useState(false);
+  const waypointPanelOpen = useCanvasStore((s) => s.waypointPanelOpen);
+  const setWaypointPanelOpen = useCanvasStore((s) => s.setWaypointPanelOpen);
+  const gatewayState = useGatewayConnection();
+  const { isLoading: agentLoading } = useAgentActionHandler(
+    gatewayState.sendMessage,
+    gatewayState.connected,
+  );
+
+  /** Get the list of selected expressions. */
+  const selectedExpressions: VisualExpression[] = Array.from(selectedIds)
+    .map((id) => expressions[id])
+    .filter(Boolean) as VisualExpression[];
+
+  /** Insert a new expression from the palette. */
+  const handleInsert = useCallback(
+    (expression: VisualExpression) => {
+      // Place at viewport center with slight random offset to avoid stacking
+      const { camera } = useCanvasStore.getState();
+      const cx = window.innerWidth / 2;
+      const cy = window.innerHeight / 2;
+      const world = screenToWorld(cx, cy, camera);
+      const offset = (Math.random() - 0.5) * 40;
+
+      // Scale size inversely by zoom so inserted items appear consistent on screen
+      const w = expression.size.width / camera.zoom;
+      const h = expression.size.height / camera.zoom;
+
+      const centered = {
+        ...expression,
+        position: {
+          x: world.x - w / 2 + offset,
+          y: world.y - h / 2 + offset,
+        },
+        size: { width: w, height: h },
+      };
+      addExpression(centered);
+      setSelectedIds(new Set([centered.id]));
+    },
+    [addExpression, setSelectedIds],
+  );
+
+  /** Handle agent actions (emit events for MCP server). */
+  const handleAgentAction = useCallback(
+    (action: AgentActionType, exprs: VisualExpression[]) => {
+      // Emit a custom event for the MCP server to handle
+      const event = new CustomEvent('infinicanvas:agent-action', {
+        detail: { action, expressions: exprs },
+      });
+      window.dispatchEvent(event);
+    },
+    [],
+  );
 
   return (
-    <div style={{ width: '100vw', height: '100vh' }}>
-      <Excalidraw
-        excalidrawAPI={(excalidrawApi) => setApi(excalidrawApi)}
-        onChange={(elements) => {
-          console.log('[infinicanvas] onChange fired, elements:', elements.length, 'ws:', !!gateway);
-          gateway.onLocalChange(elements);
-        }}
+    <>
+      <Canvas />
+      <Toolbar
+        onToggleStencilPalette={() => setShowStencilPalette((prev) => !prev)}
+        isStencilPaletteOpen={showStencilPalette}
+        onToggleWaypointPanel={() => setWaypointPanelOpen(!waypointPanelOpen)}
+        isWaypointPanelOpen={waypointPanelOpen}
       />
-
-      {/* Connection status indicator */}
-      <div style={{
-        position: 'fixed',
-        bottom: 12,
-        right: 12,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        zIndex: 100,
-      }}>
-        <div style={{
-          width: 10,
-          height: 10,
-          borderRadius: '50%',
-          backgroundColor: gateway.status === 'connected' ? '#4caf50'
-            : gateway.status === 'connecting' ? '#ff9800' : '#999',
-        }} />
+      <StylePanel />
+      <StencilPalette onInsert={handleInsert} isOpen={showStencilPalette} />
+      <AgentActions
+        selectedExpressions={selectedExpressions}
+        onAction={handleAgentAction}
+        isLoading={agentLoading}
+      />
+      <AgentSidebar />
+      <ZoomControls />
+      <WaypointPanel isOpen={waypointPanelOpen} />
+      <WelcomeScreen />
+      {showSettings && <SettingsPanel onClose={() => setShowSettings(false)} />}
+      {/* Top-left action bar: theme toggle + export menu + settings */}
+      <div
+        style={{
+          position: 'fixed',
+          top: 12,
+          left: 12,
+          display: 'flex',
+          gap: 4,
+          padding: 4,
+          backgroundColor: 'var(--bg-toolbar, #ffffff)',
+          borderRadius: 10,
+          boxShadow: '0 2px 8px var(--shadow, rgba(0,0,0,0.12))',
+          border: '1px solid var(--border, #e0e0e0)',
+          zIndex: 20,
+        }}
+      >
+        <ThemeToggle />
+        <ExportMenu />
+        <ConnectionStatus {...gatewayState} />
         <button
-          onClick={() => setShowSettings(!showSettings)}
+          type="button"
+          aria-label="Settings"
+          data-testid="settings-button"
+          onClick={() => setShowSettings(true)}
           style={{
-            background: 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 36,
+            height: 36,
             border: 'none',
+            borderRadius: 6,
             cursor: 'pointer',
-            padding: 4,
-            color: '#666',
+            backgroundColor: 'transparent',
+            color: 'var(--text-primary, #333333)',
+            transition: 'background-color 0.15s, color 0.15s',
           }}
-          title="Settings"
         >
           <Settings size={18} />
         </button>
       </div>
-
-      {/* Settings panel */}
-      {showSettings && (
-        <SettingsPanel onClose={() => setShowSettings(false)} />
-      )}
-    </div>
+    </>
   );
 }
