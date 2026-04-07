@@ -33,8 +33,10 @@ export {
 
 // ── Renderers ──────────────────────────────────────────────
 export { renderGrid, getGridSpacing } from './renderer/gridRenderer.js';
+export { renderPages, computePageGrid, PAGE_SIZES } from './renderer/pageRenderer.js';
+export type { PageGrid } from './renderer/pageRenderer.js';
 export { createRenderLoop } from './renderer/renderLoop.js';
-export type { RenderLoop, ExpressionProvider, SelectionProvider, DrawPreviewProvider, EditingProvider, GridProvider } from './renderer/renderLoop.js';
+export type { RenderLoop, ExpressionProvider, SelectionProvider, DrawPreviewProvider, EditingProvider, GridProvider, PageProvider } from './renderer/renderLoop.js';
 export {
   renderExpressions,
   renderLabel,

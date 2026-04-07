@@ -18,7 +18,7 @@ import {
   computeFitToContent,
   ZOOM_STEP,
 } from '@infinicanvas/engine';
-import { ZoomIn, ZoomOut, Maximize, Grid3x3, Magnet } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize, Grid3x3, Magnet, FileText } from 'lucide-react';
 import type { VisualExpression } from '@infinicanvas/protocol';
 
 /** Button size in pixels. */
@@ -32,6 +32,7 @@ export function ZoomControls() {
   const camera = useCanvasStore((s) => s.camera);
   const gridVisible = useCanvasStore((s) => s.gridVisible);
   const snapEnabled = useCanvasStore((s) => s.snapEnabled);
+  const pageVisible = useCanvasStore((s) => s.pageVisible);
 
   const handleZoomIn = useCallback(() => {
     const { camera: cam, setCamera: setCam } = useCanvasStore.getState();
@@ -71,6 +72,10 @@ export function ZoomControls() {
 
   const handleToggleSnap = useCallback(() => {
     useCanvasStore.getState().toggleSnapEnabled();
+  }, []);
+
+  const handleTogglePage = useCallback(() => {
+    useCanvasStore.getState().togglePage();
   }, []);
 
   const zoomPercent = Math.round(camera.zoom * 100);
@@ -175,6 +180,24 @@ export function ZoomControls() {
         }}
       >
         <Magnet size={ICON_SIZE} />
+      </button>
+
+      {/* Page boundary toggle */}
+      <button
+        type="button"
+        data-testid="page-toggle"
+        aria-label={pageVisible ? 'Hide page boundaries' : 'Show page boundaries'}
+        aria-pressed={pageVisible}
+        title={pageVisible ? 'Hide page boundaries' : 'Show page boundaries'}
+        onClick={handleTogglePage}
+        style={{
+          ...buttonStyle,
+          color: pageVisible
+            ? 'var(--accent, #4A90D9)'
+            : 'var(--text-primary, #333333)',
+        }}
+      >
+        <FileText size={ICON_SIZE} />
       </button>
     </div>
   );

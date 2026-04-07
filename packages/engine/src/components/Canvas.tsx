@@ -148,8 +148,12 @@ function CanvasInner() {
       getGridType: () => useCanvasStore.getState().gridType,
       getGridSize: () => useCanvasStore.getState().gridSize,
     };
+    const pageProvider = {
+      getPageVisible: () => useCanvasStore.getState().pageVisible,
+      getPageSize: () => useCanvasStore.getState().pageSize,
+    };
     const dpr = window.devicePixelRatio || 1;
-    const loop = createRenderLoop(ctx, getCamera, width, height, roughCanvas, expressionProvider, selectionProvider, drawPreviewProvider, dpr, marqueeProvider, editingProvider, gridProvider);
+    const loop = createRenderLoop(ctx, getCamera, width, height, roughCanvas, expressionProvider, selectionProvider, drawPreviewProvider, dpr, marqueeProvider, editingProvider, gridProvider, pageProvider);
 
     renderLoopRef.current = loop;
     loop.start();

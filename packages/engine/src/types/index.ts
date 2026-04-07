@@ -72,6 +72,12 @@ export interface CanvasState {
   gridSize: number;
   /** Whether shapes snap to grid intersections during drag. */
   snapEnabled: boolean;
+  /** Whether page/paper boundaries are visible. */
+  pageVisible: boolean;
+  /** Page dimensions in world units (pixels at 96 DPI). */
+  pageSize: { width: number; height: number };
+  /** Margin inside each page in world units. */
+  pageMargin: number;
 }
 
 /** Actions available on the canvas store. */
@@ -205,11 +211,8 @@ export interface CanvasActions {
   setGridSize: (size: number) => void;
   /** Toggle snap-to-grid for shape dragging. */
   toggleSnapEnabled: () => void;
-  /**
-   * Apply a theme preset to expressions on the canvas.
-   * Emits `style` ProtocolOperations and pushes an undo snapshot.
-   * @param themeId — ID of the theme preset to apply.
-   * @param scope — 'all' applies to every expression; 'selected' applies only to selected.
-   */
-  applyTheme: (themeId: string, scope: 'all' | 'selected') => void;
+  /** Toggle page/paper boundary visibility. */
+  togglePage: () => void;
+  /** Set page dimensions. Rejects non-positive or non-finite values. */
+  setPageSize: (size: { width: number; height: number }) => void;
 }
