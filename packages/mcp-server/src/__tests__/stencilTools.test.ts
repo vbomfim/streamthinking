@@ -2,7 +2,8 @@
  * Tests for stencil expression tools.
  *
  * Verifies that stencil tools correctly look up catalog entries,
- * build VisualExpression objects, and list available stencils.
+ * build VisualExpression objects, list available stencils, and
+ * search/paginate the stencil catalog.
  *
  * @module
  */
@@ -14,6 +15,7 @@ import {
   buildStencil,
   executePlaceStencil,
   executeListStencils,
+  executeSearchStencils,
 } from '../tools/stencilTools.js';
 
 // ── Mock gateway client ────────────────────────────────────
@@ -200,10 +202,12 @@ describe('executeListStencils', () => {
     expect(result).not.toContain('k8s-pod');
   });
 
-  it('returns empty message for unknown category', async () => {
+  it('returns empty result for unknown category', async () => {
     const result = await executeListStencils({ category: 'nonexistent' });
+    const parsed = JSON.parse(result);
 
-    expect(result).toContain('No stencils found');
+    expect(parsed.stencils).toEqual([]);
+    expect(parsed.total).toBe(0);
   });
 
   it('includes stencil label and defaultSize', async () => {
@@ -219,6 +223,252 @@ describe('executeListStencils', () => {
     expect(result).toContain('k8s-pod');
     expect(result).toContain('Kubernetes Pod');
     expect(result).not.toContain('server');
+  });
+});
+
+// ── executeListStencils (enhanced: search, pagination) ─────
+
+describe('executeListStencils enhanced', () => {
+  it('returns JSON with total count when no filters applied', async () => {
+    const result = await executeListStencils({});
+    const parsed = JSON.parse(result);
+
+    expect(parsed.stencils).toBeDefined();
+    expect(parsed.total).toBeGreaterThan(0);
+    expect(parsed.page).toBe(1);
+    expect(parsed.pageSize).toBe(50);
+    expect(Array.isArray(parsed.stencils)).toBe(true);
+  });
+
+  it('includes category in each stencil result', async () => {
+    const result = await executeListStencils({});
+    const parsed = JSON.parse(result);
+
+    for (const stencil of parsed.stencils) {
+      expect(stencil.category).toBeDefined();
+      expect(typeof stencil.category).toBe('string');
+    }
+  });
+
+  it('filters by category', async () => {
+    const result = await executeListStencils({ category: 'network' });
+    const parsed = JSON.parse(result);
+
+    expect(parsed.total).toBeGreaterThan(0);
+    for (const stencil of parsed.stencils) {
+      expect(stencil.category).toBe('network');
+    }
+  });
+
+  it('filters by search term (case-insensitive) on label', async () => {
+    const result = await executeListStencils({ search: 'server' });
+    const parsed = JSON.parse(result);
+
+    expect(parsed.total).toBeGreaterThan(0);
+    for (const stencil of parsed.stencils) {
+      const matchesId = stencil.id.toLowerCase().includes('server');
+      const matchesLabel = stencil.label.toLowerCase().includes('server');
+      expect(matchesId || matchesLabel).toBe(true);
+    }
+  });
+
+  it('filters by search term on stencil id', async () => {
+    const result = await executeListStencils({ search: 'k8s' });
+    const parsed = JSON.parse(result);
+
+    expect(parsed.total).toBeGreaterThan(0);
+    for (const stencil of parsed.stencils) {
+      const matchesId = stencil.id.toLowerCase().includes('k8s');
+      const matchesLabel = stencil.label.toLowerCase().includes('k8s');
+      expect(matchesId || matchesLabel).toBe(true);
+    }
+  });
+
+  it('combines category and search filters', async () => {
+    const result = await executeListStencils({ category: 'azure', search: 'storage' });
+    const parsed = JSON.parse(result);
+
+    expect(parsed.total).toBeGreaterThan(0);
+    for (const stencil of parsed.stencils) {
+      expect(stencil.category).toBe('azure');
+    }
+  });
+
+  it('paginates correctly with page and pageSize', async () => {
+    const page1 = JSON.parse(await executeListStencils({ pageSize: 3, page: 1 }));
+    const page2 = JSON.parse(await executeListStencils({ pageSize: 3, page: 2 }));
+
+    expect(page1.stencils.length).toBe(3);
+    expect(page1.page).toBe(1);
+    expect(page1.pageSize).toBe(3);
+    expect(page2.page).toBe(2);
+
+    // Pages should not overlap
+    const page1Ids = page1.stencils.map((s: { id: string }) => s.id);
+    const page2Ids = page2.stencils.map((s: { id: string }) => s.id);
+    for (const id of page2Ids) {
+      expect(page1Ids).not.toContain(id);
+    }
+  });
+
+  it('returns empty stencils array for out-of-bounds page', async () => {
+    const result = await executeListStencils({ page: 9999, pageSize: 50 });
+    const parsed = JSON.parse(result);
+
+    expect(parsed.stencils).toEqual([]);
+    expect(parsed.total).toBeGreaterThan(0);
+    expect(parsed.page).toBe(9999);
+  });
+
+  it('returns error for unknown category', async () => {
+    const result = await executeListStencils({ category: 'nonexistent' });
+    const parsed = JSON.parse(result);
+
+    expect(parsed.stencils).toEqual([]);
+    expect(parsed.total).toBe(0);
+  });
+
+  it('uses default pageSize of 50 and page of 1', async () => {
+    const result = await executeListStencils({});
+    const parsed = JSON.parse(result);
+
+    expect(parsed.page).toBe(1);
+    expect(parsed.pageSize).toBe(50);
+  });
+
+  it('search returns no results for non-matching query', async () => {
+    const result = await executeListStencils({ search: 'zzzznonexistent' });
+    const parsed = JSON.parse(result);
+
+    expect(parsed.stencils).toEqual([]);
+    expect(parsed.total).toBe(0);
+  });
+});
+
+// ── executePlaceStencil (enhanced: fuzzy name matching) ────
+
+describe('executePlaceStencil fuzzy matching', () => {
+  let client: IGatewayClient;
+
+  beforeEach(() => {
+    client = createMockClient();
+  });
+
+  it('places stencil by fuzzy name when exact ID not found', async () => {
+    const result = await executePlaceStencil(client, {
+      stencilId: 'Kubernetes Pod', x: 0, y: 0,
+    });
+
+    expect(client.sendCreate).toHaveBeenCalledOnce();
+    expect(result).toContain('Placed stencil');
+  });
+
+  it('returns disambiguation list when multiple fuzzy matches found', async () => {
+    // 'azure' matches many stencils
+    const result = await executePlaceStencil(client, {
+      stencilId: 'Azure', x: 0, y: 0,
+    });
+
+    expect(client.sendCreate).not.toHaveBeenCalled();
+    expect(result).toContain('Multiple stencils match');
+  });
+
+  it('still works with exact ID (backward compatible)', async () => {
+    const result = await executePlaceStencil(client, {
+      stencilId: 'server', x: 100, y: 200,
+    });
+
+    expect(client.sendCreate).toHaveBeenCalledOnce();
+    expect(result).toContain('Placed stencil');
+    expect(result).toContain("'Server'");
+  });
+
+  it('returns error when no fuzzy match found', async () => {
+    const result = await executePlaceStencil(client, {
+      stencilId: 'zzzznonexistent', x: 0, y: 0,
+    });
+
+    expect(client.sendCreate).not.toHaveBeenCalled();
+    expect(result).toContain('Unknown stencil');
+  });
+});
+
+// ── executeSearchStencils ──────────────────────────────────
+
+describe('executeSearchStencils', () => {
+  it('returns matching stencils for a query', async () => {
+    const result = await executeSearchStencils({ query: 'server' });
+    const parsed = JSON.parse(result);
+
+    expect(parsed.results).toBeDefined();
+    expect(parsed.results.length).toBeGreaterThan(0);
+    for (const stencil of parsed.results) {
+      const matchesId = stencil.id.toLowerCase().includes('server');
+      const matchesLabel = stencil.label.toLowerCase().includes('server');
+      expect(matchesId || matchesLabel).toBe(true);
+    }
+  });
+
+  it('includes id, label, category, defaultSize in results', async () => {
+    const result = await executeSearchStencils({ query: 'database' });
+    const parsed = JSON.parse(result);
+
+    expect(parsed.results.length).toBeGreaterThan(0);
+    const first = parsed.results[0];
+    expect(first.id).toBeDefined();
+    expect(first.label).toBeDefined();
+    expect(first.category).toBeDefined();
+    expect(first.defaultSize).toBeDefined();
+    expect(first.defaultSize.width).toBeDefined();
+    expect(first.defaultSize.height).toBeDefined();
+  });
+
+  it('filters by category when provided', async () => {
+    const result = await executeSearchStencils({ query: 'service', category: 'kubernetes' });
+    const parsed = JSON.parse(result);
+
+    expect(parsed.results.length).toBeGreaterThan(0);
+    for (const stencil of parsed.results) {
+      expect(stencil.category).toBe('kubernetes');
+    }
+  });
+
+  it('respects limit parameter', async () => {
+    const result = await executeSearchStencils({ query: 'a', limit: 3 });
+    const parsed = JSON.parse(result);
+
+    expect(parsed.results.length).toBeLessThanOrEqual(3);
+  });
+
+  it('defaults to limit of 10', async () => {
+    const result = await executeSearchStencils({ query: 'a' });
+    const parsed = JSON.parse(result);
+
+    expect(parsed.results.length).toBeLessThanOrEqual(10);
+  });
+
+  it('returns total match count alongside results', async () => {
+    const result = await executeSearchStencils({ query: 'a', limit: 2 });
+    const parsed = JSON.parse(result);
+
+    expect(parsed.total).toBeDefined();
+    expect(parsed.total).toBeGreaterThanOrEqual(parsed.results.length);
+  });
+
+  it('returns empty results for non-matching query', async () => {
+    const result = await executeSearchStencils({ query: 'zzzznonexistent' });
+    const parsed = JSON.parse(result);
+
+    expect(parsed.results).toEqual([]);
+    expect(parsed.total).toBe(0);
+  });
+
+  it('search is case-insensitive', async () => {
+    const lower = JSON.parse(await executeSearchStencils({ query: 'pod' }));
+    const upper = JSON.parse(await executeSearchStencils({ query: 'POD' }));
+
+    expect(lower.total).toBe(upper.total);
+    expect(lower.results.length).toBe(upper.results.length);
   });
 });
 
