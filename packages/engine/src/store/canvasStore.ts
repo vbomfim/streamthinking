@@ -51,6 +51,8 @@ import {
   findSnapPoint,
 } from '../interaction/connectorHelpers.js';
 import type { ArrowData, ArrowAnchor, ArrowBinding } from '@infinicanvas/protocol';
+import { computeLayout } from '../layout/computeLayout.js';
+import type { LayoutOptions } from '../layout/types.js';
 
 // Enable immer support for Set/Map (used by selectedIds: Set<string>)
 enableMapSet();
@@ -1795,6 +1797,91 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
           }
         });
       }
+    },
+
+    applyLayout: (options: LayoutOptions, scope: 'all' | 'selected') => {
+      const currentState = get();
+      const { expressions, selectedIds, layers } = currentState;
+
+      // Determine which expressions to layout
+      const visibleLayerIds = new Set(
+        layers.filter((l) => l.visible).map((l) => l.id),
+      );
+      const lockedLayerIds = new Set(
+        layers.filter((l) => l.locked).map((l) => l.id),
+      );
+
+      const candidates = Object.values(expressions).filter((expr) => {
+        // Scope filter
+        if (scope === 'selected' && !selectedIds.has(expr.id)) return false;
+        // Skip locked expressions
+        if (expr.meta.locked) return false;
+        // Skip expressions on locked layers
+        const layerId = expr.layerId ?? DEFAULT_LAYER_ID;
+        if (lockedLayerIds.has(layerId)) return false;
+        // Skip expressions on hidden layers
+        if (!visibleLayerIds.has(layerId)) return false;
+        return true;
+      });
+
+      if (candidates.length === 0) return 0;
+
+      // Compute new positions using the layout algorithm
+      const positionMap = computeLayout(candidates, options);
+
+      if (positionMap.size === 0) return 0;
+
+      // Build moves array (only for positions that actually changed)
+      const moves: Array<{ id: string; from: { x: number; y: number }; to: { x: number; y: number } }> = [];
+      for (const [id, newPos] of positionMap) {
+        const expr = expressions[id];
+        if (!expr) continue;
+        if (expr.position.x === newPos.x && expr.position.y === newPos.y) continue;
+        moves.push({
+          id,
+          from: { x: expr.position.x, y: expr.position.y },
+          to: newPos,
+        });
+      }
+
+      if (moves.length === 0) return 0;
+
+      // Push undo snapshot before applying changes
+      const snapshot = captureSnapshot(currentState);
+      historyManager.pushSnapshot(snapshot);
+
+      set((state) => {
+        const movedIds = new Set(moves.map((m) => m.id));
+
+        for (const move of moves) {
+          const expr = state.expressions[move.id];
+          if (!expr) continue;
+
+          const dx = move.to.x - move.from.x;
+          const dy = move.to.y - move.from.y;
+          expr.position = { ...move.to };
+          translateExpressionPoints(expr, dx, dy);
+        }
+
+        // Update arrows bound to moved shapes
+        updateBoundArrows(state, movedIds);
+
+        // Emit move operations for collaboration
+        for (const move of moves) {
+          const operation = createOperation('move', {
+            type: 'move',
+            expressionId: move.id,
+            from: move.from,
+            to: move.to,
+          } satisfies MovePayload);
+          pushOperation(state.operationLog, operation);
+        }
+
+        state.canUndo = historyManager.canUndo();
+        state.canRedo = historyManager.canRedo();
+      });
+
+      return moves.length;
     },
   })),
 );

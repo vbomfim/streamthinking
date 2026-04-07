@@ -231,6 +231,27 @@ export { snapToGrid, snapPosition, computeSnappedDelta } from './utils/snapToGri
 export { THEME_PRESETS, getThemeById, applyThemeToExpressions, computeThemedStyle } from './themes/presets.js';
 export type { ThemePreset } from './themes/presets.js';
 
+// ── Layout ─────────────────────────────────────────────────
+export { computeLayout } from './layout/computeLayout.js';
+export { computeTreeLayout } from './layout/treeLayout.js';
+export { computeForceLayout } from './layout/forceLayout.js';
+export { computeGridLayout } from './layout/gridLayout.js';
+export type {
+  LayoutAlgorithm,
+  LayoutDirection,
+  LayoutSpacing,
+  LayoutOptions,
+  TreeLayoutOptions,
+  ForceLayoutOptions,
+  GridLayoutOptions,
+  LayoutEdge,
+} from './layout/types.js';
+export {
+  DEFAULT_SPACING,
+  DEFAULT_FORCE_ITERATIONS,
+  DEFAULT_GRID_COLUMNS,
+} from './layout/types.js';
+
 // ── Types ──────────────────────────────────────────────────
 export type {
   ToolType,
