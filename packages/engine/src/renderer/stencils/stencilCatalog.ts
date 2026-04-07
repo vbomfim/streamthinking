@@ -136,6 +136,33 @@ import {
   CISCO_PRO_PRINTER_SVG,
   CISCO_PRO_CAMERA_SVG,
 } from './svgs/cisco-pro.js';
+import {
+  GCP_PRO_COMPUTE_ENGINE_SVG,
+  GCP_PRO_APP_ENGINE_SVG,
+  GCP_PRO_CLOUD_FUNCTIONS_SVG,
+  GCP_PRO_GKE_SVG,
+  GCP_PRO_CLOUD_RUN_SVG,
+  GCP_PRO_CLOUD_STORAGE_SVG,
+  GCP_PRO_PERSISTENT_DISK_SVG,
+  GCP_PRO_FILESTORE_SVG,
+  GCP_PRO_CLOUD_SQL_SVG,
+  GCP_PRO_FIRESTORE_SVG,
+  GCP_PRO_BIGTABLE_SVG,
+  GCP_PRO_SPANNER_SVG,
+  GCP_PRO_BIGQUERY_SVG,
+  GCP_PRO_VPC_SVG,
+  GCP_PRO_CLOUD_CDN_SVG,
+  GCP_PRO_CLOUD_DNS_SVG,
+  GCP_PRO_CLOUD_LOAD_BALANCING_SVG,
+  GCP_PRO_CLOUD_ARMOR_SVG,
+  GCP_PRO_VERTEX_AI_SVG,
+  GCP_PRO_CLOUD_VISION_SVG,
+  GCP_PRO_CLOUD_SPEECH_SVG,
+  GCP_PRO_CLOUD_MONITORING_SVG,
+  GCP_PRO_CLOUD_LOGGING_SVG,
+  GCP_PRO_CLOUD_BUILD_SVG,
+  GCP_PRO_PUB_SUB_SVG,
+} from './svgs/gcp-pro.js';
 
 /**
  * Lightweight stencil metadata — always available, no SVG content.
@@ -673,6 +700,39 @@ export const STENCIL_CATALOG: Map<string, StencilEntry> = new Map([
   ['cisco-pro-laptop', { id: 'cisco-pro-laptop', category: 'cisco-pro', label: 'Laptop', svgContent: CISCO_PRO_LAPTOP_SVG, defaultSize: ICON_SIZE }],
   ['cisco-pro-printer', { id: 'cisco-pro-printer', category: 'cisco-pro', label: 'Printer', svgContent: CISCO_PRO_PRINTER_SVG, defaultSize: ICON_SIZE }],
   ['cisco-pro-camera', { id: 'cisco-pro-camera', category: 'cisco-pro', label: 'IP Camera', svgContent: CISCO_PRO_CAMERA_SVG, defaultSize: ICON_SIZE }],
+
+  // ── GCP Pro (hand-crafted) ─────────────────────────────────
+  // Compute
+  ['gcp-pro-compute-engine', { id: 'gcp-pro-compute-engine', category: 'gcp-pro', label: 'Compute Engine', svgContent: GCP_PRO_COMPUTE_ENGINE_SVG, defaultSize: ICON_SIZE }],
+  ['gcp-pro-app-engine', { id: 'gcp-pro-app-engine', category: 'gcp-pro', label: 'App Engine', svgContent: GCP_PRO_APP_ENGINE_SVG, defaultSize: ICON_SIZE }],
+  ['gcp-pro-cloud-functions', { id: 'gcp-pro-cloud-functions', category: 'gcp-pro', label: 'Cloud Functions', svgContent: GCP_PRO_CLOUD_FUNCTIONS_SVG, defaultSize: ICON_SIZE }],
+  ['gcp-pro-gke', { id: 'gcp-pro-gke', category: 'gcp-pro', label: 'GKE', svgContent: GCP_PRO_GKE_SVG, defaultSize: ICON_SIZE }],
+  ['gcp-pro-cloud-run', { id: 'gcp-pro-cloud-run', category: 'gcp-pro', label: 'Cloud Run', svgContent: GCP_PRO_CLOUD_RUN_SVG, defaultSize: ICON_SIZE }],
+  // Storage
+  ['gcp-pro-cloud-storage', { id: 'gcp-pro-cloud-storage', category: 'gcp-pro', label: 'Cloud Storage', svgContent: GCP_PRO_CLOUD_STORAGE_SVG, defaultSize: ICON_SIZE }],
+  ['gcp-pro-persistent-disk', { id: 'gcp-pro-persistent-disk', category: 'gcp-pro', label: 'Persistent Disk', svgContent: GCP_PRO_PERSISTENT_DISK_SVG, defaultSize: ICON_SIZE }],
+  ['gcp-pro-filestore', { id: 'gcp-pro-filestore', category: 'gcp-pro', label: 'Filestore', svgContent: GCP_PRO_FILESTORE_SVG, defaultSize: ICON_SIZE }],
+  // Database
+  ['gcp-pro-cloud-sql', { id: 'gcp-pro-cloud-sql', category: 'gcp-pro', label: 'Cloud SQL', svgContent: GCP_PRO_CLOUD_SQL_SVG, defaultSize: ICON_SIZE }],
+  ['gcp-pro-firestore', { id: 'gcp-pro-firestore', category: 'gcp-pro', label: 'Firestore', svgContent: GCP_PRO_FIRESTORE_SVG, defaultSize: ICON_SIZE }],
+  ['gcp-pro-bigtable', { id: 'gcp-pro-bigtable', category: 'gcp-pro', label: 'Bigtable', svgContent: GCP_PRO_BIGTABLE_SVG, defaultSize: ICON_SIZE }],
+  ['gcp-pro-spanner', { id: 'gcp-pro-spanner', category: 'gcp-pro', label: 'Spanner', svgContent: GCP_PRO_SPANNER_SVG, defaultSize: ICON_SIZE }],
+  ['gcp-pro-bigquery', { id: 'gcp-pro-bigquery', category: 'gcp-pro', label: 'BigQuery', svgContent: GCP_PRO_BIGQUERY_SVG, defaultSize: ICON_SIZE }],
+  // Networking
+  ['gcp-pro-vpc', { id: 'gcp-pro-vpc', category: 'gcp-pro', label: 'VPC', svgContent: GCP_PRO_VPC_SVG, defaultSize: ICON_SIZE }],
+  ['gcp-pro-cloud-cdn', { id: 'gcp-pro-cloud-cdn', category: 'gcp-pro', label: 'Cloud CDN', svgContent: GCP_PRO_CLOUD_CDN_SVG, defaultSize: ICON_SIZE }],
+  ['gcp-pro-cloud-dns', { id: 'gcp-pro-cloud-dns', category: 'gcp-pro', label: 'Cloud DNS', svgContent: GCP_PRO_CLOUD_DNS_SVG, defaultSize: ICON_SIZE }],
+  ['gcp-pro-cloud-load-balancing', { id: 'gcp-pro-cloud-load-balancing', category: 'gcp-pro', label: 'Cloud Load Balancing', svgContent: GCP_PRO_CLOUD_LOAD_BALANCING_SVG, defaultSize: ICON_SIZE }],
+  ['gcp-pro-cloud-armor', { id: 'gcp-pro-cloud-armor', category: 'gcp-pro', label: 'Cloud Armor', svgContent: GCP_PRO_CLOUD_ARMOR_SVG, defaultSize: ICON_SIZE }],
+  // AI/ML
+  ['gcp-pro-vertex-ai', { id: 'gcp-pro-vertex-ai', category: 'gcp-pro', label: 'Vertex AI', svgContent: GCP_PRO_VERTEX_AI_SVG, defaultSize: ICON_SIZE }],
+  ['gcp-pro-cloud-vision', { id: 'gcp-pro-cloud-vision', category: 'gcp-pro', label: 'Cloud Vision', svgContent: GCP_PRO_CLOUD_VISION_SVG, defaultSize: ICON_SIZE }],
+  ['gcp-pro-cloud-speech', { id: 'gcp-pro-cloud-speech', category: 'gcp-pro', label: 'Cloud Speech', svgContent: GCP_PRO_CLOUD_SPEECH_SVG, defaultSize: ICON_SIZE }],
+  // Management
+  ['gcp-pro-cloud-monitoring', { id: 'gcp-pro-cloud-monitoring', category: 'gcp-pro', label: 'Cloud Monitoring', svgContent: GCP_PRO_CLOUD_MONITORING_SVG, defaultSize: ICON_SIZE }],
+  ['gcp-pro-cloud-logging', { id: 'gcp-pro-cloud-logging', category: 'gcp-pro', label: 'Cloud Logging', svgContent: GCP_PRO_CLOUD_LOGGING_SVG, defaultSize: ICON_SIZE }],
+  ['gcp-pro-cloud-build', { id: 'gcp-pro-cloud-build', category: 'gcp-pro', label: 'Cloud Build', svgContent: GCP_PRO_CLOUD_BUILD_SVG, defaultSize: ICON_SIZE }],
+  ['gcp-pro-pub-sub', { id: 'gcp-pro-pub-sub', category: 'gcp-pro', label: 'Pub/Sub', svgContent: GCP_PRO_PUB_SUB_SVG, defaultSize: ICON_SIZE }],
 ]);
 
 // ── Initialize metadata from eager catalog ────────────────

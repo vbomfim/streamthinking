@@ -324,6 +324,107 @@ describe('getStencil — cisco-pro stencils', () => {
   });
 });
 
+// ── getStencil — GCP Pro category ─────────────────────────
+
+describe('getStencil — gcp-pro stencils', () => {
+  const gcpProStencils: Array<{ id: string; label: string }> = [
+    // Compute
+    { id: 'gcp-pro-compute-engine', label: 'Compute Engine' },
+    { id: 'gcp-pro-app-engine', label: 'App Engine' },
+    { id: 'gcp-pro-cloud-functions', label: 'Cloud Functions' },
+    { id: 'gcp-pro-gke', label: 'GKE' },
+    { id: 'gcp-pro-cloud-run', label: 'Cloud Run' },
+    // Storage
+    { id: 'gcp-pro-cloud-storage', label: 'Cloud Storage' },
+    { id: 'gcp-pro-persistent-disk', label: 'Persistent Disk' },
+    { id: 'gcp-pro-filestore', label: 'Filestore' },
+    // Database
+    { id: 'gcp-pro-cloud-sql', label: 'Cloud SQL' },
+    { id: 'gcp-pro-firestore', label: 'Firestore' },
+    { id: 'gcp-pro-bigtable', label: 'Bigtable' },
+    { id: 'gcp-pro-spanner', label: 'Spanner' },
+    { id: 'gcp-pro-bigquery', label: 'BigQuery' },
+    // Networking
+    { id: 'gcp-pro-vpc', label: 'VPC' },
+    { id: 'gcp-pro-cloud-cdn', label: 'Cloud CDN' },
+    { id: 'gcp-pro-cloud-dns', label: 'Cloud DNS' },
+    { id: 'gcp-pro-cloud-load-balancing', label: 'Cloud Load Balancing' },
+    { id: 'gcp-pro-cloud-armor', label: 'Cloud Armor' },
+    // AI/ML
+    { id: 'gcp-pro-vertex-ai', label: 'Vertex AI' },
+    { id: 'gcp-pro-cloud-vision', label: 'Cloud Vision' },
+    { id: 'gcp-pro-cloud-speech', label: 'Cloud Speech' },
+    // Management
+    { id: 'gcp-pro-cloud-monitoring', label: 'Cloud Monitoring' },
+    { id: 'gcp-pro-cloud-logging', label: 'Cloud Logging' },
+    { id: 'gcp-pro-cloud-build', label: 'Cloud Build' },
+    { id: 'gcp-pro-pub-sub', label: 'Pub/Sub' },
+  ];
+
+  for (const { id, label } of gcpProStencils) {
+    it(`returns the ${id} stencil entry`, async () => {
+      const entry = await getStencil(id);
+      expect(entry).toBeDefined();
+      expect(entry!.id).toBe(id);
+      expect(entry!.category).toBe('gcp-pro');
+      expect(entry!.label).toBe(label);
+      expect(entry!.svgContent).toContain('<svg');
+      expect(entry!.svgContent).toContain('</svg>');
+      expect(entry!.svgContent).toContain('currentColor');
+      expect(entry!.defaultSize).toEqual({ width: 44, height: 44 });
+    });
+  }
+
+  it('all gcp-pro SVGs use viewBox="0 0 64 64"', async () => {
+    for (const { id } of gcpProStencils) {
+      const entry = await getStencil(id);
+      expect(entry).toBeDefined();
+      expect(entry!.svgContent).toContain('viewBox="0 0 64 64"');
+    }
+  });
+
+  it('all gcp-pro SVGs contain xmlns attribute', async () => {
+    for (const { id } of gcpProStencils) {
+      const entry = await getStencil(id);
+      expect(entry).toBeDefined();
+      expect(entry!.svgContent).toContain('xmlns="http://www.w3.org/2000/svg"');
+    }
+  });
+
+  it('returns 25 stencils in the gcp-pro category', () => {
+    const entries = getStencilsByCategory('gcp-pro');
+    expect(entries).toHaveLength(25);
+    const ids = entries.map((e) => e.id).sort();
+    expect(ids).toEqual([
+      'gcp-pro-app-engine',
+      'gcp-pro-bigquery',
+      'gcp-pro-bigtable',
+      'gcp-pro-cloud-armor',
+      'gcp-pro-cloud-build',
+      'gcp-pro-cloud-cdn',
+      'gcp-pro-cloud-dns',
+      'gcp-pro-cloud-functions',
+      'gcp-pro-cloud-load-balancing',
+      'gcp-pro-cloud-logging',
+      'gcp-pro-cloud-monitoring',
+      'gcp-pro-cloud-run',
+      'gcp-pro-cloud-speech',
+      'gcp-pro-cloud-sql',
+      'gcp-pro-cloud-storage',
+      'gcp-pro-cloud-vision',
+      'gcp-pro-compute-engine',
+      'gcp-pro-filestore',
+      'gcp-pro-firestore',
+      'gcp-pro-gke',
+      'gcp-pro-persistent-disk',
+      'gcp-pro-pub-sub',
+      'gcp-pro-spanner',
+      'gcp-pro-vertex-ai',
+      'gcp-pro-vpc',
+    ]);
+  });
+});
+
 // ── getStencil — Kubernetes placeholder ───────────────────
 
 describe('getStencil — kubernetes placeholder', () => {
@@ -413,28 +514,29 @@ describe('getStencilsByCategory', () => {
 // ── getAllCategories ───────────────────────────────────────
 
 describe('getAllCategories', () => {
-  it('returns all 15 unique categories', () => {
+  it('returns all 16 unique categories', () => {
     const categories = getAllCategories();
     expect(categories).toContain('architecture');
     expect(categories).toContain('azure');
     expect(categories).toContain('azure-arm');
     expect(categories).toContain('cisco-pro');
     expect(categories).toContain('fortinet');
+    expect(categories).toContain('gcp-pro');
     expect(categories).toContain('generic-it');
     expect(categories).toContain('kubernetes');
     expect(categories).toContain('network');
   });
 
   it('returns the correct number of categories', () => {
-    expect(getAllCategories()).toHaveLength(15);
+    expect(getAllCategories()).toHaveLength(16);
   });
 });
 
 // ── STENCIL_CATALOG integrity ─────────────────────────────
 
 describe('STENCIL_CATALOG', () => {
-  it('contains all 1857 stencil entries (76 hand-crafted + 30 cisco-pro + draw.io imports)', () => {
-    expect(STENCIL_CATALOG.size).toBe(1857);
+  it('contains all 1882 stencil entries (76 hand-crafted + 30 cisco-pro + 25 gcp-pro + draw.io imports)', () => {
+    expect(STENCIL_CATALOG.size).toBe(1882);
   });
 
   it('has map keys matching entry IDs', () => {
