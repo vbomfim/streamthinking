@@ -48,6 +48,7 @@ import {
   findSnapPoint,
 } from '../interaction/connectorHelpers.js';
 import type { ArrowData, ArrowAnchor, ArrowBinding } from '@infinicanvas/protocol';
+import { getThemeById, applyThemeToExpressions } from '../themes/presets.js';
 
 // Enable immer support for Set/Map (used by selectedIds: Set<string>)
 enableMapSet();
@@ -1350,6 +1351,69 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     toggleSnapEnabled: () => {
       set((state) => {
         state.snapEnabled = !state.snapEnabled;
+      });
+    },
+
+    applyTheme: (themeId: string, scope: 'all' | 'selected') => {
+      const theme = getThemeById(themeId);
+      if (!theme) {
+        console.warn(`[canvasStore] applyTheme: unknown theme '${themeId}'`);
+        return;
+      }
+
+      const currentState = get();
+
+      // Determine which expressions to theme
+      const targetIds =
+        scope === 'selected'
+          ? [...currentState.selectedIds]
+          : Object.keys(currentState.expressions);
+
+      if (targetIds.length === 0) return;
+
+      // Filter to existing, unlocked expressions
+      const validExprs = targetIds
+        .map((id) => currentState.expressions[id])
+        .filter((e): e is VisualExpression => !!e && !e.meta.locked);
+
+      if (validExprs.length === 0) return;
+
+      // Compute themed versions (pure function — no mutations)
+      const themed = applyThemeToExpressions(validExprs, theme);
+
+      // Push snapshot BEFORE mutation
+      historyManager.pushSnapshot(captureSnapshot(currentState));
+
+      set((state) => {
+        for (const themedExpr of themed) {
+          const existing = state.expressions[themedExpr.id];
+          if (existing) {
+            existing.style = { ...themedExpr.style };
+
+            // For text expressions, sync fontSize/fontFamily into data
+            if (existing.kind === 'text') {
+              const data = existing.data as Record<string, unknown>;
+              if (themedExpr.style.fontFamily !== undefined) {
+                data.fontFamily = themedExpr.style.fontFamily;
+              }
+            }
+          }
+        }
+
+        // Emit a single style operation with the common theme stroke/font
+        const validIds = themed.map((e) => e.id);
+        const operation = createOperation('style', {
+          type: 'style',
+          expressionIds: validIds,
+          style: {
+            strokeColor: theme.colors.stroke,
+            fontFamily: theme.fontFamily,
+          },
+        });
+        pushOperation(state.operationLog, operation);
+
+        state.canUndo = historyManager.canUndo();
+        state.canRedo = historyManager.canRedo();
       });
     },
   })),

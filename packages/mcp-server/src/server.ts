@@ -76,6 +76,10 @@ import {
   executeExportDrawio,
   executeImportDrawio,
 } from './tools/drawioTools.js';
+import {
+  executeApplyTheme,
+  executeListThemes,
+} from './tools/themeTools.js';
 
 // ── Zod schemas for tool parameters ────────────────────────
 
@@ -771,6 +775,31 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
           content: [{ type: 'text' as const, text: `Screenshot failed: ${(err as Error).message}` }],
         };
       }
+    },
+  );
+
+  // ── Theme tools ──────────────────────────────────────────
+
+  server.tool(
+    'canvas_apply_theme',
+    'Apply a professional color theme to all expressions on the canvas. Themes provide consistent color palettes — primary fill for shapes, accent for sticky notes, stroke colors, and font family. Available themes: corporate (professional blues), technical (clean monochrome), colorful (vibrant modern), dark (dark mode), blueprint (engineering style).',
+    {
+      themeId: z.string().describe('Theme ID to apply. Use canvas_list_themes to see available options. Available: corporate, technical, colorful, dark, blueprint'),
+      scope: z.enum(['all', 'selected']).default('all').describe('Apply to all expressions or only selected ones'),
+    },
+    async (params) => {
+      const result = await executeApplyTheme(gatewayClient, params);
+      return { content: [{ type: 'text' as const, text: result }] };
+    },
+  );
+
+  server.tool(
+    'canvas_list_themes',
+    'List all available color themes with their IDs, descriptions, and color palettes. Use before canvas_apply_theme to see options.',
+    {},
+    async () => {
+      const result = executeListThemes();
+      return { content: [{ type: 'text' as const, text: result }] };
     },
   );
 
