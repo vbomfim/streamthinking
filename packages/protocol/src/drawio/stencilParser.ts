@@ -182,14 +182,7 @@ function paintAttrs(
   const parts: string[] = [];
 
   if (op === 'fill' || op === 'fillstroke') {
-    // Use fill="none" when fillColor is the default 'currentColor' — prevents
-    // solid black blobs. Stencil background fill is handled by the canvas
-    // renderer via expression style. Only explicit <fillcolor> overrides get fills.
-    if (state.fillColor === 'currentColor' || state.fillColor === 'none') {
-      parts.push('fill="none"');
-    } else {
-      parts.push(`fill="${state.fillColor}"`);
-    }
+    parts.push(`fill="${state.fillColor}"`);
   } else {
     parts.push('fill="none"');
   }

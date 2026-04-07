@@ -806,22 +806,8 @@ function renderStencil(
   if (img) {
     ctx.save();
     ctx.globalAlpha = opacity;
-    const isContainer = Math.min(width, height) > 200;
-    if (isContainer) {
-      // Container: draw dashed border + small icon at top-left
-      ctx.strokeStyle = strokeColor;
-      ctx.lineWidth = 2;
-      ctx.setLineDash([8, 4]);
-      ctx.strokeRect(x, y, width, height);
-      ctx.setLineDash([]);
-      // Draw icon small at top-left
-      const iconSize = 32;
-      ctx.drawImage(img, x + 6, y + 6, iconSize, iconSize);
-    } else {
-      // Icon stencil: expand slightly to compensate for SVG viewBox padding
-      const inset = Math.min(width, height) * 0.12;
-      ctx.drawImage(img, x - inset, y - inset, width + 2 * inset, height + 2 * inset);
-    }
+    // Scale stencil SVG to fill the expression bounds
+    ctx.drawImage(img, x, y, width, height);
     ctx.restore();
   } else {
     // Loading placeholder
