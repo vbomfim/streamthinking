@@ -8,6 +8,7 @@
  */
 
 import type { VisualExpression } from '@infinicanvas/protocol';
+import { DEFAULT_LAYER_ID } from '@infinicanvas/protocol';
 import type { RoughCanvas } from 'roughjs/bin/canvas.js';
 import type { Camera, GridType } from '../types/index.js';
 import type { DrawPreview } from '../tools/BaseTool.js';
@@ -162,7 +163,7 @@ export function createRenderLoop(
         order = order.filter((id) => {
           const expr = expressions[id];
           if (!expr) return false;
-          const layerId = expr.layerId ?? 'default';
+          const layerId = expr.layerId ?? DEFAULT_LAYER_ID;
           return visibleLayerIds.has(layerId);
         });
       }

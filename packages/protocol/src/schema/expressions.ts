@@ -18,6 +18,9 @@ export type ExpressionData = PrimitiveData | CompositeData | AnnotationData;
 /** All valid expression kind strings, derived from ExpressionData. */
 export type ExpressionKind = ExpressionData['kind'];
 
+/** Default layer ID — the guaranteed fallback layer every canvas starts with. */
+export const DEFAULT_LAYER_ID = 'default';
+
 /** A canvas layer for organizing expressions with visibility and lock controls. */
 export interface Layer {
   /** Unique identifier for this layer. */

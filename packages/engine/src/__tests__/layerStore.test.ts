@@ -10,7 +10,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ExpressionBuilder } from '@infinicanvas/protocol';
 import type { VisualExpression, Layer } from '@infinicanvas/protocol';
-import { useCanvasStore } from '../store/canvasStore.js';
+import { useCanvasStore, _resetLayerCounter } from '../store/canvasStore.js';
 
 // ── Test fixtures ──────────────────────────────────────────
 
@@ -42,6 +42,7 @@ function makeEllipse(id?: string): VisualExpression {
 // ── Store reset before each test ───────────────────────────
 
 beforeEach(() => {
+  _resetLayerCounter();
   useCanvasStore.setState({
     expressions: {},
     expressionOrder: [],
@@ -119,6 +120,27 @@ describe('addLayer', () => {
     expect(typeof id).toBe('string');
     const state = useCanvasStore.getState();
     expect(state.layers.find((l) => l.id === id)).toBeDefined();
+  });
+
+  it('rejects adding beyond MAX_LAYERS (100)', () => {
+    // We already have 1 (default). Add 99 more to hit 100.
+    for (let i = 0; i < 99; i++) {
+      useCanvasStore.getState().addLayer(`Layer-${i}`);
+    }
+    expect(useCanvasStore.getState().layers).toHaveLength(100);
+
+    // 101st should be rejected
+    const id = useCanvasStore.getState().addLayer('Over-limit');
+    expect(id).toBe('');
+    expect(useCanvasStore.getState().layers).toHaveLength(100);
+  });
+
+  it('truncates long layer names', () => {
+    const longName = 'a'.repeat(600);
+    useCanvasStore.getState().addLayer(longName);
+
+    const layer = useCanvasStore.getState().layers[1];
+    expect(layer!.name).toHaveLength(500);
   });
 });
 
@@ -392,6 +414,52 @@ describe('layer lock prevents modification', () => {
 
     // Position should not have changed
     expect(useCanvasStore.getState().expressions['rect-1']!.position).toEqual({ x: 100, y: 200 });
+  });
+
+  it('locked layer expressions cannot be styled', () => {
+    const expr = makeRectangle('rect-1');
+    useCanvasStore.getState().addExpression(expr);
+    useCanvasStore.getState().toggleLayerLock('default');
+
+    const originalStyle = { ...useCanvasStore.getState().expressions['rect-1']!.style };
+    useCanvasStore.getState().styleExpressions(['rect-1'], { strokeColor: '#ff0000' });
+
+    // Style should not have changed because layer is locked
+    expect(useCanvasStore.getState().expressions['rect-1']!.style).toEqual(originalStyle);
+  });
+
+  it('locked layer expressions cannot be transformed', () => {
+    const expr = makeRectangle('rect-1');
+    useCanvasStore.getState().addExpression(expr);
+    useCanvasStore.getState().toggleLayerLock('default');
+
+    const originalPos = { ...useCanvasStore.getState().expressions['rect-1']!.position };
+    const originalSize = { ...useCanvasStore.getState().expressions['rect-1']!.size };
+    useCanvasStore.getState().transformExpression(
+      'rect-1',
+      { position: originalPos, size: originalSize },
+      { position: { x: 999, y: 999 }, size: { width: 500, height: 500 } },
+    );
+
+    // Position and size should not have changed
+    expect(useCanvasStore.getState().expressions['rect-1']!.position).toEqual(originalPos);
+    expect(useCanvasStore.getState().expressions['rect-1']!.size).toEqual(originalSize);
+  });
+
+  it('locked layer expressions cannot be grouped', () => {
+    const expr1 = makeRectangle('rect-1');
+    const expr2 = makeEllipse('ell-1');
+    useCanvasStore.getState().addExpression(expr1);
+    useCanvasStore.getState().addExpression(expr2);
+    useCanvasStore.getState().toggleLayerLock('default');
+
+    const groupId = useCanvasStore.getState().groupExpressions(['rect-1', 'ell-1']);
+
+    // Group should fail — return empty string
+    expect(groupId).toBe('');
+    // Expressions should not have parentId
+    expect(useCanvasStore.getState().expressions['rect-1']!.parentId).toBeUndefined();
+    expect(useCanvasStore.getState().expressions['ell-1']!.parentId).toBeUndefined();
   });
 });
 

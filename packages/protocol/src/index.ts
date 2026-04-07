@@ -73,6 +73,8 @@ export type {
   Layer,
 } from './schema/expressions.js';
 
+export { DEFAULT_LAYER_ID } from './schema/expressions.js';
+
 export type {
   OperationType,
   CreatePayload,

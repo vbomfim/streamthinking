@@ -9,6 +9,7 @@
  */
 
 import type { VisualExpression, Layer } from '@infinicanvas/protocol';
+import { DEFAULT_LAYER_ID } from '@infinicanvas/protocol';
 import { hitTestExpression } from './hitTest.js';
 import type { WorldPoint } from './hitTest.js';
 
@@ -29,7 +30,7 @@ export interface Marquee {
  */
 function isExcludedByLayer(expr: VisualExpression, layers?: Layer[]): boolean {
   if (!layers || layers.length === 0) return false;
-  const layerId = expr.layerId ?? 'default';
+  const layerId = expr.layerId ?? DEFAULT_LAYER_ID;
   const layer = layers.find((l) => l.id === layerId);
   if (!layer) return false;
   return !layer.visible || layer.locked;

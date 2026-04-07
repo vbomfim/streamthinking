@@ -827,7 +827,7 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
     'canvas_add_layer',
     'Create a new layer on the canvas. New expressions will be added to the active layer. Use canvas_set_active_layer to switch layers.',
     {
-      name: z.string().optional().describe('Layer name (auto-generated if omitted)'),
+      name: z.string().max(500).optional().describe('Layer name (auto-generated if omitted)'),
     },
     async (params) => ({
       content: [{ type: 'text' as const, text: executeAddLayer(layerClient, params) }],
@@ -838,7 +838,7 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
     'canvas_set_active_layer',
     'Set the active layer. New expressions will be created on this layer.',
     {
-      layerId: z.string().describe('ID of the layer to set as active'),
+      layerId: z.string().min(1).describe('ID of the layer to set as active'),
     },
     async (params) => ({
       content: [{ type: 'text' as const, text: executeSetActiveLayer(layerClient, params) }],
@@ -849,7 +849,7 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
     'canvas_toggle_layer_visibility',
     'Toggle a layer\'s visibility. Hidden layers and their expressions are not rendered.',
     {
-      layerId: z.string().describe('ID of the layer to toggle visibility'),
+      layerId: z.string().min(1).describe('ID of the layer to toggle visibility'),
     },
     async (params) => ({
       content: [{ type: 'text' as const, text: executeToggleLayerVisibility(layerClient, params) }],
@@ -860,8 +860,8 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
     'canvas_move_to_layer',
     'Move expressions to a different layer. Expressions will be rendered in the target layer\'s z-order.',
     {
-      expressionIds: z.array(z.string()).min(1).describe('IDs of expressions to move'),
-      layerId: z.string().describe('ID of the target layer'),
+      expressionIds: z.array(z.string().min(1)).min(1).describe('IDs of expressions to move'),
+      layerId: z.string().min(1).describe('ID of the target layer'),
     },
     async (params) => ({
       content: [{ type: 'text' as const, text: executeMoveToLayer(layerClient, params) }],

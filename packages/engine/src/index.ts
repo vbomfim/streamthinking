@@ -215,4 +215,5 @@ export type {
 } from './types/index.js';
 
 export type { Layer } from '@infinicanvas/protocol';
+export { DEFAULT_LAYER_ID } from '@infinicanvas/protocol';
 
