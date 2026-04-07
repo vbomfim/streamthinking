@@ -3,7 +3,8 @@
  *
  * Covers: adaptive dot spacing [AC6], viewport-bounded rendering,
  * dot styling, save/restore isolation, line grid rendering,
- * and gridType/gridSize parameter support.
+ * gridType/gridSize parameter support, max-element guard,
+ * batched rendering, and spacing validation edge cases.
  *
  * @module
  */
@@ -44,6 +45,14 @@ describe('getGridSpacing [AC6]', () => {
     expect(getGridSpacing(0.3, 40)).toBe(80);
     // zoom < 0.25 → 160
     expect(getGridSpacing(0.1, 40)).toBe(160);
+  });
+
+  it('clamps gridSize 0 to minimum of 1', () => {
+    expect(getGridSpacing(1, 0)).toBe(1);
+  });
+
+  it('clamps negative gridSize to minimum of 1', () => {
+    expect(getGridSpacing(1, -10)).toBe(1);
   });
 });
 
@@ -159,13 +168,15 @@ describe('renderGrid (dot mode)', () => {
     }
   });
 
-  it('calls beginPath and fill for each dot', () => {
+  it('batches all dots into a single beginPath/fill (not per-dot)', () => {
     const ctx = createMockCtx();
     renderGrid(ctx, { x: 0, y: 0, zoom: 1 }, 100, 100);
 
     const arcCount = (ctx.arc as ReturnType<typeof vi.fn>).mock.calls.length;
-    expect((ctx.beginPath as ReturnType<typeof vi.fn>).mock.calls.length).toBe(arcCount);
-    expect((ctx.fill as ReturnType<typeof vi.fn>).mock.calls.length).toBe(arcCount);
+    expect(arcCount).toBeGreaterThan(1);
+    // Batched: exactly 1 beginPath and 1 fill for all dots
+    expect((ctx.beginPath as ReturnType<typeof vi.fn>).mock.calls.length).toBe(1);
+    expect((ctx.fill as ReturnType<typeof vi.fn>).mock.calls.length).toBe(1);
   });
 
   it('renders zero dots when viewport dimensions are zero', () => {
@@ -180,9 +191,20 @@ describe('renderGrid (dot mode)', () => {
     const ctx = createMockCtx();
     renderGrid(ctx, { x: 0, y: 0, zoom: 1 }, 100, 100, 'dot');
 
-    expect(ctx.moveTo).not.toHaveBeenCalled();
     expect(ctx.lineTo).not.toHaveBeenCalled();
     expect(ctx.stroke).not.toHaveBeenCalled();
+  });
+
+  it('bails out when grid element count exceeds MAX_GRID_ELEMENTS', () => {
+    const ctx = createMockCtx();
+    // Extreme zoom-out: zoom 0.001, viewport 4000×3000
+    // World size = 4000/0.001 × 3000/0.001 = 4,000,000 × 3,000,000
+    // Even with adaptive spacing (80px at zoom<0.25), that's enormous
+    const camera: Camera = { x: 0, y: 0, zoom: 0.001 };
+    renderGrid(ctx, camera, 4000, 3000, 'dot');
+
+    // Should bail out — no arcs drawn
+    expect(ctx.arc).not.toHaveBeenCalled();
   });
 });
 
@@ -245,25 +267,37 @@ describe('renderGrid (line mode)', () => {
     expect(ctx.lineTo).not.toHaveBeenCalled();
   });
 
-  it('respects custom gridSize for line spacing', () => {
+  it('draws lines at multiples of custom gridSize', () => {
     const ctx = createMockCtx();
     // gridSize 50 at zoom 1 → spacing 50
     renderGrid(ctx, { x: 0, y: 0, zoom: 1 }, 100, 100, 'line', 50);
 
     const moveToCalls = (ctx.moveTo as ReturnType<typeof vi.fn>).mock.calls;
-    // Expect vertical lines at x=0, 50, 100 and horizontal lines at y=0, 50, 100
-    // Each line = one moveTo. So roughly 6 moveTo calls (3 vertical + 3 horizontal)
-    expect(moveToCalls.length).toBeGreaterThan(0);
+    const lineToCalls = (ctx.lineTo as ReturnType<typeof vi.fn>).mock.calls;
 
-    // Check that vertical lines have x-coords as multiples of 50
-    // Vertical lines have moveTo(x, startY) and lineTo(x, endY)
-    // We can check moveTo x-coords
-    const xCoords = new Set(moveToCalls.map((call: number[]) => call[0]));
-    // All x-coords should be multiples of 50 or be at y-axis start positions
-    for (const x of xCoords) {
-      // Either a vertical line (x % 50 === 0) or a horizontal line start (any x)
-      // Just verify we got some movement
-      expect(typeof x).toBe('number');
+    expect(moveToCalls.length).toBeGreaterThan(0);
+    expect(lineToCalls.length).toBe(moveToCalls.length);
+
+    // Vertical lines: moveTo(x, startY) where x is multiple of 50
+    // Horizontal lines: moveTo(startX, y) where y is multiple of 50
+    // All moveTo x-coords and y-coords should be multiples of 50
+    for (const call of moveToCalls) {
+      const x = call[0] as number;
+      const y = call[1] as number;
+      // One of x or y must be the grid-aligned coordinate (multiple of 50)
+      const xAligned = x % 50 === 0;
+      const yAligned = y % 50 === 0;
+      expect(xAligned || yAligned).toBe(true);
     }
+  });
+
+  it('bails out when line count exceeds MAX_GRID_ELEMENTS', () => {
+    const ctx = createMockCtx();
+    // Extreme zoom-out
+    const camera: Camera = { x: 0, y: 0, zoom: 0.001 };
+    renderGrid(ctx, camera, 4000, 3000, 'line');
+
+    // Should bail out — no lines drawn
+    expect(ctx.moveTo).not.toHaveBeenCalled();
   });
 });

@@ -12,8 +12,7 @@
  * @module
  */
 
-import type { Camera } from '../types/index.js';
-import type { GridType } from '../types/index.js';
+import type { Camera, GridType } from '../types/index.js';
 
 /** Default base spacing in world units (used when gridSize not provided). */
 const DEFAULT_BASE_SPACING = 20;
@@ -37,6 +36,12 @@ const DOT_RADIUS = 1.5;
 const LINE_WIDTH = 0.5;
 
 /**
+ * Maximum grid elements before rendering is skipped to prevent
+ * performance collapse at very low zoom levels. [CRITICAL]
+ */
+const MAX_GRID_ELEMENTS = 50_000;
+
+/**
  * Get adaptive grid spacing based on current zoom level. [AC6]
  *
  * Uses the provided gridSize as the base spacing (defaults to 20).
@@ -46,7 +51,7 @@ const LINE_WIDTH = 0.5;
  * - zoom < 0.25 → 4× base
  */
 export function getGridSpacing(zoom: number, gridSize?: number): number {
-  const base = gridSize ?? DEFAULT_BASE_SPACING;
+  const base = Math.max(1, gridSize ?? DEFAULT_BASE_SPACING);
   if (zoom < 0.25) return base * 4;
   if (zoom < 0.5) return base * 2;
   return base;
@@ -116,8 +121,9 @@ function computeGridBounds(
 /**
  * Render dot grid within the visible viewport.
  *
- * Only draws dots that fall inside the visible world area,
- * snapped to grid-spacing boundaries for alignment.
+ * All dots are batched into a single path for performance.
+ * Bails out early if the grid element count exceeds MAX_GRID_ELEMENTS
+ * to prevent performance collapse at extreme zoom-out levels.
  */
 function renderDotGrid(
   ctx: CanvasRenderingContext2D,
@@ -129,16 +135,23 @@ function renderDotGrid(
   const spacing = getGridSpacing(camera.zoom, gridSize);
   const bounds = computeGridBounds(camera, viewportWidth, viewportHeight, spacing);
 
+  // Guard: bail out if too many elements would be drawn [CRITICAL]
+  const cols = Math.ceil((bounds.endX - bounds.startX) / spacing) + 1;
+  const rows = Math.ceil((bounds.endY - bounds.startY) / spacing) + 1;
+  if (cols * rows > MAX_GRID_ELEMENTS) return;
+
   ctx.save();
   ctx.fillStyle = getGridDotColor();
 
+  // Batch all dots into a single path for performance [HIGH]
+  ctx.beginPath();
   for (let x = bounds.startX; x <= bounds.endX; x += spacing) {
     for (let y = bounds.startY; y <= bounds.endY; y += spacing) {
-      ctx.beginPath();
+      ctx.moveTo(x + DOT_RADIUS, y);
       ctx.arc(x, y, DOT_RADIUS, 0, Math.PI * 2);
-      ctx.fill();
     }
   }
+  ctx.fill();
 
   ctx.restore();
 }
@@ -148,6 +161,7 @@ function renderDotGrid(
  *
  * Draws thin horizontal and vertical lines at grid intervals,
  * creating a graph-paper effect. Lines span the full visible area.
+ * Bails out early if the element count exceeds MAX_GRID_ELEMENTS.
  */
 function renderLineGrid(
   ctx: CanvasRenderingContext2D,
@@ -158,6 +172,11 @@ function renderLineGrid(
 ): void {
   const spacing = getGridSpacing(camera.zoom, gridSize);
   const bounds = computeGridBounds(camera, viewportWidth, viewportHeight, spacing);
+
+  // Guard: bail out if too many lines would be drawn [CRITICAL]
+  const cols = Math.ceil((bounds.endX - bounds.startX) / spacing) + 1;
+  const rows = Math.ceil((bounds.endY - bounds.startY) / spacing) + 1;
+  if (cols + rows > MAX_GRID_ELEMENTS) return;
 
   ctx.save();
   ctx.strokeStyle = getGridLineColor();

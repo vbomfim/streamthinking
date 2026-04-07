@@ -606,6 +606,7 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     },
 
     setGridSize: (size: number) => {
+      if (!Number.isFinite(size)) return;
       set((state) => {
         state.gridSize = Math.max(5, Math.min(size, 200));
       });

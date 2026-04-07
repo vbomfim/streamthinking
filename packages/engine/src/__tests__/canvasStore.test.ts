@@ -692,6 +692,18 @@ describe('setGridSize', () => {
     expect(useCanvasStore.getState().gridSize).toBe(200);
   });
 
+  it('rejects NaN without changing state', () => {
+    useCanvasStore.getState().setGridSize(40);
+    useCanvasStore.getState().setGridSize(NaN);
+    expect(useCanvasStore.getState().gridSize).toBe(40);
+  });
+
+  it('rejects Infinity without changing state', () => {
+    useCanvasStore.getState().setGridSize(40);
+    useCanvasStore.getState().setGridSize(Infinity);
+    expect(useCanvasStore.getState().gridSize).toBe(40);
+  });
+
   it('does NOT emit a ProtocolOperation (UI-only action)', () => {
     const logBefore = useCanvasStore.getState().operationLog.length;
     useCanvasStore.getState().setGridSize(40);

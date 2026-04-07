@@ -9,8 +9,7 @@
 
 import type { VisualExpression } from '@infinicanvas/protocol';
 import type { RoughCanvas } from 'roughjs/bin/canvas.js';
-import type { Camera } from '../types/index.js';
-import type { GridType } from '../types/index.js';
+import type { Camera, GridType } from '../types/index.js';
 import type { DrawPreview } from '../tools/BaseTool.js';
 import { applyTransform } from '../camera.js';
 import { renderGrid } from './gridRenderer.js';
