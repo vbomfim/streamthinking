@@ -15,7 +15,6 @@ import type { IGatewayClient } from '../gatewayClient.js';
 
 export interface ApplyThemeParams {
   themeId: string;
-  scope: 'all' | 'selected';
 }
 
 // ── Tool implementations ───────────────────────────────────
@@ -68,7 +67,7 @@ export async function executeApplyTheme(
   // Compute themed styles
   const themed = applyThemeToExpressions(expressions, theme);
 
-  // Group by style to minimize operations
+  // Group by style diff to minimize operations
   const styleGroups = new Map<string, { ids: string[]; style: Partial<ExpressionStyle> }>();
 
   for (let i = 0; i < expressions.length; i++) {
@@ -76,12 +75,11 @@ export async function executeApplyTheme(
     const themedExpr = themed[i]!;
 
     // Compute the diff between original and themed styles
-    const diff: Partial<ExpressionStyle> = {};
-    const keys = Object.keys(themedExpr.style) as (keyof ExpressionStyle)[];
-    for (const key of keys) {
-      if (themedExpr.style[key] !== original.style[key]) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (diff as any)[key] = themedExpr.style[key];
+    const diff: Record<string, unknown> = {};
+    for (const key of Object.keys(themedExpr.style)) {
+      const k = key as keyof ExpressionStyle;
+      if (themedExpr.style[k] !== original.style[k]) {
+        diff[key] = themedExpr.style[k];
       }
     }
 
@@ -93,7 +91,7 @@ export async function executeApplyTheme(
     if (existing) {
       existing.ids.push(original.id);
     } else {
-      styleGroups.set(groupKey, { ids: [original.id], style: diff });
+      styleGroups.set(groupKey, { ids: [original.id], style: diff as Partial<ExpressionStyle> });
     }
   }
 

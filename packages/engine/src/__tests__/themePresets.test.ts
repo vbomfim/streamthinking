@@ -64,6 +64,31 @@ function makeDiamond(id: string): VisualExpression {
   };
 }
 
+function makeFlowchart(id: string): VisualExpression {
+  return {
+    id,
+    kind: 'flowchart',
+    position: { x: 0, y: 0 },
+    size: { width: 400, height: 300 },
+    angle: 0,
+    style: { ...DEFAULT_EXPRESSION_STYLE },
+    meta: {
+      author: testAuthor,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+      tags: [],
+      locked: false,
+    },
+    data: {
+      kind: 'flowchart' as const,
+      title: 'Test Flow',
+      nodes: [{ id: 'n1', label: 'Start', shape: 'ellipse' as const }],
+      edges: [],
+      direction: 'TB' as const,
+    },
+  };
+}
+
 function resetStore() {
   useCanvasStore.setState({
     expressions: {},
@@ -160,6 +185,15 @@ describe('applyThemeToExpressions', () => {
 
     expect(result[0]!.style.backgroundColor).toBe(theme.colors.primary);
     expect(result[0]!.style.strokeColor).toBe(theme.colors.stroke);
+  });
+
+  it('applies secondary fill to container kinds (flowchart)', () => {
+    const flowchart = makeFlowchart('f1');
+    const result = applyThemeToExpressions([flowchart], theme);
+
+    expect(result[0]!.style.backgroundColor).toBe(theme.colors.secondary);
+    expect(result[0]!.style.strokeColor).toBe(theme.colors.stroke);
+    expect(result[0]!.style.fillStyle).toBe('solid');
   });
 
   it('applies accent fill to sticky notes', () => {

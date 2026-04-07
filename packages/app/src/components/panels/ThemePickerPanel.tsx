@@ -8,10 +8,9 @@
  * @module
  */
 
-import { useState } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Palette } from 'lucide-react';
-import { useCanvasStore } from '@infinicanvas/engine';
-import { THEME_PRESETS } from '@infinicanvas/engine';
+import { useCanvasStore, THEME_PRESETS } from '@infinicanvas/engine';
 import type { ThemePreset } from '@infinicanvas/engine';
 
 // ── Inline style constants ─────────────────────────────────
@@ -154,16 +153,48 @@ function ThemeItem({
 export function ThemePickerPanel() {
   const [isOpen, setIsOpen] = useState(false);
   const [scope, setScope] = useState<'all' | 'selected'>('all');
+  const panelRef = useRef<HTMLDivElement>(null);
   const applyTheme = useCanvasStore((s) => s.applyTheme);
   const selectedCount = useCanvasStore((s) => s.selectedIds.size);
 
-  function handleApply(themeId: string) {
-    applyTheme(themeId, scope);
-    setIsOpen(false);
-  }
+  // Close on click outside
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function handleMouseDown(e: MouseEvent) {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleMouseDown);
+    return () => document.removeEventListener('mousedown', handleMouseDown);
+  }, [isOpen]);
+
+  // Close on Escape
+  useEffect(() => {
+    if (!isOpen) return;
+
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') {
+        setIsOpen(false);
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen]);
+
+  const handleApply = useCallback(
+    (themeId: string) => {
+      applyTheme(themeId, scope);
+      setIsOpen(false);
+    },
+    [applyTheme, scope],
+  );
 
   return (
-    <div style={{ position: 'relative' }}>
+    <div ref={panelRef} style={{ position: 'relative' }}>
       <button
         type="button"
         data-testid="theme-picker-button"

@@ -199,7 +199,7 @@ export type { TextConfig } from './text/textConfig.js';
 export { snapToGrid, snapPosition, computeSnappedDelta } from './utils/snapToGrid.js';
 
 // ── Themes ─────────────────────────────────────────────────
-export { THEME_PRESETS, getThemeById, applyThemeToExpressions } from './themes/presets.js';
+export { THEME_PRESETS, getThemeById, applyThemeToExpressions, computeThemedStyle } from './themes/presets.js';
 export type { ThemePreset } from './themes/presets.js';
 
 // ── Types ──────────────────────────────────────────────────

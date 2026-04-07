@@ -97,7 +97,6 @@ describe('executeApplyTheme', () => {
 
     const result = await executeApplyTheme(client, {
       themeId: 'corporate',
-      scope: 'all',
     });
 
     expect(result).toContain('Applied');
@@ -111,7 +110,6 @@ describe('executeApplyTheme', () => {
 
     const result = await executeApplyTheme(client, {
       themeId: 'nonexistent',
-      scope: 'all',
     });
 
     expect(result).toContain('not found');
@@ -123,7 +121,6 @@ describe('executeApplyTheme', () => {
 
     const result = await executeApplyTheme(client, {
       themeId: 'corporate',
-      scope: 'all',
     });
 
     expect(result).toContain('No expressions');
@@ -143,24 +140,24 @@ describe('executeApplyTheme', () => {
 
     await executeApplyTheme(client, {
       themeId: 'corporate',
-      scope: 'all',
     });
 
-    // Should have been called at least once (potentially grouped by kind)
+    // Rectangles and text get different styles, so multiple calls expected
     expect(client.sendStyle).toHaveBeenCalled();
   });
 
-  it('handles scope "selected" by treating all expressions (MCP has no selection)', async () => {
+  it('always applies to all expressions (MCP has no selection)', async () => {
     const expressions = [
       createExpression({ id: 'r1', kind: 'rectangle' }),
+      createExpression({ id: 'r2', kind: 'rectangle' }),
     ];
     const client = createMockClient(expressions);
 
     const result = await executeApplyTheme(client, {
       themeId: 'corporate',
-      scope: 'all',
     });
 
     expect(result).toContain('Applied');
+    expect(result).toContain('2');
   });
 });

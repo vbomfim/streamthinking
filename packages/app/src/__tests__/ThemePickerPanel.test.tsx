@@ -148,4 +148,25 @@ describe('ThemePickerPanel', () => {
     expect(scopeAll).not.toBeNull();
     expect(scopeSelected).not.toBeNull();
   });
+
+  it('closes panel on Escape key', () => {
+    const { container } = render(<ThemePickerPanel />);
+    const button = container.querySelector('[data-testid="theme-picker-button"]')!;
+    fireEvent.click(button);
+    expect(container.querySelector('[data-testid="theme-picker-panel"]')).not.toBeNull();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(container.querySelector('[data-testid="theme-picker-panel"]')).toBeNull();
+  });
+
+  it('closes panel on click outside', () => {
+    const { container } = render(<ThemePickerPanel />);
+    const button = container.querySelector('[data-testid="theme-picker-button"]')!;
+    fireEvent.click(button);
+    expect(container.querySelector('[data-testid="theme-picker-panel"]')).not.toBeNull();
+
+    // Click on document body (outside the panel)
+    fireEvent.mouseDown(document.body);
+    expect(container.querySelector('[data-testid="theme-picker-panel"]')).toBeNull();
+  });
 });

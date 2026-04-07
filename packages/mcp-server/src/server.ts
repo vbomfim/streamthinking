@@ -785,7 +785,6 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
     'Apply a professional color theme to all expressions on the canvas. Themes provide consistent color palettes — primary fill for shapes, accent for sticky notes, stroke colors, and font family. Available themes: corporate (professional blues), technical (clean monochrome), colorful (vibrant modern), dark (dark mode), blueprint (engineering style).',
     {
       themeId: z.string().describe('Theme ID to apply. Use canvas_list_themes to see available options. Available: corporate, technical, colorful, dark, blueprint'),
-      scope: z.enum(['all', 'selected']).default('all').describe('Apply to all expressions or only selected ones'),
     },
     async (params) => {
       const result = await executeApplyTheme(gatewayClient, params);

@@ -159,7 +159,7 @@ const CONTAINER_KINDS = new Set([
  * Returns a partial ExpressionStyle with only the properties that the
  * theme should override. Does NOT mutate the input expression.
  */
-function computeThemedStyle(
+export function computeThemedStyle(
   expr: VisualExpression,
   theme: ThemePreset,
 ): Partial<ExpressionStyle> {
