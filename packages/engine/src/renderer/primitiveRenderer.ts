@@ -806,7 +806,7 @@ function renderStencil(
   if (img) {
     ctx.save();
     ctx.globalAlpha = opacity;
-    const isContainer = Math.min(width, height) > 80;
+    const isContainer = Math.min(width, height) > 200;
     if (isContainer) {
       // Container: draw dashed border + small icon at top-left
       ctx.strokeStyle = strokeColor;

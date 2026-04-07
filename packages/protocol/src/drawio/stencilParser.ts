@@ -370,9 +370,12 @@ function convertShapeNodeToSvg(shapeNode: XmlNode, width: number, height: number
   const groups: string[] = [];
 
   // Process <background> section
+  // Background shapes define the outline — use fill="none" so the expression's
+  // backgroundColor controls fill at render time (avoids solid black blobs).
   const bg = shapeNode['background'] as XmlNode | undefined;
   if (bg) {
-    const bgElements = processSection(bg, state);
+    const bgState = { ...state, fillColor: 'none' };
+    const bgElements = processSection(bg, bgState);
     if (bgElements.length > 0) {
       groups.push(`  <g class="background">\n    ${bgElements.join('\n    ')}\n  </g>`);
     }
