@@ -93,22 +93,6 @@ function filterStencilMeta(
   return results;
 }
 
-/**
- * Find stencils matching a name query (fuzzy substring match).
- *
- * Returns all stencils whose id or label contains the query
- * substring (case-insensitive). Used for fuzzy name resolution
- * in `executePlaceStencil`.
- */
-function findStencilsByName(name: string): StencilMeta[] {
-  const query = name.toLowerCase();
-  return getAllStencilMeta().filter(
-    (s) =>
-      s.id.toLowerCase().includes(query) ||
-      s.label.toLowerCase().includes(query),
-  );
-}
-
 // ── Tool implementations ───────────────────────────────────
 
 /**
@@ -173,7 +157,7 @@ export async function executePlaceStencil(
   }
 
   if (!expr) {
-    const matches = findStencilsByName(params.stencilId);
+    const matches = filterStencilMeta(undefined, params.stencilId);
 
     if (matches.length === 0) {
       const validIds = [...STENCIL_CATALOG.keys()].join(', ');
@@ -221,7 +205,10 @@ export async function executeListStencils(params: ListStencilsParams): Promise<s
     defaultSize: s.defaultSize,
   }));
 
-  return JSON.stringify({ stencils, total, page, pageSize });
+  const totalPages = Math.ceil(total / pageSize);
+  const hasNextPage = page < totalPages;
+
+  return JSON.stringify({ stencils, total, page, pageSize, totalPages, hasNextPage });
 }
 
 /**

@@ -178,28 +178,34 @@ describe('executePlaceStencil', () => {
 describe('executeListStencils', () => {
   it('returns all stencils when no category is provided', async () => {
     const result = await executeListStencils({});
+    const parsed = JSON.parse(result);
 
     // Should contain stencils from multiple categories
-    expect(result).toContain('server');
-    expect(result).toContain('database');
-    expect(result).toContain('k8s-pod');
+    const ids = parsed.stencils.map((s: { id: string }) => s.id);
+    expect(ids).toContain('server');
+    expect(ids).toContain('database');
+    expect(ids).toContain('k8s-pod');
   });
 
   it('groups stencils by category when no filter', async () => {
     const result = await executeListStencils({});
+    const parsed = JSON.parse(result);
 
-    // Should contain category headers
-    expect(result).toContain('network');
-    expect(result).toContain('generic-it');
-    expect(result).toContain('kubernetes');
+    // Should contain stencils from multiple categories
+    const categories = new Set(parsed.stencils.map((s: { category: string }) => s.category));
+    expect(categories).toContain('network');
+    expect(categories).toContain('generic-it');
+    expect(categories).toContain('kubernetes');
   });
 
   it('filters by category when provided', async () => {
     const result = await executeListStencils({ category: 'network' });
+    const parsed = JSON.parse(result);
 
-    expect(result).toContain('server');
-    expect(result).not.toContain('database');
-    expect(result).not.toContain('k8s-pod');
+    const ids = parsed.stencils.map((s: { id: string }) => s.id);
+    expect(ids).toContain('server');
+    expect(ids).not.toContain('database');
+    expect(ids).not.toContain('k8s-pod');
   });
 
   it('returns empty result for unknown category', async () => {
@@ -212,17 +218,23 @@ describe('executeListStencils', () => {
 
   it('includes stencil label and defaultSize', async () => {
     const result = await executeListStencils({ category: 'network' });
+    const parsed = JSON.parse(result);
 
-    expect(result).toContain('Server');
-    expect(result).toContain('44');
+    const server = parsed.stencils.find((s: { id: string }) => s.id === 'server');
+    expect(server).toBeDefined();
+    expect(server.label).toBe('Server');
+    expect(server.defaultSize).toEqual({ width: 44, height: 44 });
   });
 
   it('returns kubernetes stencils when filtered', async () => {
     const result = await executeListStencils({ category: 'kubernetes' });
+    const parsed = JSON.parse(result);
 
-    expect(result).toContain('k8s-pod');
-    expect(result).toContain('Kubernetes Pod');
-    expect(result).not.toContain('server');
+    const ids = parsed.stencils.map((s: { id: string }) => s.id);
+    const labels = parsed.stencils.map((s: { label: string }) => s.label);
+    expect(ids).toContain('k8s-pod');
+    expect(labels).toContain('Kubernetes Pod');
+    expect(ids).not.toContain('server');
   });
 });
 
@@ -301,6 +313,8 @@ describe('executeListStencils enhanced', () => {
     expect(page1.stencils.length).toBe(3);
     expect(page1.page).toBe(1);
     expect(page1.pageSize).toBe(3);
+    expect(page1.totalPages).toBe(Math.ceil(page1.total / 3));
+    expect(page1.hasNextPage).toBe(true);
     expect(page2.page).toBe(2);
 
     // Pages should not overlap
@@ -318,6 +332,7 @@ describe('executeListStencils enhanced', () => {
     expect(parsed.stencils).toEqual([]);
     expect(parsed.total).toBeGreaterThan(0);
     expect(parsed.page).toBe(9999);
+    expect(parsed.hasNextPage).toBe(false);
   });
 
   it('returns error for unknown category', async () => {
