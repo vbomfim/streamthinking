@@ -104,6 +104,38 @@ import {
   FORTI_DECEPTOR_SVG,
   FORTI_SOAR_SVG,
 } from './svgs/fortinet.js';
+import {
+  CISCO_PRO_ROUTER_SVG,
+  CISCO_PRO_SWITCH_SVG,
+  CISCO_PRO_L3_SWITCH_SVG,
+  CISCO_PRO_FIREWALL_SVG,
+  CISCO_PRO_WIRELESS_AP_SVG,
+  CISCO_PRO_WLC_SVG,
+  CISCO_PRO_ASA_SVG,
+  CISCO_PRO_ISE_SVG,
+  CISCO_PRO_UMBRELLA_SVG,
+  CISCO_PRO_AMP_SVG,
+  CISCO_PRO_STEALTHWATCH_SVG,
+  CISCO_PRO_IP_PHONE_SVG,
+  CISCO_PRO_VIDEO_ENDPOINT_SVG,
+  CISCO_PRO_WEBEX_SVG,
+  CISCO_PRO_CALL_MANAGER_SVG,
+  CISCO_PRO_UCS_SVG,
+  CISCO_PRO_NEXUS_SVG,
+  CISCO_PRO_ACI_SVG,
+  CISCO_PRO_HYPERFLEX_SVG,
+  CISCO_PRO_MERAKI_SVG,
+  CISCO_PRO_SD_WAN_SVG,
+  CISCO_PRO_VIPTELA_SVG,
+  CISCO_PRO_CLOUD_SVG,
+  CISCO_PRO_INTERNET_SVG,
+  CISCO_PRO_STACK_SVG,
+  CISCO_PRO_SERVER_SVG,
+  CISCO_PRO_WORKSTATION_SVG,
+  CISCO_PRO_LAPTOP_SVG,
+  CISCO_PRO_PRINTER_SVG,
+  CISCO_PRO_CAMERA_SVG,
+} from './svgs/cisco-pro.js';
 
 /**
  * Lightweight stencil metadata — always available, no SVG content.
@@ -603,6 +635,44 @@ export const STENCIL_CATALOG: Map<string, StencilEntry> = new Map([
   ['forti-extender', { id: 'forti-extender', category: 'fortinet', label: 'FortiExtender', svgContent: FORTI_EXTENDER_SVG, defaultSize: ICON_SIZE }],
   ['forti-deceptor', { id: 'forti-deceptor', category: 'fortinet', label: 'FortiDeceptor', svgContent: FORTI_DECEPTOR_SVG, defaultSize: ICON_SIZE }],
   ['forti-soar', { id: 'forti-soar', category: 'fortinet', label: 'FortiSOAR', svgContent: FORTI_SOAR_SVG, defaultSize: ICON_SIZE }],
+
+  // ── Cisco Pro (hand-crafted) ──────────────────────────────
+  // Networking
+  ['cisco-pro-router', { id: 'cisco-pro-router', category: 'cisco-pro', label: 'Router', svgContent: CISCO_PRO_ROUTER_SVG, defaultSize: ICON_SIZE }],
+  ['cisco-pro-switch', { id: 'cisco-pro-switch', category: 'cisco-pro', label: 'Switch', svgContent: CISCO_PRO_SWITCH_SVG, defaultSize: ICON_SIZE }],
+  ['cisco-pro-l3-switch', { id: 'cisco-pro-l3-switch', category: 'cisco-pro', label: 'L3 Switch', svgContent: CISCO_PRO_L3_SWITCH_SVG, defaultSize: ICON_SIZE }],
+  ['cisco-pro-firewall', { id: 'cisco-pro-firewall', category: 'cisco-pro', label: 'Firewall', svgContent: CISCO_PRO_FIREWALL_SVG, defaultSize: ICON_SIZE }],
+  ['cisco-pro-wireless-ap', { id: 'cisco-pro-wireless-ap', category: 'cisco-pro', label: 'Wireless AP', svgContent: CISCO_PRO_WIRELESS_AP_SVG, defaultSize: ICON_SIZE }],
+  ['cisco-pro-wlc', { id: 'cisco-pro-wlc', category: 'cisco-pro', label: 'Wireless Controller', svgContent: CISCO_PRO_WLC_SVG, defaultSize: ICON_SIZE }],
+  // Security
+  ['cisco-pro-asa', { id: 'cisco-pro-asa', category: 'cisco-pro', label: 'ASA', svgContent: CISCO_PRO_ASA_SVG, defaultSize: ICON_SIZE }],
+  ['cisco-pro-ise', { id: 'cisco-pro-ise', category: 'cisco-pro', label: 'ISE', svgContent: CISCO_PRO_ISE_SVG, defaultSize: ICON_SIZE }],
+  ['cisco-pro-umbrella', { id: 'cisco-pro-umbrella', category: 'cisco-pro', label: 'Umbrella', svgContent: CISCO_PRO_UMBRELLA_SVG, defaultSize: ICON_SIZE }],
+  ['cisco-pro-amp', { id: 'cisco-pro-amp', category: 'cisco-pro', label: 'AMP', svgContent: CISCO_PRO_AMP_SVG, defaultSize: ICON_SIZE }],
+  ['cisco-pro-stealthwatch', { id: 'cisco-pro-stealthwatch', category: 'cisco-pro', label: 'Stealthwatch', svgContent: CISCO_PRO_STEALTHWATCH_SVG, defaultSize: ICON_SIZE }],
+  // Collaboration
+  ['cisco-pro-ip-phone', { id: 'cisco-pro-ip-phone', category: 'cisco-pro', label: 'IP Phone', svgContent: CISCO_PRO_IP_PHONE_SVG, defaultSize: ICON_SIZE }],
+  ['cisco-pro-video-endpoint', { id: 'cisco-pro-video-endpoint', category: 'cisco-pro', label: 'Video Endpoint', svgContent: CISCO_PRO_VIDEO_ENDPOINT_SVG, defaultSize: ICON_SIZE }],
+  ['cisco-pro-webex', { id: 'cisco-pro-webex', category: 'cisco-pro', label: 'Webex', svgContent: CISCO_PRO_WEBEX_SVG, defaultSize: ICON_SIZE }],
+  ['cisco-pro-call-manager', { id: 'cisco-pro-call-manager', category: 'cisco-pro', label: 'Call Manager', svgContent: CISCO_PRO_CALL_MANAGER_SVG, defaultSize: ICON_SIZE }],
+  // Data Center
+  ['cisco-pro-ucs', { id: 'cisco-pro-ucs', category: 'cisco-pro', label: 'UCS Server', svgContent: CISCO_PRO_UCS_SVG, defaultSize: ICON_SIZE }],
+  ['cisco-pro-nexus', { id: 'cisco-pro-nexus', category: 'cisco-pro', label: 'Nexus Switch', svgContent: CISCO_PRO_NEXUS_SVG, defaultSize: ICON_SIZE }],
+  ['cisco-pro-aci', { id: 'cisco-pro-aci', category: 'cisco-pro', label: 'ACI Fabric', svgContent: CISCO_PRO_ACI_SVG, defaultSize: ICON_SIZE }],
+  ['cisco-pro-hyperflex', { id: 'cisco-pro-hyperflex', category: 'cisco-pro', label: 'HyperFlex', svgContent: CISCO_PRO_HYPERFLEX_SVG, defaultSize: ICON_SIZE }],
+  // Cloud & SD-WAN
+  ['cisco-pro-meraki', { id: 'cisco-pro-meraki', category: 'cisco-pro', label: 'Meraki', svgContent: CISCO_PRO_MERAKI_SVG, defaultSize: ICON_SIZE }],
+  ['cisco-pro-sd-wan', { id: 'cisco-pro-sd-wan', category: 'cisco-pro', label: 'SD-WAN', svgContent: CISCO_PRO_SD_WAN_SVG, defaultSize: ICON_SIZE }],
+  ['cisco-pro-viptela', { id: 'cisco-pro-viptela', category: 'cisco-pro', label: 'Viptela', svgContent: CISCO_PRO_VIPTELA_SVG, defaultSize: ICON_SIZE }],
+  ['cisco-pro-cloud', { id: 'cisco-pro-cloud', category: 'cisco-pro', label: 'Cloud', svgContent: CISCO_PRO_CLOUD_SVG, defaultSize: ICON_SIZE }],
+  ['cisco-pro-internet', { id: 'cisco-pro-internet', category: 'cisco-pro', label: 'Internet', svgContent: CISCO_PRO_INTERNET_SVG, defaultSize: ICON_SIZE }],
+  // Infrastructure
+  ['cisco-pro-stack', { id: 'cisco-pro-stack', category: 'cisco-pro', label: 'Stack', svgContent: CISCO_PRO_STACK_SVG, defaultSize: ICON_SIZE }],
+  ['cisco-pro-server', { id: 'cisco-pro-server', category: 'cisco-pro', label: 'Server', svgContent: CISCO_PRO_SERVER_SVG, defaultSize: ICON_SIZE }],
+  ['cisco-pro-workstation', { id: 'cisco-pro-workstation', category: 'cisco-pro', label: 'Workstation', svgContent: CISCO_PRO_WORKSTATION_SVG, defaultSize: ICON_SIZE }],
+  ['cisco-pro-laptop', { id: 'cisco-pro-laptop', category: 'cisco-pro', label: 'Laptop', svgContent: CISCO_PRO_LAPTOP_SVG, defaultSize: ICON_SIZE }],
+  ['cisco-pro-printer', { id: 'cisco-pro-printer', category: 'cisco-pro', label: 'Printer', svgContent: CISCO_PRO_PRINTER_SVG, defaultSize: ICON_SIZE }],
+  ['cisco-pro-camera', { id: 'cisco-pro-camera', category: 'cisco-pro', label: 'IP Camera', svgContent: CISCO_PRO_CAMERA_SVG, defaultSize: ICON_SIZE }],
 ]);
 
 // ── Initialize metadata from eager catalog ────────────────
