@@ -14,4 +14,5 @@ export const BINDABLE_KINDS = new Set([
   'diamond',
   'sticky-note',
   'stencil',
+  'container',
 ]);

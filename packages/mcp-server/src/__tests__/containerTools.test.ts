@@ -249,7 +249,7 @@ describe('executeCreateContainer', () => {
 // ── executeCreateSwimlanes ──────────────────────────────────
 
 describe('executeCreateSwimlanes', () => {
-  it('sends all lanes to gateway and returns success message', async () => {
+  it('sends all lanes via sendBatchCreate and returns success message', async () => {
     const client = createMockClient();
     const result = await executeCreateSwimlanes(client, {
       x: 0,
@@ -260,7 +260,14 @@ describe('executeCreateSwimlanes', () => {
       ],
     });
 
-    expect(client.sendCreate).toHaveBeenCalledTimes(2);
+    // Fix #8: should use batch create, not sequential sendCreate
+    expect(client.sendBatchCreate).toHaveBeenCalledTimes(1);
+    const batchArg = (client.sendBatchCreate as ReturnType<typeof vi.fn>).mock.calls[0]![0] as VisualExpression[];
+    expect(batchArg).toHaveLength(2);
+    expect(batchArg[0]!.kind).toBe('container');
+    expect(batchArg[1]!.kind).toBe('container');
+    // Sequential sendCreate should NOT be called
+    expect(client.sendCreate).not.toHaveBeenCalled();
     expect(result).toContain('2');
     expect(result).toContain('Dev');
     expect(result).toContain('QA');

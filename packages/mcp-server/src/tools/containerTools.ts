@@ -129,13 +129,11 @@ export async function executeCreateSwimlanes(
   params: CreateSwimlanesParams,
 ): Promise<string> {
   const lanes = buildSwimlanes(params);
-  const ids: string[] = [];
 
-  for (const lane of lanes) {
-    await client.sendCreate(lane);
-    ids.push(lane.id);
-  }
+  // #112 Fix #8: Use batch create for efficiency
+  await client.sendBatchCreate(lanes);
 
+  const ids = lanes.map((l) => l.id);
   const orientation = params.orientation ?? 'horizontal';
   const titles = params.lanes.map((l) => l.title).join(', ');
   return `Created ${lanes.length} ${orientation} swimlane(s): ${titles} [ids: ${ids.join(', ')}]`;

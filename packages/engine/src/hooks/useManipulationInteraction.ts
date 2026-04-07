@@ -354,6 +354,12 @@ export function useManipulationInteraction(
         }));
 
         state.moveExpressions(moves);
+
+        // TODO (#112): Wire autoParentOnDrop / autoUnparentOnDrag here.
+        // After moveExpressions completes, call state.autoParentOnDrop(id) and
+        // state.autoUnparentOnDrag(id) for each moved non-container expression
+        // to enable automatic container child management. Deferred to a follow-up
+        // PR — interaction hook changes need E2E testing (useManipulationInteraction).
       }
     } else if (drag.kind === 'resize') {
       const dx = worldPoint.x - drag.startWorld.x;

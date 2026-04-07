@@ -1670,6 +1670,10 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
         if (id === expressionId) continue;
         if (candidate.kind !== 'container') continue;
 
+        // #112 Fix #2: Skip collapsed containers — user can't see the parenting
+        const candidateData = candidate.data as ContainerData;
+        if (candidateData.collapsed) continue;
+
         // Check if the expression is inside the container body bounds
         const cX = candidate.position.x;
         const cY = candidate.position.y;
@@ -1698,10 +1702,31 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
       // Already parented to this container — no-op
       if (expr.parentId === smallest.id) return;
 
+      // #112 Fix #4: Prevent circular parenting (A → B → A cycle)
+      let ancestor: string | undefined = smallest.parentId;
+      while (ancestor) {
+        if (ancestor === expressionId) return; // cycle detected
+        ancestor = currentState.expressions[ancestor]?.parentId;
+      }
+
+      // #112 Fix #1: Push undo snapshot and emit protocol operation
+      historyManager.pushSnapshot(captureSnapshot(currentState));
+
       set((state) => {
         const target = state.expressions[expressionId];
         if (target) {
           target.parentId = smallest.id;
+
+          const changes: Record<string, unknown> = { parentId: smallest.id };
+          const operation = createOperation('update', {
+            type: 'update',
+            expressionId,
+            changes,
+          });
+          pushOperation(state.operationLog, operation);
+
+          state.canUndo = historyManager.canUndo();
+          state.canRedo = historyManager.canRedo();
         }
       });
     },
@@ -1714,9 +1739,24 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
       const parent = currentState.expressions[expr.parentId];
       if (!parent) {
         // Parent no longer exists — clear the reference
+        historyManager.pushSnapshot(captureSnapshot(currentState));
+
         set((state) => {
           const target = state.expressions[expressionId];
-          if (target) delete target.parentId;
+          if (target) {
+            delete target.parentId;
+
+            const changes: Record<string, unknown> = { parentId: undefined };
+            const operation = createOperation('update', {
+              type: 'update',
+              expressionId,
+              changes,
+            });
+            pushOperation(state.operationLog, operation);
+
+            state.canUndo = historyManager.canUndo();
+            state.canRedo = historyManager.canRedo();
+          }
         });
         return;
       }
@@ -1734,9 +1774,25 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
         expr.position.y + expr.size.height <= pY + pH;
 
       if (!isInside) {
+        // #112 Fix #1: Push undo snapshot and emit protocol operation
+        historyManager.pushSnapshot(captureSnapshot(currentState));
+
         set((state) => {
           const target = state.expressions[expressionId];
-          if (target) delete target.parentId;
+          if (target) {
+            delete target.parentId;
+
+            const changes: Record<string, unknown> = { parentId: undefined };
+            const operation = createOperation('update', {
+              type: 'update',
+              expressionId,
+              changes,
+            });
+            pushOperation(state.operationLog, operation);
+
+            state.canUndo = historyManager.canUndo();
+            state.canRedo = historyManager.canRedo();
+          }
         });
       }
     },

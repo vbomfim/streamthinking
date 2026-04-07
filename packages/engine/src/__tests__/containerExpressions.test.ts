@@ -376,3 +376,214 @@ describe('deleteContainer [STORE]', () => {
     expect(state.expressions['rect-1']!.parentId).toBeUndefined();
   });
 });
+
+// ── Fix #1: Protocol ops for autoParent/autoUnparent ─────────
+
+describe('autoParentOnDrop protocol ops [FIX #1]', () => {
+  it('emits an update ProtocolOperation when parenting', () => {
+    const containerId = useCanvasStore.getState().createContainer(
+      'Dev',
+      { x: 0, y: 0 },
+      { width: 400, height: 300 },
+    );
+
+    const rect = makeRectangle('rect-1', 50, 60, 80, 60);
+    useCanvasStore.getState().addExpression(rect);
+
+    const opsBefore = useCanvasStore.getState().operationLog.length;
+    useCanvasStore.getState().autoParentOnDrop('rect-1');
+
+    const ops = useCanvasStore.getState().operationLog;
+    expect(ops.length).toBeGreaterThan(opsBefore);
+
+    const updateOp = ops[ops.length - 1];
+    expect(updateOp!.type).toBe('update');
+  });
+
+  it('supports undo after auto-parenting', () => {
+    const containerId = useCanvasStore.getState().createContainer(
+      'Dev',
+      { x: 0, y: 0 },
+      { width: 400, height: 300 },
+    );
+
+    const rect = makeRectangle('rect-1', 50, 60, 80, 60);
+    useCanvasStore.getState().addExpression(rect);
+    useCanvasStore.getState().autoParentOnDrop('rect-1');
+
+    expect(useCanvasStore.getState().expressions['rect-1']!.parentId).toBe(containerId);
+
+    useCanvasStore.getState().undo();
+
+    expect(useCanvasStore.getState().expressions['rect-1']!.parentId).toBeUndefined();
+  });
+});
+
+describe('autoUnparentOnDrag protocol ops [FIX #1]', () => {
+  it('emits an update ProtocolOperation when unparenting', () => {
+    const containerId = useCanvasStore.getState().createContainer(
+      'Dev',
+      { x: 0, y: 0 },
+      { width: 400, height: 300 },
+    );
+
+    const rect = makeRectangle('rect-1', 50, 60, 80, 60);
+    useCanvasStore.getState().addExpression(rect);
+    useCanvasStore.getState().autoParentOnDrop('rect-1');
+
+    // Move outside
+    useCanvasStore.getState().updateExpression('rect-1', {
+      position: { x: 500, y: 500 },
+    });
+
+    const opsBefore = useCanvasStore.getState().operationLog.length;
+    useCanvasStore.getState().autoUnparentOnDrag('rect-1');
+
+    const ops = useCanvasStore.getState().operationLog;
+    expect(ops.length).toBeGreaterThan(opsBefore);
+
+    const updateOp = ops[ops.length - 1];
+    expect(updateOp!.type).toBe('update');
+  });
+
+  it('supports undo after auto-unparenting', () => {
+    const containerId = useCanvasStore.getState().createContainer(
+      'Dev',
+      { x: 0, y: 0 },
+      { width: 400, height: 300 },
+    );
+
+    const rect = makeRectangle('rect-1', 50, 60, 80, 60);
+    useCanvasStore.getState().addExpression(rect);
+    useCanvasStore.getState().autoParentOnDrop('rect-1');
+
+    // Move outside and unparent
+    useCanvasStore.getState().updateExpression('rect-1', {
+      position: { x: 500, y: 500 },
+    });
+    useCanvasStore.getState().autoUnparentOnDrag('rect-1');
+    expect(useCanvasStore.getState().expressions['rect-1']!.parentId).toBeUndefined();
+
+    useCanvasStore.getState().undo();
+
+    expect(useCanvasStore.getState().expressions['rect-1']!.parentId).toBe(containerId);
+  });
+});
+
+// ── Fix #2: Skip collapsed containers ────────────────────────
+
+describe('autoParentOnDrop skips collapsed [FIX #2]', () => {
+  it('does not parent into a collapsed container', () => {
+    const containerId = useCanvasStore.getState().createContainer(
+      'Collapsed',
+      { x: 0, y: 0 },
+      { width: 400, height: 300 },
+    );
+    useCanvasStore.getState().toggleContainerCollapse(containerId);
+
+    const rect = makeRectangle('rect-1', 50, 60, 80, 60);
+    useCanvasStore.getState().addExpression(rect);
+
+    useCanvasStore.getState().autoParentOnDrop('rect-1');
+
+    expect(useCanvasStore.getState().expressions['rect-1']!.parentId).toBeUndefined();
+  });
+
+  it('parents into expanded container, skipping collapsed sibling', () => {
+    // Create collapsed container
+    const collapsedId = useCanvasStore.getState().createContainer(
+      'Collapsed',
+      { x: 0, y: 0 },
+      { width: 600, height: 500 },
+    );
+    useCanvasStore.getState().toggleContainerCollapse(collapsedId);
+
+    // Create expanded container at same position but smaller
+    const expandedId = useCanvasStore.getState().createContainer(
+      'Expanded',
+      { x: 10, y: 10 },
+      { width: 300, height: 200 },
+    );
+
+    const rect = makeRectangle('rect-1', 50, 50, 80, 60);
+    useCanvasStore.getState().addExpression(rect);
+
+    useCanvasStore.getState().autoParentOnDrop('rect-1');
+
+    // Should parent to the expanded one, not the collapsed one
+    expect(useCanvasStore.getState().expressions['rect-1']!.parentId).toBe(expandedId);
+  });
+});
+
+// ── Fix #4: Circular parenting guard ─────────────────────────
+
+describe('autoParentOnDrop circular guard [FIX #4]', () => {
+  it('prevents A → B → A circular parenting', () => {
+    // Create outer container A
+    const containerA = useCanvasStore.getState().createContainer(
+      'A',
+      { x: 0, y: 0 },
+      { width: 600, height: 500 },
+    );
+
+    // Create inner container B inside A
+    const containerB = useCanvasStore.getState().createContainer(
+      'B',
+      { x: 50, y: 50 },
+      { width: 200, height: 200 },
+    );
+
+    // Parent B under A
+    useCanvasStore.getState().autoParentOnDrop(containerB);
+    expect(useCanvasStore.getState().expressions[containerB]!.parentId).toBe(containerA);
+
+    // Now resize A to fit inside B (simulate drag that would create cycle)
+    useCanvasStore.getState().updateExpression(containerA, {
+      position: { x: 60, y: 60 },
+      size: { width: 100, height: 100 },
+    });
+
+    // Try to parent A under B — this would create a cycle
+    useCanvasStore.getState().autoParentOnDrop(containerA);
+
+    // A should NOT be parented under B
+    expect(useCanvasStore.getState().expressions[containerA]!.parentId).toBeUndefined();
+  });
+
+  it('prevents deep circular chains', () => {
+    // Create A > B > C hierarchy
+    const containerA = useCanvasStore.getState().createContainer(
+      'A',
+      { x: 0, y: 0 },
+      { width: 800, height: 600 },
+    );
+    const containerB = useCanvasStore.getState().createContainer(
+      'B',
+      { x: 50, y: 50 },
+      { width: 600, height: 400 },
+    );
+    const containerC = useCanvasStore.getState().createContainer(
+      'C',
+      { x: 100, y: 100 },
+      { width: 300, height: 200 },
+    );
+
+    useCanvasStore.getState().autoParentOnDrop(containerB); // B → A
+    useCanvasStore.getState().autoParentOnDrop(containerC); // C → B
+
+    expect(useCanvasStore.getState().expressions[containerB]!.parentId).toBe(containerA);
+    expect(useCanvasStore.getState().expressions[containerC]!.parentId).toBe(containerB);
+
+    // Resize A to fit inside C
+    useCanvasStore.getState().updateExpression(containerA, {
+      position: { x: 120, y: 120 },
+      size: { width: 50, height: 50 },
+    });
+
+    // Try to parent A under C — cycle: A → C → B → A
+    useCanvasStore.getState().autoParentOnDrop(containerA);
+
+    // Should NOT create the cycle
+    expect(useCanvasStore.getState().expressions[containerA]!.parentId).toBeUndefined();
+  });
+});
