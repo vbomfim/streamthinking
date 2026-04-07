@@ -400,6 +400,9 @@ interface ParsedPoint {
 /** Maximum input size for XML import (10 MB). */
 const MAX_INPUT_SIZE = 10_000_000;
 
+/** Maximum number of expressions to import. */
+const MAX_EXPRESSION_COUNT = 5_000;
+
 /** Sanitize a numeric value: replace NaN/Infinity with a fallback. */
 function sanitizeNum(value: number, fallback: number): number {
   return Number.isFinite(value) ? value : fallback;
@@ -572,6 +575,14 @@ export function drawioToExpressions(xml: string): VisualExpression[] {
 
   const cells = parsed.mxGraphModel?.root?.mxCell;
   if (!cells) return [];
+
+  // Guard against excessively large imports
+  if (cells.length > MAX_EXPRESSION_COUNT) {
+    throw new Error(
+      `draw.io file contains ${cells.length} cells, exceeding the limit of ${MAX_EXPRESSION_COUNT}. ` +
+      `Reduce the diagram size or split into smaller files.`,
+    );
+  }
 
   const expressions: VisualExpression[] = [];
   const now = Date.now();

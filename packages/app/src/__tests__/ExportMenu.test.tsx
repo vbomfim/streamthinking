@@ -10,8 +10,13 @@
  */
 
 import { render, cleanup, fireEvent } from '@testing-library/react';
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, beforeAll, vi } from 'vitest';
 import { ExportMenu } from '../components/panels/ExportMenu.js';
+
+beforeAll(() => {
+  globalThis.URL.createObjectURL = vi.fn(() => 'blob:mock-url');
+  globalThis.URL.revokeObjectURL = vi.fn();
+});
 
 describe('ExportMenu', () => {
   afterEach(() => {
@@ -32,7 +37,9 @@ describe('ExportMenu', () => {
     expect(container.querySelector('[data-action="export-png"]')).not.toBeNull();
     expect(container.querySelector('[data-action="export-svg"]')).not.toBeNull();
     expect(container.querySelector('[data-action="export-json"]')).not.toBeNull();
+    expect(container.querySelector('[data-action="export-drawio"]')).not.toBeNull();
     expect(container.querySelector('[data-action="import-json"]')).not.toBeNull();
+    expect(container.querySelector('[data-action="import-drawio"]')).not.toBeNull();
   });
 
   it('hides menu options by default', () => {
@@ -75,5 +82,48 @@ describe('ExportMenu', () => {
     fireEvent.click(jsonOption);
     // Menu should close after action
     expect(container.querySelector('[data-action="export-json"]')).toBeNull();
+  });
+
+  // ── draw.io export/import options ───────────────────────
+
+  it('renders Export draw.io option when menu is open', () => {
+    const { container } = render(<ExportMenu />);
+    fireEvent.click(container.querySelector('[aria-label="Export menu"]')!);
+    const drawioExport = container.querySelector('[data-action="export-drawio"]');
+    expect(drawioExport).not.toBeNull();
+    expect(drawioExport?.textContent).toContain('Export .drawio');
+  });
+
+  it('renders Import draw.io option when menu is open', () => {
+    const { container } = render(<ExportMenu />);
+    fireEvent.click(container.querySelector('[aria-label="Export menu"]')!);
+    const drawioImport = container.querySelector('[data-action="import-drawio"]');
+    expect(drawioImport).not.toBeNull();
+    expect(drawioImport?.textContent).toContain('Import .drawio');
+  });
+
+  it('has hidden file input for draw.io import accepting .drawio and .xml', () => {
+    const { container } = render(<ExportMenu />);
+    const drawioInput = container.querySelector('input[accept*=".drawio"]') as HTMLInputElement | null;
+    expect(drawioInput).not.toBeNull();
+    expect(drawioInput?.accept).toContain('.drawio');
+    expect(drawioInput?.accept).toContain('.xml');
+    expect(drawioInput?.style.display).toBe('none');
+  });
+
+  it('closes menu when Export draw.io is clicked', () => {
+    const { container } = render(<ExportMenu />);
+    fireEvent.click(container.querySelector('[aria-label="Export menu"]')!);
+    const drawioExport = container.querySelector('[data-action="export-drawio"]')!;
+    fireEvent.click(drawioExport);
+    expect(container.querySelector('[data-action="export-drawio"]')).toBeNull();
+  });
+
+  it('closes menu when Import draw.io is clicked', () => {
+    const { container } = render(<ExportMenu />);
+    fireEvent.click(container.querySelector('[aria-label="Export menu"]')!);
+    const drawioImport = container.querySelector('[data-action="import-drawio"]')!;
+    fireEvent.click(drawioImport);
+    expect(container.querySelector('[data-action="import-drawio"]')).toBeNull();
   });
 });

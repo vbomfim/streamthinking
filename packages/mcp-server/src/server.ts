@@ -72,6 +72,10 @@ import {
   executeListWaypoints,
   executeRemoveWaypoint,
 } from './tools/waypointTools.js';
+import {
+  executeExportDrawio,
+  executeImportDrawio,
+} from './tools/drawioTools.js';
 
 // ── Zod schemas for tool parameters ────────────────────────
 
@@ -689,6 +693,28 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
     },
     async (params) => ({
       content: [{ type: 'text' as const, text: executeRemoveWaypoint(gatewayClient, params) }],
+    }),
+  );
+
+  // ── draw.io export/import tools ────────────────────────────
+
+  server.tool(
+    'canvas_export_drawio',
+    'Export the current canvas as draw.io XML. Returns mxGraphModel XML that can be opened in draw.io/diagrams.net. No parameters needed.',
+    {},
+    async () => ({
+      content: [{ type: 'text' as const, text: executeExportDrawio(gatewayClient) }],
+    }),
+  );
+
+  server.tool(
+    'canvas_import_drawio',
+    'Import a draw.io XML file onto the canvas. Parses mxGraphModel XML and creates visual expressions for each cell. Returns the count of imported expressions.',
+    {
+      xml: z.string().min(1).describe('The draw.io XML content (mxGraphModel format)'),
+    },
+    async (args) => ({
+      content: [{ type: 'text' as const, text: await executeImportDrawio(gatewayClient, args) }],
     }),
   );
 

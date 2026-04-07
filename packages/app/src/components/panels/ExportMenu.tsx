@@ -1,8 +1,9 @@
 /**
  * ExportMenu — dropdown menu for export and import actions.
  *
- * Provides Export PNG, Export SVG, Export JSON, and Import JSON
- * options. Uses file input for JSON import with validation. [CLEAN-CODE]
+ * Provides Export PNG, Export SVG, Export JSON, Export .drawio,
+ * Import JSON, and Import .drawio options. Uses file inputs for
+ * JSON and draw.io import with validation. [CLEAN-CODE]
  *
  * @module
  */
@@ -10,6 +11,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { useCanvasStore, useUiStore } from '@infinicanvas/engine';
 import { exportToJson, importFromJson, buildSvgString, downloadSvg, exportToPng } from '@infinicanvas/engine';
+import { expressionsToDrawio, drawioToExpressions } from '@infinicanvas/protocol';
 import { Download } from 'lucide-react';
 
 /** Menu option definition. */
@@ -23,6 +25,7 @@ interface MenuOption {
 export function ExportMenu() {
   const [isOpen, setIsOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const drawioFileInputRef = useRef<HTMLInputElement>(null);
 
   const handleExportJson = useCallback(() => {
     const { expressions, expressionOrder } = useCanvasStore.getState();
@@ -79,6 +82,62 @@ export function ExportMenu() {
     setIsOpen(false);
   }, []);
 
+  const handleExportDrawio = useCallback(() => {
+    const { expressions, expressionOrder } = useCanvasStore.getState();
+    const expressionArray = expressionOrder
+      .map((id) => expressions[id])
+      .filter((e): e is NonNullable<typeof e> => e != null);
+    const xml = expressionsToDrawio(expressionArray);
+    const blob = new Blob([xml], { type: 'application/xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'infinicanvas-export.drawio';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setIsOpen(false);
+  }, []);
+
+  const handleImportDrawio = useCallback(() => {
+    drawioFileInputRef.current?.click();
+    setIsOpen(false);
+  }, []);
+
+  const handleDrawioFileSelected = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const content = reader.result as string;
+      try {
+        const imported = drawioToExpressions(content);
+        if (imported.length === 0) {
+          alert('No drawable elements found in the draw.io file.');
+          return;
+        }
+        const store = useCanvasStore.getState();
+        const mergedExpressions = { ...store.expressions };
+        const mergedOrder = [...store.expressionOrder];
+        for (const expr of imported) {
+          mergedExpressions[expr.id] = expr;
+          mergedOrder.push(expr.id);
+        }
+        store.replaceState(Object.values(mergedExpressions), mergedOrder);
+      } catch (err) {
+        console.error('[ExportMenu] draw.io import failed:', err);
+        alert(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    };
+    reader.onerror = () => alert('Failed to read file.');
+    reader.readAsText(file);
+
+    // Reset input so same file can be re-imported
+    e.target.value = '';
+  }, []);
+
   const handleFileSelected = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -98,6 +157,7 @@ export function ExportMenu() {
         alert(`Import failed: ${result.error}`);
       }
     };
+    reader.onerror = () => alert('Failed to read file.');
     reader.readAsText(file);
 
     // Reset input so same file can be re-imported
@@ -108,7 +168,9 @@ export function ExportMenu() {
     { action: 'export-png', label: 'Export PNG', onClick: handleExportPng },
     { action: 'export-svg', label: 'Export SVG', onClick: handleExportSvg },
     { action: 'export-json', label: 'Export JSON', onClick: handleExportJson },
+    { action: 'export-drawio', label: 'Export .drawio', onClick: handleExportDrawio },
     { action: 'import-json', label: 'Import JSON', onClick: handleImportJson },
+    { action: 'import-drawio', label: 'Import .drawio', onClick: handleImportDrawio },
   ];
 
   return (
@@ -183,6 +245,16 @@ export function ExportMenu() {
         type="file"
         accept=".json,application/json"
         onChange={handleFileSelected}
+        style={{ display: 'none' }}
+        aria-hidden="true"
+      />
+
+      {/* Hidden file input for draw.io import */}
+      <input
+        ref={drawioFileInputRef}
+        type="file"
+        accept=".drawio,.xml,application/xml"
+        onChange={handleDrawioFileSelected}
         style={{ display: 'none' }}
         aria-hidden="true"
       />
