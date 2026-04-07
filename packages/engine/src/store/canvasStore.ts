@@ -48,7 +48,6 @@ import {
   findSnapPoint,
 } from '../interaction/connectorHelpers.js';
 import type { ArrowData, ArrowAnchor, ArrowBinding } from '@infinicanvas/protocol';
-import { getThemeById, applyThemeToExpressions, computeThemedStyle } from '../themes/presets.js';
 
 // Enable immer support for Set/Map (used by selectedIds: Set<string>)
 enableMapSet();
@@ -327,9 +326,6 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     selectedIds: new Set<string>(),
     activeTool: 'select' as ToolType,
     camera: { x: 0, y: 0, zoom: 1 },
-    gridVisible: true,
-    gridType: 'dot' as GridType,
-    gridSize: 20,
     operationLog: [],
     canUndo: false,
     canRedo: false,
@@ -343,6 +339,10 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     gridType: 'dot' as const,
     gridSize: 20,
     snapEnabled: true,
+
+    // ── Page/paper boundary state (UI-only, no operations or snapshots) ──
+    pageVisible: true,
+    pageSize: { width: 1122, height: 794 },
 
     // ── Content mutations (emit ProtocolOperations + push snapshots) ──
 
@@ -595,27 +595,6 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
           y: camera.y,
           zoom: Math.max(MIN_ZOOM, Math.min(camera.zoom, MAX_ZOOM)),
         };
-      });
-    },
-
-    // ── Grid state (UI-only — NO operations or snapshots) ──────
-
-    toggleGrid: () => {
-      set((state) => {
-        state.gridVisible = !state.gridVisible;
-      });
-    },
-
-    setGridType: (type: GridType) => {
-      set((state) => {
-        state.gridType = type;
-      });
-    },
-
-    setGridSize: (size: number) => {
-      if (!Number.isFinite(size)) return;
-      set((state) => {
-        state.gridSize = Math.max(5, Math.min(size, 200));
       });
     },
 
@@ -1344,7 +1323,7 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     setGridSize: (size: number) => {
       if (size <= 0 || !Number.isFinite(size)) return;
       set((state) => {
-        state.gridSize = size;
+        state.gridSize = Math.max(5, Math.min(size, 200));
       });
     },
 
@@ -1354,90 +1333,21 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
       });
     },
 
-    applyTheme: (themeId: string, scope: 'all' | 'selected') => {
-      const theme = getThemeById(themeId);
-      if (!theme) {
-        console.warn(`[canvasStore] applyTheme: unknown theme '${themeId}'`);
-        return;
-      }
+    // ── Page/paper boundary actions (UI-only, no operations or snapshots) ──
 
-      const currentState = get();
-
-      // Determine which expressions to theme
-      const targetIds =
-        scope === 'selected'
-          ? [...currentState.selectedIds]
-          : Object.keys(currentState.expressions);
-
-      if (targetIds.length === 0) return;
-
-      // Filter to existing, unlocked expressions
-      const validExprs = targetIds
-        .map((id) => currentState.expressions[id])
-        .filter((e): e is VisualExpression => !!e && !e.meta.locked);
-
-      if (validExprs.length === 0) return;
-
-      // Compute themed style diffs per expression, then group by identical diff
-      // so each operation carries the full style change for collaboration.
-      const styleGroups = new Map<string, { ids: string[]; style: Partial<ExpressionStyle> }>();
-
-      for (const expr of validExprs) {
-        const diff = computeThemedStyle(expr, theme);
-
-        // Validate each computed style through Zod [S7-5]
-        const result = expressionStyleSchema.partial().safeParse(diff);
-        if (!result.success) {
-          console.warn(
-            '[canvasStore] applyTheme: invalid computed style rejected:',
-            result.error.issues,
-          );
-          continue;
-        }
-        const validated = result.data as Partial<ExpressionStyle>;
-
-        const groupKey = JSON.stringify(validated);
-        const existing = styleGroups.get(groupKey);
-        if (existing) {
-          existing.ids.push(expr.id);
-        } else {
-          styleGroups.set(groupKey, { ids: [expr.id], style: validated });
-        }
-      }
-
-      if (styleGroups.size === 0) return;
-
-      // Push snapshot BEFORE mutation
-      historyManager.pushSnapshot(captureSnapshot(currentState));
-
+    togglePage: () => {
       set((state) => {
-        // Apply styles and emit one operation per group
-        for (const group of styleGroups.values()) {
-          for (const id of group.ids) {
-            const expr = state.expressions[id];
-            if (expr) {
-              expr.style = { ...expr.style, ...group.style } as ExpressionStyle;
+        state.pageVisible = !state.pageVisible;
+      });
+    },
 
-              // For text expressions, sync fontSize/fontFamily into data
-              if (expr.kind === 'text') {
-                const data = expr.data as Record<string, unknown>;
-                if (group.style.fontFamily !== undefined) {
-                  data.fontFamily = group.style.fontFamily;
-                }
-              }
-            }
-          }
-
-          const operation = createOperation('style', {
-            type: 'style',
-            expressionIds: [...group.ids],
-            style: group.style,
-          });
-          pushOperation(state.operationLog, operation);
-        }
-
-        state.canUndo = historyManager.canUndo();
-        state.canRedo = historyManager.canRedo();
+    setPageSize: (size: { width: number; height: number }) => {
+      if (
+        !Number.isFinite(size.width) || size.width <= 0 ||
+        !Number.isFinite(size.height) || size.height <= 0
+      ) return;
+      set((state) => {
+        state.pageSize = { width: size.width, height: size.height };
       });
     },
   })),

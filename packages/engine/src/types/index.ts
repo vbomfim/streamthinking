@@ -48,12 +48,6 @@ export interface CanvasState {
   activeTool: ToolType;
   /** Camera viewport state. */
   camera: Camera;
-  /** Whether the background grid is visible. */
-  gridVisible: boolean;
-  /** Background grid display type (dot or line). */
-  gridType: GridType;
-  /** Background grid spacing in world units. */
-  gridSize: number;
   /** Saved camera waypoints for presentation mode. */
   waypoints: CameraWaypoint[];
   /** Active waypoint index (-1 = not in presentation mode). */
@@ -67,11 +61,15 @@ export interface CanvasState {
   /** Whether the background grid is visible. */
   gridVisible: boolean;
   /** Grid rendering style: dots or lines. */
-  gridType: 'dot' | 'line';
+  gridType: GridType;
   /** Grid spacing in world units. */
   gridSize: number;
   /** Whether shapes snap to grid intersections during drag. */
   snapEnabled: boolean;
+  /** Whether page/paper boundaries are visible. */
+  pageVisible: boolean;
+  /** Page dimensions in world units (pixels at 96 DPI). */
+  pageSize: { width: number; height: number };
 }
 
 /** Actions available on the canvas store. */
@@ -88,12 +86,6 @@ export interface CanvasActions {
   setActiveTool: (tool: ToolType) => void;
   /** Set the camera viewport state. */
   setCamera: (camera: Camera) => void;
-  /** Toggle grid visibility on/off. */
-  toggleGrid: () => void;
-  /** Set the grid display type (dot or line). */
-  setGridType: (type: GridType) => void;
-  /** Set the grid spacing in world units. */
-  setGridSize: (size: number) => void;
   /** Undo the last content mutation, restoring previous canvas state. */
   undo: () => void;
   /** Redo the last undone action, restoring next canvas state. */
@@ -205,11 +197,8 @@ export interface CanvasActions {
   setGridSize: (size: number) => void;
   /** Toggle snap-to-grid for shape dragging. */
   toggleSnapEnabled: () => void;
-  /**
-   * Apply a theme preset to expressions on the canvas.
-   * Emits `style` ProtocolOperations and pushes an undo snapshot.
-   * @param themeId — ID of the theme preset to apply.
-   * @param scope — 'all' applies to every expression; 'selected' applies only to selected.
-   */
-  applyTheme: (themeId: string, scope: 'all' | 'selected') => void;
+  /** Toggle page/paper boundary visibility. */
+  togglePage: () => void;
+  /** Set page dimensions. Rejects non-positive or non-finite values. */
+  setPageSize: (size: { width: number; height: number }) => void;
 }

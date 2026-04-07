@@ -1,8 +1,8 @@
 /**
  * requestAnimationFrame-based render loop.
  *
- * Each frame: clear canvas → apply camera transform → render grid →
- * render primitives in z-order.
+ * Each frame: clear canvas → apply camera transform → render pages →
+ * render grid → render primitives in z-order.
  *
  * @module
  */
@@ -13,6 +13,7 @@ import type { Camera, GridType } from '../types/index.js';
 import type { DrawPreview } from '../tools/BaseTool.js';
 import { applyTransform } from '../camera.js';
 import { renderGrid } from './gridRenderer.js';
+import { renderPages } from './pageRenderer.js';
 import { renderExpressions } from './primitiveRenderer.js';
 import { renderSelection } from './selectionRenderer.js';
 import { renderDrawPreview } from './drawPreviewRenderer.js';
@@ -72,6 +73,14 @@ export interface GridProvider {
   getGridSize(): number;
 }
 
+/** Callback that returns the current page/paper boundary settings. */
+export interface PageProvider {
+  /** Whether page boundaries should be rendered. */
+  getPageVisible(): boolean;
+  /** Page dimensions in world units. */
+  getPageSize(): { width: number; height: number };
+}
+
 /**
  * Create a render loop bound to a canvas context.
  *
@@ -97,6 +106,7 @@ export function createRenderLoop(
   marqueeProvider?: MarqueeProvider,
   editingProvider?: EditingProvider,
   gridProvider?: GridProvider,
+  pageProvider?: PageProvider,
 ): RenderLoop {
   let width = initialWidth;
   let height = initialHeight;
@@ -114,6 +124,15 @@ export function createRenderLoop(
 
     // 2. Apply camera transform (includes DPR scaling)
     applyTransform(ctx, camera, dpr);
+
+    // 2.5 Render page/paper boundaries (desk bg + page rects, before grid)
+    if (pageProvider?.getPageVisible()) {
+      const pageSize = pageProvider.getPageSize();
+      const exprs = expressionProvider
+        ? expressionProvider.getExpressions()
+        : {};
+      renderPages(ctx, camera, width, height, pageSize, exprs);
+    }
 
     // 3. Render grid (in world coordinates)
     if (!gridProvider || gridProvider.getGridVisible()) {
