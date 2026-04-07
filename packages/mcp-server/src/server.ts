@@ -668,7 +668,7 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
       category: z.string().optional().describe('Filter by category (e.g., "network", "kubernetes")'),
     },
     async (params) => ({
-      content: [{ type: 'text' as const, text: executeListStencils(params) }],
+      content: [{ type: 'text' as const, text: await executeListStencils(params) }],
     }),
   );
 

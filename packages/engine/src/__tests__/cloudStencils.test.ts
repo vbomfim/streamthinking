@@ -73,32 +73,32 @@ const ALL_CLOUD_IDS = [...AZURE_IDS, ...K8S_IDS, ...ARM_IDS];
 // ── Azure stencils ────────────────────────────────────────
 
 describe('Azure stencils', () => {
-  it.each(AZURE_IDS)('registers %s in the catalog', (id) => {
-    const entry = getStencil(id);
+  it.each(AZURE_IDS)('registers %s in the catalog', async (id) => {
+    const entry = await getStencil(id);
     expect(entry).toBeDefined();
     expect(entry!.id).toBe(id);
     expect(entry!.category).toBe('azure');
   });
 
-  it('has exactly 6 azure stencils', () => {
+  it('has exactly 14 azure stencils', () => {
     const entries = getStencilsByCategory('azure');
-    expect(entries).toHaveLength(6);
+    expect(entries).toHaveLength(14);
   });
 
-  it.each(AZURE_IDS)('%s has valid SVG content', (id) => {
-    const entry = getStencil(id);
+  it.each(AZURE_IDS)('%s has valid SVG content', async (id) => {
+    const entry = await getStencil(id);
     expect(entry!.svgContent).toContain('<svg');
     expect(entry!.svgContent).toContain('</svg>');
     expect(entry!.svgContent).toContain('xmlns="http://www.w3.org/2000/svg"');
   });
 
-  it.each(AZURE_IDS)('%s has 64×64 default size', (id) => {
-    const entry = getStencil(id);
+  it.each(AZURE_IDS)('%s has 64×64 default size', async (id) => {
+    const entry = await getStencil(id);
     expect(entry!.defaultSize).toEqual({ width: 64, height: 64 });
   });
 
-  it.each(AZURE_IDS)('%s has a non-empty label', (id) => {
-    const entry = getStencil(id);
+  it.each(AZURE_IDS)('%s has a non-empty label', async (id) => {
+    const entry = await getStencil(id);
     expect(entry!.label.length).toBeGreaterThan(0);
   });
 });
@@ -106,8 +106,8 @@ describe('Azure stencils', () => {
 // ── Kubernetes stencils ───────────────────────────────────
 
 describe('Kubernetes stencils', () => {
-  it.each(K8S_IDS)('registers %s in the catalog', (id) => {
-    const entry = getStencil(id);
+  it.each(K8S_IDS)('registers %s in the catalog', async (id) => {
+    const entry = await getStencil(id);
     expect(entry).toBeDefined();
     expect(entry!.id).toBe(id);
     expect(entry!.category).toBe('kubernetes');
@@ -118,32 +118,37 @@ describe('Kubernetes stencils', () => {
     expect(entries).toHaveLength(10);
   });
 
-  it.each(K8S_IDS)('%s has valid SVG content', (id) => {
-    const entry = getStencil(id);
+  it.each(K8S_IDS)('%s has valid SVG content', async (id) => {
+    const entry = await getStencil(id);
     expect(entry!.svgContent).toContain('<svg');
     expect(entry!.svgContent).toContain('</svg>');
     expect(entry!.svgContent).toContain('xmlns="http://www.w3.org/2000/svg"');
   });
 
-  it.each(K8S_IDS)('%s has a non-empty label', (id) => {
-    const entry = getStencil(id);
+  it.each(K8S_IDS)('%s has a non-empty label', async (id) => {
+    const entry = await getStencil(id);
     expect(entry!.label.length).toBeGreaterThan(0);
   });
 
-  it('k8s-namespace has container dimensions', () => {
-    const entry = getStencil('k8s-namespace');
+  it('k8s-namespace has container dimensions', async () => {
+    const entry = await getStencil('k8s-namespace');
     expect(entry!.defaultSize).toEqual({ width: 200, height: 150 });
   });
 
-  it('k8s-cluster has container dimensions', () => {
-    const entry = getStencil('k8s-cluster');
+  it('k8s-cluster has container dimensions', async () => {
+    const entry = await getStencil('k8s-cluster');
     expect(entry!.defaultSize).toEqual({ width: 250, height: 200 });
   });
 
+  it('k8s-pod has 44×44 default size (ICON_SIZE)', async () => {
+    const entry = await getStencil('k8s-pod');
+    expect(entry!.defaultSize).toEqual({ width: 44, height: 44 });
+  });
+
   it.each(
-    K8S_IDS.filter((id) => !['k8s-namespace', 'k8s-cluster'].includes(id)),
-  )('%s has 64×64 default size', (id) => {
-    const entry = getStencil(id);
+    K8S_IDS.filter((id) => !['k8s-pod', 'k8s-namespace', 'k8s-cluster'].includes(id)),
+  )('%s has 64×64 default size', async (id) => {
+    const entry = await getStencil(id);
     expect(entry!.defaultSize).toEqual({ width: 64, height: 64 });
   });
 });
@@ -151,8 +156,8 @@ describe('Kubernetes stencils', () => {
 // ── Azure ARM stencils ────────────────────────────────────
 
 describe('Azure ARM stencils', () => {
-  it.each(ARM_IDS)('registers %s in the catalog', (id) => {
-    const entry = getStencil(id);
+  it.each(ARM_IDS)('registers %s in the catalog', async (id) => {
+    const entry = await getStencil(id);
     expect(entry).toBeDefined();
     expect(entry!.id).toBe(id);
     expect(entry!.category).toBe('azure-arm');
@@ -163,30 +168,30 @@ describe('Azure ARM stencils', () => {
     expect(entries).toHaveLength(10);
   });
 
-  it.each(ARM_IDS)('%s has valid SVG content', (id) => {
-    const entry = getStencil(id);
+  it.each(ARM_IDS)('%s has valid SVG content', async (id) => {
+    const entry = await getStencil(id);
     expect(entry!.svgContent).toContain('<svg');
     expect(entry!.svgContent).toContain('</svg>');
     expect(entry!.svgContent).toContain('xmlns="http://www.w3.org/2000/svg"');
   });
 
-  it.each(ARM_IDS)('%s has a non-empty label', (id) => {
-    const entry = getStencil(id);
+  it.each(ARM_IDS)('%s has a non-empty label', async (id) => {
+    const entry = await getStencil(id);
     expect(entry!.label.length).toBeGreaterThan(0);
   });
 
-  it('arm-resource-group has container dimensions', () => {
-    const entry = getStencil('arm-resource-group');
+  it('arm-resource-group has container dimensions', async () => {
+    const entry = await getStencil('arm-resource-group');
     expect(entry!.defaultSize).toEqual({ width: 200, height: 150 });
   });
 
-  it('arm-subscription has container dimensions', () => {
-    const entry = getStencil('arm-subscription');
+  it('arm-subscription has container dimensions', async () => {
+    const entry = await getStencil('arm-subscription');
     expect(entry!.defaultSize).toEqual({ width: 250, height: 200 });
   });
 
-  it('arm-management-group has container dimensions', () => {
-    const entry = getStencil('arm-management-group');
+  it('arm-management-group has container dimensions', async () => {
+    const entry = await getStencil('arm-management-group');
     expect(entry!.defaultSize).toEqual({ width: 300, height: 200 });
   });
 
@@ -195,8 +200,8 @@ describe('Azure ARM stencils', () => {
       (id) =>
         !['arm-resource-group', 'arm-subscription', 'arm-management-group'].includes(id),
     ),
-  )('%s has 64×64 default size', (id) => {
-    const entry = getStencil(id);
+  )('%s has 64×64 default size', async (id) => {
+    const entry = await getStencil(id);
     expect(entry!.defaultSize).toEqual({ width: 64, height: 64 });
   });
 });
@@ -206,8 +211,8 @@ describe('Azure ARM stencils', () => {
 describe('Container stencil sizes', () => {
   it.each(Object.entries(CONTAINER_SIZES))(
     '%s has correct container dimensions %j',
-    (id, expectedSize) => {
-      const entry = getStencil(id);
+    async (id, expectedSize) => {
+      const entry = await getStencil(id);
       expect(entry).toBeDefined();
       expect(entry!.defaultSize).toEqual(expectedSize);
     },
@@ -217,9 +222,9 @@ describe('Container stencil sizes', () => {
 // ── Cross-cutting catalog integrity ───────────────────────
 
 describe('Cloud stencil catalog integrity', () => {
-  it('all 26 cloud stencils exist in the catalog', () => {
+  it('all 26 cloud stencils exist in the catalog', async () => {
     for (const id of ALL_CLOUD_IDS) {
-      expect(getStencil(id)).toBeDefined();
+      expect(await getStencil(id)).toBeDefined();
     }
   });
 
@@ -231,25 +236,25 @@ describe('Cloud stencil catalog integrity', () => {
     }
   });
 
-  it('all cloud stencils have consistent viewBox in SVG', () => {
+  it('all cloud stencils have consistent viewBox in SVG', async () => {
     for (const id of ALL_CLOUD_IDS) {
-      const entry = getStencil(id)!;
+      const entry = (await getStencil(id))!;
       expect(entry.svgContent).toMatch(/viewBox="0 0 \d+ \d+"/);
     }
   });
 
-  it('all cloud SVGs use currentColor or #333333 for strokes', () => {
+  it('all cloud SVGs use currentColor or #333333 for strokes', async () => {
     for (const id of ALL_CLOUD_IDS) {
-      const entry = getStencil(id)!;
+      const entry = (await getStencil(id))!;
       const hasCurrentColor = entry.svgContent.includes('currentColor');
       const hasStandardColor = entry.svgContent.includes('#333333');
       expect(hasCurrentColor || hasStandardColor).toBe(true);
     }
   });
 
-  it('k8s-pod is no longer in placeholders (moved to kubernetes.ts)', () => {
+  it('k8s-pod is no longer in placeholders (moved to kubernetes.ts)', async () => {
     // k8s-pod should still be in the catalog, but from kubernetes.ts, not placeholders
-    const entry = getStencil('k8s-pod');
+    const entry = await getStencil('k8s-pod');
     expect(entry).toBeDefined();
     expect(entry!.category).toBe('kubernetes');
   });

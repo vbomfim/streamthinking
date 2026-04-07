@@ -28,7 +28,7 @@ import { resolveTextConfig } from '../text/textConfig.js';
 import { createRenderLoop } from '../renderer/renderLoop.js';
 import type { RenderLoop } from '../renderer/renderLoop.js';
 import type { VisualExpression } from '@infinicanvas/protocol';
-import { getStencil } from '../renderer/stencils/index.js';
+import { STENCIL_CATALOG } from '../renderer/stencils/index.js';
 import { DEFAULT_EXPRESSION_STYLE } from '@infinicanvas/protocol';
 import { nanoid } from 'nanoid';
 
@@ -224,7 +224,7 @@ function CanvasInner() {
     const stencilId = e.dataTransfer.getData('application/x-infinicanvas-stencil');
     if (!stencilId) return;
 
-    const entry = getStencil(stencilId);
+    const entry = STENCIL_CATALOG.get(stencilId);
     if (!entry) return;
 
     const { camera } = useCanvasStore.getState();

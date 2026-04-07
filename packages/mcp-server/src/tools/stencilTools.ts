@@ -5,14 +5,17 @@
  * available stencils from the engine catalog. Used for architecture
  * diagrams with servers, databases, Kubernetes resources, etc.
  *
+ * Supports both eagerly loaded and lazy-loaded stencil categories
+ * via the async stencil catalog API.
+ *
  * @module
  */
 
 import type { VisualExpression, StencilData } from '@infinicanvas/protocol';
 import {
   getStencil,
-  getStencilsByCategory,
-  getAllCategories,
+  getCategories,
+  getCategoryStencils,
   STENCIL_CATALOG,
 } from '@infinicanvas/engine';
 import { buildExpression } from '../expressionFactory.js';
@@ -49,14 +52,14 @@ export interface ListStencilsParams {
 /**
  * Build a stencil VisualExpression from a catalog entry.
  *
- * Looks up the stencilId in the engine catalog, applies optional
- * overrides for label, width, and height, and returns a fully
- * formed VisualExpression with kind 'stencil'.
+ * Looks up the stencilId in the engine catalog (async — supports
+ * lazy-loaded categories), applies optional overrides for label,
+ * width, and height, and returns a fully formed VisualExpression.
  *
  * @throws Error if the stencilId is not found in the catalog
  */
-export function buildStencil(params: PlaceStencilParams): VisualExpression {
-  const entry = getStencil(params.stencilId);
+export async function buildStencil(params: PlaceStencilParams): Promise<VisualExpression> {
+  const entry = await getStencil(params.stencilId);
 
   if (!entry) {
     const validIds = [...STENCIL_CATALOG.keys()].join(', ');
@@ -90,10 +93,10 @@ export function buildStencil(params: PlaceStencilParams): VisualExpression {
 /**
  * Place a stencil on the canvas.
  *
- * Looks up the stencil by ID, builds the expression, and sends it
- * to the gateway. Returns an error message (not a thrown error)
- * if the stencil ID is not found, so the MCP tool can gracefully
- * report the issue to the calling AI model.
+ * Looks up the stencil by ID (async — supports lazy categories),
+ * builds the expression, and sends it to the gateway. Returns an
+ * error message (not a thrown error) if the stencil ID is not found,
+ * so the MCP tool can gracefully report the issue.
  */
 export async function executePlaceStencil(
   client: IGatewayClient,
@@ -101,8 +104,8 @@ export async function executePlaceStencil(
 ): Promise<string> {
   let expr: VisualExpression;
   try {
-    expr = buildStencil(params);
-  } catch (err) {
+    expr = await buildStencil(params);
+  } catch (_err) {
     const validIds = [...STENCIL_CATALOG.keys()].join(', ');
     return `Unknown stencil '${params.stencilId}'. Valid stencil IDs: ${validIds}`;
   }
@@ -115,15 +118,16 @@ export async function executePlaceStencil(
 /**
  * List available stencils, optionally filtered by category.
  *
+ * Uses the async category API to support lazy-loaded categories.
  * When no category is provided, returns all stencils grouped by
- * category. When a category is provided, returns only stencils
- * in that category. Returns a formatted text response.
+ * category. When a category is provided, loads and returns only
+ * stencils in that category.
  */
-export function executeListStencils(params: ListStencilsParams): string {
+export async function executeListStencils(params: ListStencilsParams): Promise<string> {
   if (params.category) {
-    const stencils = getStencilsByCategory(params.category);
+    const stencils = await getCategoryStencils(params.category);
     if (stencils.length === 0) {
-      const categories = getAllCategories().join(', ');
+      const categories = getCategories().join(', ');
       return `No stencils found in category '${params.category}'. Available categories: ${categories}`;
     }
 
@@ -133,15 +137,16 @@ export function executeListStencils(params: ListStencilsParams): string {
     return `Stencils in '${params.category}':\n${lines.join('\n')}`;
   }
 
-  // No category filter — return all grouped by category
-  const categories = getAllCategories();
-  const sections = categories.map((cat) => {
-    const stencils = getStencilsByCategory(cat);
+  // No category filter — return all, loading lazy categories on demand
+  const categories = getCategories();
+  const sections: string[] = [];
+  for (const cat of categories) {
+    const stencils = await getCategoryStencils(cat);
     const lines = stencils.map(
       (s) => `  - ${s.id}: ${s.label} (${s.defaultSize.width}×${s.defaultSize.height})`,
     );
-    return `${cat}:\n${lines.join('\n')}`;
-  });
+    sections.push(`${cat}:\n${lines.join('\n')}`);
+  }
 
   return sections.join('\n\n');
 }

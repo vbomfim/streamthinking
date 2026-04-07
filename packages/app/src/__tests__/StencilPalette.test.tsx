@@ -6,11 +6,14 @@
  * Verifies palette renders categories, stencil items, collapsible
  * sections, click-to-place, and drag-to-place behavior.
  *
+ * Since the palette now loads stencils asynchronously (lazy catalog),
+ * tests use waitFor to wait for stencils to appear after category load.
+ *
  * @vitest-environment jsdom
  * @module
  */
 
-import { render, cleanup, fireEvent } from '@testing-library/react';
+import { render, cleanup, fireEvent, waitFor, act } from '@testing-library/react';
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { StencilPalette } from '../components/toolbar/StencilPalette.js';
 import type { VisualExpression } from '@infinicanvas/protocol';
@@ -30,12 +33,12 @@ describe('StencilPalette', () => {
 
   // ── Rendering ──────────────────────────────────────────────
 
-  it('renders all category headers', () => {
+  it('renders all category headers', async () => {
     const { getByText } = render(
       <StencilPalette onInsert={vi.fn()} isOpen={true} />,
     );
 
-    // Categories from the catalog (display names)
+    // Categories from the catalog (display names) — shown immediately
     expect(getByText('Architecture')).toBeTruthy();
     expect(getByText('Azure')).toBeTruthy();
     expect(getByText('Azure ARM')).toBeTruthy();
@@ -44,33 +47,39 @@ describe('StencilPalette', () => {
     expect(getByText('Network')).toBeTruthy();
   });
 
-  it('renders stencil items for all categories', () => {
+  it('renders stencil items after async load', async () => {
     const { container } = render(
       <StencilPalette onInsert={vi.fn()} isOpen={true} />,
     );
 
-    const stencilItems = container.querySelectorAll('[data-testid^="stencil-item-"]');
-    expect(stencilItems.length).toBe(STENCIL_CATALOG.size);
+    await waitFor(() => {
+      const stencilItems = container.querySelectorAll('[data-testid^="stencil-item-"]');
+      expect(stencilItems.length).toBe(STENCIL_CATALOG.size);
+    });
   });
 
-  it('renders stencil labels', () => {
+  it('renders stencil labels after load', async () => {
     const { getByText } = render(
       <StencilPalette onInsert={vi.fn()} isOpen={true} />,
     );
 
     // Sample stencils from different categories
-    expect(getByText('Server')).toBeTruthy();
-    expect(getByText('Database')).toBeTruthy();
-    expect(getByText('Kubernetes Pod')).toBeTruthy();
+    await waitFor(() => {
+      expect(getByText('Server')).toBeTruthy();
+      expect(getByText('Database')).toBeTruthy();
+      expect(getByText('Kubernetes Pod')).toBeTruthy();
+    });
   });
 
-  it('renders SVG thumbnails for stencils', () => {
+  it('renders SVG thumbnails for stencils after load', async () => {
     const { container } = render(
       <StencilPalette onInsert={vi.fn()} isOpen={true} />,
     );
 
-    const thumbnails = container.querySelectorAll('[data-testid^="stencil-svg-"]');
-    expect(thumbnails.length).toBe(STENCIL_CATALOG.size);
+    await waitFor(() => {
+      const thumbnails = container.querySelectorAll('[data-testid^="stencil-svg-"]');
+      expect(thumbnails.length).toBe(STENCIL_CATALOG.size);
+    });
   });
 
   it('renders nothing when isOpen is false', () => {
@@ -91,20 +100,24 @@ describe('StencilPalette', () => {
 
   // ── Collapsible categories ────────────────────────────────
 
-  it('collapses a category when clicking the header', () => {
+  it('collapses a category when clicking the header', async () => {
     const { getByText, container } = render(
       <StencilPalette onInsert={vi.fn()} isOpen={true} />,
     );
 
-    // All categories are expanded by default
     const networkStencils = getStencilsByCategory('network');
-    const firstNetworkItem = container.querySelector(
-      `[data-testid="stencil-item-${networkStencils[0]!.id}"]`,
-    );
-    expect(firstNetworkItem).not.toBeNull();
+
+    // Wait for stencils to load
+    await waitFor(() => {
+      expect(container.querySelector(
+        `[data-testid="stencil-item-${networkStencils[0]!.id}"]`,
+      )).not.toBeNull();
+    });
 
     // Click the Network header to collapse
-    fireEvent.click(getByText('Network'));
+    await act(async () => {
+      fireEvent.click(getByText('Network'));
+    });
 
     // Network stencils should now be hidden
     const hiddenItem = container.querySelector(
@@ -113,33 +126,51 @@ describe('StencilPalette', () => {
     expect(hiddenItem).toBeNull();
   });
 
-  it('re-expands a collapsed category when clicking again', () => {
+  it('re-expands a collapsed category when clicking again', async () => {
     const { getByText, container } = render(
       <StencilPalette onInsert={vi.fn()} isOpen={true} />,
     );
 
     const networkStencils = getStencilsByCategory('network');
 
+    // Wait for initial load
+    await waitFor(() => {
+      expect(container.querySelector(
+        `[data-testid="stencil-item-${networkStencils[0]!.id}"]`,
+      )).not.toBeNull();
+    });
+
     // Collapse
-    fireEvent.click(getByText('Network'));
+    await act(async () => {
+      fireEvent.click(getByText('Network'));
+    });
     expect(
       container.querySelector(`[data-testid="stencil-item-${networkStencils[0]!.id}"]`),
     ).toBeNull();
 
     // Re-expand
-    fireEvent.click(getByText('Network'));
-    expect(
-      container.querySelector(`[data-testid="stencil-item-${networkStencils[0]!.id}"]`),
-    ).not.toBeNull();
+    await act(async () => {
+      fireEvent.click(getByText('Network'));
+    });
+
+    await waitFor(() => {
+      expect(
+        container.querySelector(`[data-testid="stencil-item-${networkStencils[0]!.id}"]`),
+      ).not.toBeNull();
+    });
   });
 
   // ── Click-to-place ────────────────────────────────────────
 
-  it('calls onInsert with a valid stencil expression when clicking a stencil', () => {
+  it('calls onInsert with a valid stencil expression when clicking a stencil', async () => {
     const onInsert = vi.fn();
     const { getByText } = render(
       <StencilPalette onInsert={onInsert} isOpen={true} />,
     );
+
+    await waitFor(() => {
+      expect(getByText('Server')).toBeTruthy();
+    });
 
     fireEvent.click(getByText('Server'));
     expect(onInsert).toHaveBeenCalledTimes(1);
@@ -151,22 +182,30 @@ describe('StencilPalette', () => {
     expect(stencilDataSchema.safeParse(expr.data).success).toBe(true);
   });
 
-  it('uses the stencil defaultSize from the catalog', () => {
+  it('uses the stencil defaultSize from the catalog', async () => {
     const onInsert = vi.fn();
     const { getByText } = render(
       <StencilPalette onInsert={onInsert} isOpen={true} />,
     );
+
+    await waitFor(() => {
+      expect(getByText('Server')).toBeTruthy();
+    });
 
     fireEvent.click(getByText('Server'));
     const expr: VisualExpression = onInsert.mock.calls[0]![0];
-    expect(expr.size).toEqual({ width: 64, height: 64 });
+    expect(expr.size).toEqual({ width: 44, height: 44 });
   });
 
-  it('populates stencilId and category in the expression data', () => {
+  it('populates stencilId and category in the expression data', async () => {
     const onInsert = vi.fn();
     const { getByText } = render(
       <StencilPalette onInsert={onInsert} isOpen={true} />,
     );
+
+    await waitFor(() => {
+      expect(getByText('Server')).toBeTruthy();
+    });
 
     fireEvent.click(getByText('Server'));
     const expr: VisualExpression = onInsert.mock.calls[0]![0];
@@ -176,11 +215,15 @@ describe('StencilPalette', () => {
     expect(data.label).toBe('Server');
   });
 
-  it('generates unique IDs for each inserted stencil', () => {
+  it('generates unique IDs for each inserted stencil', async () => {
     const onInsert = vi.fn();
     const { getByText } = render(
       <StencilPalette onInsert={onInsert} isOpen={true} />,
     );
+
+    await waitFor(() => {
+      expect(getByText('Server')).toBeTruthy();
+    });
 
     fireEvent.click(getByText('Server'));
     fireEvent.click(getByText('Database'));
@@ -192,23 +235,28 @@ describe('StencilPalette', () => {
 
   // ── Drag-to-place ────────────────────────────────────────
 
-  it('sets draggable attribute on stencil items', () => {
+  it('sets draggable attribute on stencil items', async () => {
     const { container } = render(
       <StencilPalette onInsert={vi.fn()} isOpen={true} />,
     );
 
-    const firstItem = container.querySelector('[data-testid^="stencil-item-"]');
-    expect(firstItem).not.toBeNull();
-    expect(firstItem!.getAttribute('draggable')).toBe('true');
+    await waitFor(() => {
+      const firstItem = container.querySelector('[data-testid^="stencil-item-"]');
+      expect(firstItem).not.toBeNull();
+      expect(firstItem!.getAttribute('draggable')).toBe('true');
+    });
   });
 
-  it('sets stencil data on dragStart event', () => {
+  it('sets stencil data on dragStart event', async () => {
     const { container } = render(
       <StencilPalette onInsert={vi.fn()} isOpen={true} />,
     );
 
+    await waitFor(() => {
+      expect(container.querySelector('[data-testid="stencil-item-server"]')).not.toBeNull();
+    });
+
     const firstItem = container.querySelector('[data-testid="stencil-item-server"]');
-    expect(firstItem).not.toBeNull();
 
     const setDataMock = vi.fn();
     const dataTransfer = {

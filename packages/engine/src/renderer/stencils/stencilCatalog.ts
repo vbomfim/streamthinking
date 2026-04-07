@@ -1,8 +1,13 @@
 /**
  * Stencil catalog — registry of SVG stencil entries for icon expressions.
  *
- * Provides a typed catalog of stencil entries keyed by unique ID, with
- * helpers for lookup, category filtering, and listing available categories.
+ * Provides a two-tier stencil system:
+ * - **Eager tier**: Hand-crafted stencils loaded at module init via `STENCIL_CATALOG`.
+ * - **Lazy tier**: Category loaders registered via `registerCategoryLoader()` that
+ *   load SVGs on demand. Metadata (no SVGs) is always available via `STENCIL_META`.
+ *
+ * Lazy-loaded entries are merged into `STENCIL_CATALOG` on first access,
+ * so sync consumers (renderer, Canvas) can look them up after loading.
  *
  * @module
  */
@@ -78,19 +83,45 @@ import {
   ARM_CONTAINER_REGISTRY_SVG,
 } from './svgs/azureArm.js';
 
-/** A single entry in the stencil catalog. */
-export interface StencilEntry {
+/**
+ * Lightweight stencil metadata — always available, no SVG content.
+ *
+ * Used for palette category listings and stencil search without
+ * loading the (potentially large) SVG data.
+ */
+export interface StencilMeta {
   /** Unique stencil identifier (matches StencilData.stencilId). */
   id: string;
   /** Category grouping (e.g. 'network', 'kubernetes'). */
   category: string;
   /** Human-readable label for the stencil. */
   label: string;
-  /** Raw SVG markup for the icon. */
-  svgContent: string;
   /** Default dimensions when placing the stencil on the canvas. */
   defaultSize: { width: number; height: number };
 }
+
+/** A full stencil entry including SVG content — loaded on demand for lazy categories. */
+export interface StencilEntry extends StencilMeta {
+  /** Raw SVG markup for the icon. */
+  svgContent: string;
+}
+
+/** Function that asynchronously loads all entries for a category. */
+export type CategoryLoader = () => Promise<Map<string, StencilEntry>>;
+
+// ── Lazy loading state ────────────────────────────────────
+
+/** Metadata for all stencils (eager + lazy), always available. */
+const STENCIL_META: Map<string, StencilMeta> = new Map();
+
+/** Registered lazy category loaders. */
+const CATEGORY_LOADERS: Map<string, CategoryLoader> = new Map();
+
+/** Categories that have been fully loaded (eager or lazy). */
+const LOADED_CATEGORIES: Set<string> = new Set();
+
+/** In-flight loading promises for deduplication. */
+const LOADING_PROMISES: Map<string, Promise<void>> = new Map();
 
 /** Standard 64×64 default size for regular icons. */
 const ICON_SIZE = { width: 44, height: 44 } as const;
@@ -530,19 +561,86 @@ export const STENCIL_CATALOG: Map<string, StencilEntry> = new Map([
   ],
 ]);
 
+// ── Initialize metadata from eager catalog ────────────────
+
+for (const [_id, entry] of STENCIL_CATALOG) {
+  STENCIL_META.set(entry.id, {
+    id: entry.id,
+    label: entry.label,
+    category: entry.category,
+    defaultSize: { width: entry.defaultSize.width, height: entry.defaultSize.height },
+  });
+  LOADED_CATEGORIES.add(entry.category);
+}
+
+// ── Internal: lazy loading engine ─────────────────────────
+
 /**
- * Look up a stencil entry by ID.
+ * Ensure a category's stencils are loaded.
  *
- * Returns undefined if the stencil is not found.
+ * If the category is already loaded (eager or previously lazy-loaded),
+ * resolves immediately. Otherwise, invokes the registered loader and
+ * merges entries into `STENCIL_CATALOG`.
+ *
+ * Concurrent calls for the same category share a single loading promise.
  */
-export function getStencil(id: string): StencilEntry | undefined {
+async function ensureCategoryLoaded(category: string): Promise<void> {
+  if (LOADED_CATEGORIES.has(category)) return;
+
+  // Deduplicate concurrent loads of the same category
+  const existing = LOADING_PROMISES.get(category);
+  if (existing) return existing;
+
+  const loader = CATEGORY_LOADERS.get(category);
+  if (!loader) return;
+
+  const promise = (async () => {
+    try {
+      const entries = await loader();
+      for (const [id, entry] of entries) {
+        STENCIL_CATALOG.set(id, entry);
+      }
+      LOADED_CATEGORIES.add(category);
+    } finally {
+      LOADING_PROMISES.delete(category);
+    }
+  })();
+
+  LOADING_PROMISES.set(category, promise);
+  return promise;
+}
+
+// ── Public API: sync (lightweight, always available) ──────
+
+/**
+ * Look up a stencil entry by ID (async — triggers lazy load if needed).
+ *
+ * For eagerly loaded stencils, resolves immediately. For lazy stencils,
+ * loads the containing category first, then returns the entry.
+ *
+ * Returns undefined if the stencil ID is not found in any category.
+ */
+export async function getStencil(id: string): Promise<StencilEntry | undefined> {
+  // Fast path: already loaded (eager or previously lazy-loaded)
+  const existing = STENCIL_CATALOG.get(id);
+  if (existing) return existing;
+
+  // Check metadata to find the stencil's category
+  const meta = STENCIL_META.get(id);
+  if (!meta) return undefined;
+
+  // Load the category and look up again
+  await ensureCategoryLoaded(meta.category);
   return STENCIL_CATALOG.get(id);
 }
 
 /**
- * Get all stencil entries in a given category.
+ * Get all stencil entries in a given category (sync).
  *
- * Returns an empty array if no stencils match.
+ * Returns entries from `STENCIL_CATALOG` — only eagerly loaded and
+ * already-loaded lazy categories. Does NOT trigger lazy loading.
+ *
+ * @see getCategoryStencils for the async version that triggers loading.
  */
 export function getStencilsByCategory(category: string): StencilEntry[] {
   const results: StencilEntry[] = [];
@@ -555,16 +653,93 @@ export function getStencilsByCategory(category: string): StencilEntry[] {
 }
 
 /**
- * Get all unique category names from the catalog.
+ * Get all unique category names from the catalog (sync).
+ *
+ * Returns categories from both eagerly loaded stencils and registered
+ * lazy category metadata. Sorted alphabetically.
+ */
+export function getAllCategories(): string[] {
+  return getCategories();
+}
+
+/**
+ * Get all unique category names (sync — from metadata).
+ *
+ * Includes both eagerly loaded categories and lazy categories
+ * whose metadata has been registered. Does NOT require SVGs to be loaded.
  *
  * Returns a sorted array of category strings.
  */
-export function getAllCategories(): string[] {
+export function getCategories(): string[] {
   const categories = new Set<string>();
-  for (const entry of STENCIL_CATALOG.values()) {
-    categories.add(entry.category);
+  for (const meta of STENCIL_META.values()) {
+    categories.add(meta.category);
   }
   return [...categories].sort();
+}
+
+/**
+ * Get all stencil metadata (sync — no SVG content).
+ *
+ * Returns lightweight metadata for all known stencils (both eager
+ * and lazy). Useful for palette category counts and search without
+ * loading SVG data.
+ */
+export function getAllStencilMeta(): StencilMeta[] {
+  return [...STENCIL_META.values()];
+}
+
+// ── Public API: async (triggers lazy loading) ─────────────
+
+/**
+ * Get stencils for a category (async — triggers lazy load).
+ *
+ * For eagerly loaded categories, resolves immediately.
+ * For lazy categories, invokes the registered loader, caches the
+ * result, and returns the full entries.
+ *
+ * Returns an empty array if the category is unknown.
+ */
+export async function getCategoryStencils(category: string): Promise<StencilEntry[]> {
+  await ensureCategoryLoaded(category);
+
+  const results: StencilEntry[] = [];
+  for (const entry of STENCIL_CATALOG.values()) {
+    if (entry.category === category) {
+      results.push(entry);
+    }
+  }
+  return results;
+}
+
+// ── Public API: registration ──────────────────────────────
+
+/**
+ * Register a lazy loader for a category.
+ *
+ * The loader is invoked on the first call to `getCategoryStencils(category)`
+ * or `getStencil(id)` for a stencil in the category.
+ *
+ * @param category - Category identifier (e.g. 'drawio-aws')
+ * @param loader - Async function returning a Map of stencil entries
+ */
+export function registerCategoryLoader(category: string, loader: CategoryLoader): void {
+  CATEGORY_LOADERS.set(category, loader);
+}
+
+/**
+ * Register lightweight metadata for stencils in a lazy category.
+ *
+ * Call this alongside `registerCategoryLoader` to make the stencils'
+ * metadata available synchronously (for palette counts, category lists)
+ * before the SVGs are loaded.
+ *
+ * @param metas - Array of StencilMeta entries to register
+ */
+export function registerCategoryMeta(metas: readonly StencilMeta[]): void {
+  for (const meta of metas) {
+    STENCIL_META.set(meta.id, meta);
+  }
 }
 
 /**
@@ -575,3 +750,46 @@ export function getAllCategories(): string[] {
 export function svgToDataUri(svgContent: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgContent)}`;
 }
+
+// ── Test helpers (not part of public API) ──────────────────
+
+/**
+ * Reset lazy loading state for test isolation.
+ *
+ * Clears registered loaders, loaded categories, and metadata
+ * for dynamically registered (non-eager) categories.
+ * Re-initializes metadata from the eager catalog.
+ *
+ * @internal — Only exported for use in test files.
+ */
+export function _resetLazyState(): void {
+  CATEGORY_LOADERS.clear();
+  LOADING_PROMISES.clear();
+
+  // Rebuild from scratch: remove dynamic entries
+  const toRemove: string[] = [];
+  for (const [id] of STENCIL_CATALOG) {
+    if (!_EAGER_IDS.has(id)) {
+      toRemove.push(id);
+    }
+  }
+  for (const id of toRemove) {
+    STENCIL_CATALOG.delete(id);
+  }
+
+  // Reset metadata to eager only
+  STENCIL_META.clear();
+  LOADED_CATEGORIES.clear();
+  for (const [_id, entry] of STENCIL_CATALOG) {
+    STENCIL_META.set(entry.id, {
+      id: entry.id,
+      label: entry.label,
+      category: entry.category,
+      defaultSize: { width: entry.defaultSize.width, height: entry.defaultSize.height },
+    });
+    LOADED_CATEGORIES.add(entry.category);
+  }
+}
+
+/** Set of stencil IDs from the eager catalog (for reset isolation). */
+const _EAGER_IDS: ReadonlySet<string> = new Set(STENCIL_CATALOG.keys());

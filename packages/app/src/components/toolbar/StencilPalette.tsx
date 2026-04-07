@@ -5,20 +5,20 @@
  * showing a grid of stencil thumbnails. Supports click-to-place
  * (at viewport center) and drag-to-place (at drop position).
  *
- * Uses the stencil catalog from @infinicanvas/engine for stencil
- * data and SVG content.
+ * Categories are listed immediately from metadata. SVGs are loaded
+ * lazily when a category is expanded, with a loading indicator.
  *
  * @module
  */
 
-import { useState, useCallback, type DragEvent } from 'react';
+import { useState, useCallback, useEffect, type DragEvent } from 'react';
 import { nanoid } from 'nanoid';
-import { ChevronDown, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import type { VisualExpression, ExpressionData } from '@infinicanvas/protocol';
 import { DEFAULT_EXPRESSION_STYLE } from '@infinicanvas/protocol';
 import {
-  getAllCategories,
-  getStencilsByCategory,
+  getCategories,
+  getCategoryStencils,
   svgToDataUri,
 } from '@infinicanvas/engine';
 import type { StencilEntry } from '@infinicanvas/engine';
@@ -111,12 +111,53 @@ function getCategoryDisplayName(category: string): string {
  * Each category shows a grid of stencil thumbnails with labels.
  * Clicking a stencil calls onInsert with a new VisualExpression.
  * Dragging a stencil sets transfer data for canvas drop handling.
+ *
+ * Categories are listed immediately from sync metadata. SVGs load
+ * lazily when a category is expanded.
  */
 export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
-  const categories = getAllCategories();
+  const categories = getCategories();
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(
     new Set(),
   );
+  const [loadedStencils, setLoadedStencils] = useState<Map<string, StencilEntry[]>>(
+    new Map(),
+  );
+  const [loadingCategories, setLoadingCategories] = useState<Set<string>>(
+    new Set(),
+  );
+
+  // Load stencils for all expanded categories
+  useEffect(() => {
+    if (!isOpen) return;
+
+    for (const category of categories) {
+      if (collapsedCategories.has(category)) continue;
+      if (loadedStencils.has(category)) continue;
+      if (loadingCategories.has(category)) continue;
+
+      setLoadingCategories((prev) => new Set(prev).add(category));
+
+      getCategoryStencils(category).then(
+        (stencils) => {
+          setLoadedStencils((prev) => new Map(prev).set(category, stencils));
+          setLoadingCategories((prev) => {
+            const next = new Set(prev);
+            next.delete(category);
+            return next;
+          });
+        },
+        () => {
+          // On error, clear loading state so it can be retried
+          setLoadingCategories((prev) => {
+            const next = new Set(prev);
+            next.delete(category);
+            return next;
+          });
+        },
+      );
+    }
+  }, [isOpen, categories, collapsedCategories, loadedStencils, loadingCategories]);
 
   const toggleCategory = useCallback((category: string) => {
     setCollapsedCategories((prev) => {
@@ -152,7 +193,9 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
       document.body.appendChild(dragImg);
       dragImg.style.position = 'absolute';
       dragImg.style.top = '-9999px';
-      event.dataTransfer.setDragImage(dragImg, 20, 20);
+      if (typeof event.dataTransfer.setDragImage === 'function') {
+        event.dataTransfer.setDragImage(dragImg, 20, 20);
+      }
       requestAnimationFrame(() => document.body.removeChild(dragImg));
     },
     [],
@@ -186,8 +229,10 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
     >
       {categories.map((category) => {
         const isCollapsed = collapsedCategories.has(category);
-        const stencils = getStencilsByCategory(category);
+        const stencils = loadedStencils.get(category);
+        const isLoading = loadingCategories.has(category);
         const displayName = getCategoryDisplayName(category);
+        const stencilCount = stencils?.length;
         const ChevronIcon = isCollapsed ? ChevronRight : ChevronDown;
 
         return (
@@ -233,12 +278,26 @@ export function StencilPalette({ onInsert, isOpen }: StencilPaletteProps) {
                   fontWeight: 400,
                 }}
               >
-                {stencils.length}
+                {stencilCount !== undefined ? stencilCount : ''}
               </span>
             </button>
 
             {/* Stencil grid — hidden when collapsed */}
-            {!isCollapsed && (
+            {!isCollapsed && isLoading && (
+              <div
+                data-testid={`category-loading-${category}`}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  padding: '12px 0',
+                  color: '#999',
+                }}
+              >
+                <Loader2 size={16} style={{ animation: 'spin 1s linear infinite' }} />
+              </div>
+            )}
+
+            {!isCollapsed && stencils && (
               <div
                 style={{
                   display: 'grid',

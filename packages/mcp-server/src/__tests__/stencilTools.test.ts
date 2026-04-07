@@ -38,8 +38,8 @@ function createMockClient(): IGatewayClient {
 // ── buildStencil ───────────────────────────────────────────
 
 describe('buildStencil', () => {
-  it('creates a stencil expression for a valid stencil ID', () => {
-    const expr = buildStencil({ stencilId: 'server', x: 100, y: 200 });
+  it('creates a stencil expression for a valid stencil ID', async () => {
+    const expr = await buildStencil({ stencilId: 'server', x: 100, y: 200 });
 
     expect(expr.kind).toBe('stencil');
     expect(expr.position).toEqual({ x: 100, y: 200 });
@@ -56,20 +56,20 @@ describe('buildStencil', () => {
     expect(expr.meta.locked).toBe(false);
   });
 
-  it('uses catalog defaultSize when width/height not provided', () => {
-    const expr = buildStencil({ stencilId: 'server', x: 0, y: 0 });
+  it('uses catalog defaultSize when width/height not provided', async () => {
+    const expr = await buildStencil({ stencilId: 'server', x: 0, y: 0 });
 
-    expect(expr.size).toEqual({ width: 64, height: 64 });
+    expect(expr.size).toEqual({ width: 44, height: 44 });
   });
 
-  it('overrides width and height when provided', () => {
-    const expr = buildStencil({ stencilId: 'server', x: 0, y: 0, width: 128, height: 96 });
+  it('overrides width and height when provided', async () => {
+    const expr = await buildStencil({ stencilId: 'server', x: 0, y: 0, width: 128, height: 96 });
 
     expect(expr.size).toEqual({ width: 128, height: 96 });
   });
 
-  it('overrides label when provided', () => {
-    const expr = buildStencil({ stencilId: 'server', x: 0, y: 0, label: 'API Gateway' });
+  it('overrides label when provided', async () => {
+    const expr = await buildStencil({ stencilId: 'server', x: 0, y: 0, label: 'API Gateway' });
 
     expect(expr.data).toEqual({
       kind: 'stencil',
@@ -79,18 +79,18 @@ describe('buildStencil', () => {
     });
   });
 
-  it('throws error for unknown stencil ID', () => {
-    expect(() => buildStencil({ stencilId: 'nonexistent', x: 0, y: 0 }))
-      .toThrow(/Unknown stencil 'nonexistent'/);
+  it('rejects with error for unknown stencil ID', async () => {
+    await expect(buildStencil({ stencilId: 'nonexistent', x: 0, y: 0 }))
+      .rejects.toThrow(/Unknown stencil 'nonexistent'/);
   });
 
-  it('error message lists valid stencil IDs', () => {
-    expect(() => buildStencil({ stencilId: 'bad-id', x: 0, y: 0 }))
-      .toThrow(/server/);
+  it('error message lists valid stencil IDs', async () => {
+    await expect(buildStencil({ stencilId: 'bad-id', x: 0, y: 0 }))
+      .rejects.toThrow(/server/);
   });
 
-  it('works with database stencil', () => {
-    const expr = buildStencil({ stencilId: 'database', x: 50, y: 50 });
+  it('works with database stencil', async () => {
+    const expr = await buildStencil({ stencilId: 'database', x: 50, y: 50 });
 
     expect(expr.kind).toBe('stencil');
     expect(expr.data).toEqual({
@@ -101,8 +101,8 @@ describe('buildStencil', () => {
     });
   });
 
-  it('works with k8s-pod stencil', () => {
-    const expr = buildStencil({ stencilId: 'k8s-pod', x: 0, y: 0 });
+  it('works with k8s-pod stencil', async () => {
+    const expr = await buildStencil({ stencilId: 'k8s-pod', x: 0, y: 0 });
 
     expect(expr.kind).toBe('stencil');
     expect(expr.data).toEqual({
@@ -174,17 +174,17 @@ describe('executePlaceStencil', () => {
 // ── executeListStencils ────────────────────────────────────
 
 describe('executeListStencils', () => {
-  it('returns all stencils when no category is provided', () => {
-    const result = executeListStencils({});
+  it('returns all stencils when no category is provided', async () => {
+    const result = await executeListStencils({});
 
-    // Should contain all 3 placeholder stencils
+    // Should contain stencils from multiple categories
     expect(result).toContain('server');
     expect(result).toContain('database');
     expect(result).toContain('k8s-pod');
   });
 
-  it('groups stencils by category when no filter', () => {
-    const result = executeListStencils({});
+  it('groups stencils by category when no filter', async () => {
+    const result = await executeListStencils({});
 
     // Should contain category headers
     expect(result).toContain('network');
@@ -192,29 +192,29 @@ describe('executeListStencils', () => {
     expect(result).toContain('kubernetes');
   });
 
-  it('filters by category when provided', () => {
-    const result = executeListStencils({ category: 'network' });
+  it('filters by category when provided', async () => {
+    const result = await executeListStencils({ category: 'network' });
 
     expect(result).toContain('server');
     expect(result).not.toContain('database');
     expect(result).not.toContain('k8s-pod');
   });
 
-  it('returns empty message for unknown category', () => {
-    const result = executeListStencils({ category: 'nonexistent' });
+  it('returns empty message for unknown category', async () => {
+    const result = await executeListStencils({ category: 'nonexistent' });
 
     expect(result).toContain('No stencils found');
   });
 
-  it('includes stencil label and defaultSize', () => {
-    const result = executeListStencils({ category: 'network' });
+  it('includes stencil label and defaultSize', async () => {
+    const result = await executeListStencils({ category: 'network' });
 
     expect(result).toContain('Server');
-    expect(result).toContain('64');
+    expect(result).toContain('44');
   });
 
-  it('returns kubernetes stencils when filtered', () => {
-    const result = executeListStencils({ category: 'kubernetes' });
+  it('returns kubernetes stencils when filtered', async () => {
+    const result = await executeListStencils({ category: 'kubernetes' });
 
     expect(result).toContain('k8s-pod');
     expect(result).toContain('Kubernetes Pod');
@@ -225,26 +225,26 @@ describe('executeListStencils', () => {
 // ── Cross-cutting concerns ─────────────────────────────────
 
 describe('stencil tools cross-cutting', () => {
-  it('each built stencil has a unique ID', () => {
+  it('each built stencil has a unique ID', async () => {
     const ids = new Set<string>();
     for (let i = 0; i < 10; i++) {
-      const expr = buildStencil({ stencilId: 'server', x: 0, y: 0 });
+      const expr = await buildStencil({ stencilId: 'server', x: 0, y: 0 });
       ids.add(expr.id);
     }
     expect(ids.size).toBe(10);
   });
 
-  it('stencil expressions have MCP author info', () => {
-    const expr = buildStencil({ stencilId: 'server', x: 0, y: 0 });
+  it('stencil expressions have MCP author info', async () => {
+    const expr = await buildStencil({ stencilId: 'server', x: 0, y: 0 });
 
     expect(expr.meta.author.type).toBe('agent');
     expect(expr.meta.author.id).toMatch(/^mcp-/);
     expect(expr.meta.author.provider).toBe('mcp');
   });
 
-  it('stencil expressions have timestamps', () => {
+  it('stencil expressions have timestamps', async () => {
     const before = Date.now();
-    const expr = buildStencil({ stencilId: 'server', x: 0, y: 0 });
+    const expr = await buildStencil({ stencilId: 'server', x: 0, y: 0 });
     const after = Date.now();
 
     expect(expr.meta.createdAt).toBeGreaterThanOrEqual(before);

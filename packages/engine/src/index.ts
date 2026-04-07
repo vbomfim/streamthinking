@@ -84,12 +84,17 @@ export { renderCollaborationDiagram } from './renderer/composites/collaborationD
 export { renderDecisionTree } from './renderer/composites/decisionTreeRenderer.js';
 
 // ── Stencil catalog ────────────────────────────────────────
-export type { StencilEntry } from './renderer/stencils/index.js';
+export type { StencilEntry, StencilMeta, CategoryLoader } from './renderer/stencils/index.js';
 export {
   STENCIL_CATALOG,
   getStencil,
   getStencilsByCategory,
   getAllCategories,
+  getCategories,
+  getCategoryStencils,
+  getAllStencilMeta,
+  registerCategoryLoader,
+  registerCategoryMeta,
   svgToDataUri,
 } from './renderer/stencils/index.js';
 

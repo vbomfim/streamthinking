@@ -4,11 +4,17 @@
  * @module
  */
 
-export type { StencilEntry } from './stencilCatalog.js';
+export type { StencilEntry, StencilMeta, CategoryLoader } from './stencilCatalog.js';
 export {
   STENCIL_CATALOG,
   getStencil,
   getStencilsByCategory,
   getAllCategories,
+  getCategories,
+  getCategoryStencils,
+  getAllStencilMeta,
+  registerCategoryLoader,
+  registerCategoryMeta,
   svgToDataUri,
+  _resetLazyState,
 } from './stencilCatalog.js';
