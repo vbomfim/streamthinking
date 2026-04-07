@@ -9,19 +9,17 @@
  */
 
 import type { VisualExpression } from '@infinicanvas/protocol';
-
-/** Kinds that support connection points (shapes with meaningful edges). */
-const BINDABLE_KINDS = new Set(['rectangle', 'ellipse', 'diamond', 'sticky-note', 'stencil']);
+import { BINDABLE_KINDS } from './constants.js';
 
 /** Named position of a connection point on a shape. */
-export type ConnectionPointPosition =
+export type ShapeConnectionPointPosition =
   | 'top' | 'right' | 'bottom' | 'left'
   | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
 /** A computed connection point on a shape in world coordinates. */
-export interface ConnectionPoint {
+export interface ShapeConnectionPoint {
   /** Named position on the shape. */
-  position: ConnectionPointPosition;
+  position: ShapeConnectionPointPosition;
   /** World X coordinate. */
   x: number;
   /** World Y coordinate. */
@@ -38,7 +36,7 @@ export interface ConnectionPoint {
  * Returns an empty array for non-bindable kinds (arrow, line, etc.).
  * [CLEAN-CODE] [SRP]
  */
-export function getConnectionPoints(expr: VisualExpression): ConnectionPoint[] {
+export function getConnectionPoints(expr: VisualExpression): ShapeConnectionPoint[] {
   if (!BINDABLE_KINDS.has(expr.kind)) return [];
 
   const { x, y } = expr.position;
@@ -69,13 +67,13 @@ export function findNearestConnectionPoint(
   worldY: number,
   expr: VisualExpression,
   snapDistance: number,
-): ConnectionPoint | null {
+): ShapeConnectionPoint | null {
   if (snapDistance <= 0) return null;
 
   const points = getConnectionPoints(expr);
   if (points.length === 0) return null;
 
-  let closest: ConnectionPoint | null = null;
+  let closest: ShapeConnectionPoint | null = null;
   let closestDist = Infinity;
 
   for (const pt of points) {
@@ -97,7 +95,7 @@ function computeRectangleConnectionPoints(
   y: number,
   width: number,
   height: number,
-): ConnectionPoint[] {
+): ShapeConnectionPoint[] {
   const cx = x + width / 2;
   const cy = y + height / 2;
 
@@ -121,7 +119,7 @@ function computeEllipseConnectionPoints(
   y: number,
   width: number,
   height: number,
-): ConnectionPoint[] {
+): ShapeConnectionPoint[] {
   const cx = x + width / 2;
   const cy = y + height / 2;
   const rx = width / 2;
@@ -155,7 +153,7 @@ function computeDiamondConnectionPoints(
   y: number,
   width: number,
   height: number,
-): ConnectionPoint[] {
+): ShapeConnectionPoint[] {
   const cx = x + width / 2;
   const cy = y + height / 2;
 

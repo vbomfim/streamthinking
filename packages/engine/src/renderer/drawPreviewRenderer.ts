@@ -9,7 +9,7 @@
  */
 
 import type { DrawPreview } from '../tools/BaseTool.js';
-import type { ConnectionPoint } from '../connectors/connectionPoints.js';
+import type { ShapeConnectionPoint } from '../connectors/connectionPoints.js';
 
 /** Dashed stroke color for draw previews. */
 const PREVIEW_STROKE_COLOR = '#4A90D9';
@@ -216,7 +216,7 @@ function renderStickyNotePreview(ctx: CanvasRenderingContext2D, p: DrawPreview):
  */
 function renderConnectionPoints(
   ctx: CanvasRenderingContext2D,
-  points: ConnectionPoint[],
+  points: ShapeConnectionPoint[],
   snapPoint: { x: number; y: number } | undefined,
   zoom: number,
 ): void {

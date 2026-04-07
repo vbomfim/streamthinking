@@ -336,6 +336,32 @@ describe('getAnchorPoint', () => {
       expect(pt.x).toBe(100); // cx - rx
       expect(pt.y).toBe(150); // cy
     });
+
+    it('returns parametric 45° point for "top-right" corner anchor', () => {
+      const pt = getAnchorPoint(ellipse, 'top-right');
+      // cx + rx * cos(45°) ≈ 200 + 100 * 0.7071 ≈ 270.71
+      expect(pt.x).toBeCloseTo(270.71, 0);
+      // cy - ry * sin(45°) ≈ 150 - 50 * 0.7071 ≈ 114.64
+      expect(pt.y).toBeCloseTo(114.64, 0);
+    });
+
+    it('returns parametric 135° point for "top-left" corner anchor', () => {
+      const pt = getAnchorPoint(ellipse, 'top-left');
+      expect(pt.x).toBeCloseTo(129.29, 0);
+      expect(pt.y).toBeCloseTo(114.64, 0);
+    });
+
+    it('returns parametric 225° point for "bottom-left" corner anchor', () => {
+      const pt = getAnchorPoint(ellipse, 'bottom-left');
+      expect(pt.x).toBeCloseTo(129.29, 0);
+      expect(pt.y).toBeCloseTo(185.36, 0);
+    });
+
+    it('returns parametric 315° point for "bottom-right" corner anchor', () => {
+      const pt = getAnchorPoint(ellipse, 'bottom-right');
+      expect(pt.x).toBeCloseTo(270.71, 0);
+      expect(pt.y).toBeCloseTo(185.36, 0);
+    });
   });
 
   describe('diamond anchors', () => {
@@ -363,6 +389,34 @@ describe('getAnchorPoint', () => {
       const pt = getAnchorPoint(diamond, 'left');
       expect(pt.x).toBe(100); // x
       expect(pt.y).toBe(150); // cy
+    });
+
+    it('returns edge midpoint for "top-right" corner anchor', () => {
+      const pt = getAnchorPoint(diamond, 'top-right');
+      // Midpoint between top(200,100) and right(300,150) = (250, 125)
+      expect(pt.x).toBe(250);
+      expect(pt.y).toBe(125);
+    });
+
+    it('returns edge midpoint for "top-left" corner anchor', () => {
+      const pt = getAnchorPoint(diamond, 'top-left');
+      // Midpoint between top(200,100) and left(100,150) = (150, 125)
+      expect(pt.x).toBe(150);
+      expect(pt.y).toBe(125);
+    });
+
+    it('returns edge midpoint for "bottom-right" corner anchor', () => {
+      const pt = getAnchorPoint(diamond, 'bottom-right');
+      // Midpoint between bottom(200,200) and right(300,150) = (250, 175)
+      expect(pt.x).toBe(250);
+      expect(pt.y).toBe(175);
+    });
+
+    it('returns edge midpoint for "bottom-left" corner anchor', () => {
+      const pt = getAnchorPoint(diamond, 'bottom-left');
+      // Midpoint between bottom(200,200) and left(100,150) = (150, 175)
+      expect(pt.x).toBe(150);
+      expect(pt.y).toBe(175);
     });
   });
 });

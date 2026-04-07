@@ -16,7 +16,7 @@ import { findSnapPoint } from '../interaction/connectorHelpers.js';
 import {
   getConnectionPoints,
   findNearestConnectionPoint,
-  type ConnectionPoint,
+  type ShapeConnectionPoint,
 } from '../connectors/connectionPoints.js';
 
 /** Minimum arrow length in world units. */
@@ -42,7 +42,7 @@ export class ArrowTool implements ToolHandler {
   private startBinding: ArrowBinding | undefined = undefined;
   private currentSnapPoint: { x: number; y: number } | undefined = undefined;
   private currentSnapTargetId: string | undefined = undefined;
-  private currentConnectionPoints: ConnectionPoint[] | undefined = undefined;
+  private currentConnectionPoints: ShapeConnectionPoint[] | undefined = undefined;
 
   onPointerDown(worldX: number, worldY: number, _event: PointerEvent): void {
     this.isDrawing = true;
@@ -223,11 +223,11 @@ export class ArrowTool implements ToolHandler {
   private findNearestSnap(
     worldX: number,
     worldY: number,
-  ): { point: { x: number; y: number }; anchor: string; targetId: string; ratio: number; connectionPoints: ConnectionPoint[] } | null {
+  ): { point: { x: number; y: number }; anchor: string; targetId: string; ratio: number; connectionPoints: ShapeConnectionPoint[] } | null {
     const { expressions, camera } = useCanvasStore.getState();
     // Scale snap distance so it stays ~15 screen pixels at any zoom
     const snapDist = Math.max(SNAP_DISTANCE, SNAP_DISTANCE / camera.zoom);
-    let best: { point: { x: number; y: number }; anchor: string; targetId: string; dist: number; ratio: number; connectionPoints: ConnectionPoint[] } | null = null;
+    let best: { point: { x: number; y: number }; anchor: string; targetId: string; dist: number; ratio: number; connectionPoints: ShapeConnectionPoint[] } | null = null;
 
     for (const [id, expr] of Object.entries(expressions)) {
       // Try new connection point system first (includes corners)

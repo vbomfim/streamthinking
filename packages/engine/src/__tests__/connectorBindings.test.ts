@@ -239,7 +239,7 @@ describe('ArrowTool — snap binding', () => {
     const arrows = getAllArrows();
     expect(arrows.length).toBe(1);
     const data = getArrowData(arrows[0]!);
-    expect(data.endArrowhead).toBe(true);
+    expect(data.endArrowhead).toBe('triangle');
     expect(data.startBinding).toBeUndefined();
     expect(data.endBinding).toBeUndefined();
     expect(data.points.length).toBe(2);

@@ -14,8 +14,8 @@ import { DEFAULT_EXPRESSION_STYLE } from '@infinicanvas/protocol';
 import {
   getConnectionPoints,
   findNearestConnectionPoint,
-  type ConnectionPoint,
-  type ConnectionPointPosition,
+  type ShapeConnectionPoint,
+  type ShapeConnectionPointPosition,
 } from '../connectors/connectionPoints.js';
 
 // ── Test helpers ───────────────────────────────────────────
@@ -106,9 +106,9 @@ function makeStickyNote(
 
 /** Find a connection point by position in a list. */
 function findByPosition(
-  points: ConnectionPoint[],
-  position: ConnectionPointPosition,
-): ConnectionPoint | undefined {
+  points: ShapeConnectionPoint[],
+  position: ShapeConnectionPointPosition,
+): ShapeConnectionPoint | undefined {
   return points.find((p) => p.position === position);
 }
 
@@ -424,5 +424,68 @@ describe('findNearestConnectionPoint', () => {
     expect(result!.position).toBe('top');
     expect(result!.x).toBe(200);
     expect(result!.y).toBe(100);
+  });
+});
+
+// ── Zero-size and degenerate shapes ──────────────────────────
+
+describe('getConnectionPoints — zero-size shapes', () => {
+  it('returns 8 points for zero-width rectangle (all x values equal)', () => {
+    const rect = makeRect('r1', 100, 100, 0, 100);
+    const points = getConnectionPoints(rect);
+    expect(points).toHaveLength(8);
+    // All x values should be 100 (position.x + 0)
+    for (const pt of points) {
+      expect(pt.x).toBe(100);
+    }
+  });
+
+  it('returns 8 points for zero-height rectangle (all y values equal)', () => {
+    const rect = makeRect('r1', 100, 100, 200, 0);
+    const points = getConnectionPoints(rect);
+    expect(points).toHaveLength(8);
+    // Top and bottom y values should both be 100
+    for (const pt of points) {
+      expect(pt.y).toBe(100);
+    }
+  });
+
+  it('returns 8 points for zero-size rectangle (all points at same location)', () => {
+    const rect = makeRect('r1', 50, 50, 0, 0);
+    const points = getConnectionPoints(rect);
+    expect(points).toHaveLength(8);
+    for (const pt of points) {
+      expect(pt.x).toBe(50);
+      expect(pt.y).toBe(50);
+    }
+  });
+
+  it('returns 8 points for zero-size ellipse (all points at center)', () => {
+    const ellipse = makeEllipse('e1', 100, 100, 0, 0);
+    const points = getConnectionPoints(ellipse);
+    expect(points).toHaveLength(8);
+    for (const pt of points) {
+      expect(pt.x).toBe(100);
+      expect(pt.y).toBe(100);
+    }
+  });
+
+  it('returns 8 points for zero-size diamond (all points at center)', () => {
+    const diamond = makeDiamond('d1', 100, 100, 0, 0);
+    const points = getConnectionPoints(diamond);
+    expect(points).toHaveLength(8);
+    for (const pt of points) {
+      expect(pt.x).toBe(100);
+      expect(pt.y).toBe(100);
+    }
+  });
+
+  it('findNearestConnectionPoint works with zero-size shape', () => {
+    const rect = makeRect('r1', 50, 50, 0, 0);
+    // All 8 points at (50, 50) — query near them
+    const result = findNearestConnectionPoint(50, 45, rect, 15);
+    expect(result).not.toBeNull();
+    expect(result!.x).toBe(50);
+    expect(result!.y).toBe(50);
   });
 });

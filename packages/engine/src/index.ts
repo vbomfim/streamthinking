@@ -103,13 +103,14 @@ export {
 } from './interaction/connectorHelpers.js';
 
 // ── Connection Points & Routing ───────────────────────────
+export { BINDABLE_KINDS } from './connectors/constants.js';
 export {
   getConnectionPoints,
   findNearestConnectionPoint,
 } from './connectors/connectionPoints.js';
 export type {
-  ConnectionPoint,
-  ConnectionPointPosition,
+  ShapeConnectionPoint,
+  ShapeConnectionPointPosition,
 } from './connectors/connectionPoints.js';
 export { computeOrthogonalRoute } from './connectors/orthogonalRouter.js';
 

@@ -176,6 +176,92 @@ describe('computeOrthogonalRoute — Z-shape', () => {
     // Should have intermediate segments
     expect(route.length).toBeGreaterThanOrEqual(4);
   });
+
+  it('produces Z-shape with both vertical exits (down→down)', () => {
+    // Both exit downward — Z-shape with horizontal middle
+    const route = computeOrthogonalRoute(
+      { x: 100, y: 100 },
+      { x: 300, y: 300 },
+      'bottom',
+      'bottom',
+    );
+    assertOrthogonal(route);
+    expect(route.length).toBeGreaterThanOrEqual(4);
+    expect(route[0]).toEqual([100, 100]);
+    expect(route[route.length - 1]).toEqual([300, 300]);
+  });
+
+  it('produces Z-shape with both vertical exits (up→up)', () => {
+    const route = computeOrthogonalRoute(
+      { x: 100, y: 300 },
+      { x: 300, y: 100 },
+      'top',
+      'top',
+    );
+    assertOrthogonal(route);
+    expect(route.length).toBeGreaterThanOrEqual(4);
+    expect(route[0]).toEqual([100, 300]);
+    expect(route[route.length - 1]).toEqual([300, 100]);
+  });
+
+  it('produces Z-shape with both horizontal exits (right→right)', () => {
+    const route = computeOrthogonalRoute(
+      { x: 100, y: 100 },
+      { x: 300, y: 250 },
+      'right',
+      'right',
+    );
+    assertOrthogonal(route);
+    expect(route.length).toBeGreaterThanOrEqual(4);
+    expect(route[0]).toEqual([100, 100]);
+    expect(route[route.length - 1]).toEqual([300, 250]);
+  });
+
+  it('produces Z-shape with both horizontal exits (left→left)', () => {
+    const route = computeOrthogonalRoute(
+      { x: 300, y: 100 },
+      { x: 100, y: 250 },
+      'left',
+      'left',
+    );
+    assertOrthogonal(route);
+    expect(route.length).toBeGreaterThanOrEqual(4);
+    expect(route[0]).toEqual([300, 100]);
+    expect(route[route.length - 1]).toEqual([100, 250]);
+  });
+
+  it('produces Z-shape with normal horizontal flow (right→left, target ahead)', () => {
+    const route = computeOrthogonalRoute(
+      { x: 100, y: 100 },
+      { x: 400, y: 200 },
+      'right',
+      'left',
+    );
+    assertOrthogonal(route);
+    // Normal flow: mid vertical segment between source and target
+    expect(route[0]).toEqual([100, 100]);
+    expect(route[route.length - 1]).toEqual([400, 200]);
+    // Midpoint x should be between 100 and 400
+    const midX = route[1]![0];
+    expect(midX).toBeGreaterThan(100);
+    expect(midX).toBeLessThan(400);
+  });
+
+  it('produces Z-shape with normal vertical flow (bottom→top, target below)', () => {
+    const route = computeOrthogonalRoute(
+      { x: 100, y: 100 },
+      { x: 300, y: 400 },
+      'bottom',
+      'top',
+    );
+    assertOrthogonal(route);
+    expect(route[0]).toEqual([100, 100]);
+    expect(route[route.length - 1]).toEqual([300, 400]);
+    // Midpoint y should be between 100 and 400
+    const midY = route[1]![1];
+    expect(midY).toBeGreaterThan(100);
+    expect(midY).toBeLessThan(400);
+  });
 });
 
 // ── Shape padding ────────────────────────────────────────────

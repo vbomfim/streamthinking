@@ -11,7 +11,7 @@
  */
 
 import type { ToolType } from '../types/index.js';
-import type { ConnectionPoint } from '../connectors/connectionPoints.js';
+import type { ShapeConnectionPoint } from '../connectors/connectionPoints.js';
 
 /**
  * Transient draw preview state rendered during active tool drag.
@@ -37,7 +37,7 @@ export interface DrawPreview {
   /** ID of the shape being snapped to (arrow tool). */
   snapTargetId?: string;
   /** All connection points on the hovered shape for visual feedback. */
-  connectionPoints?: ConnectionPoint[];
+  connectionPoints?: ShapeConnectionPoint[];
 }
 
 /**
