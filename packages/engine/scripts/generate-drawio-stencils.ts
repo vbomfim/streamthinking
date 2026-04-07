@@ -48,11 +48,11 @@ interface LibraryConfig {
 
 const LIBRARY_CONFIGS: readonly LibraryConfig[] = [
   { filename: 'aws4.xml', name: 'aws' },
-  { filename: 'gcp.xml', name: 'gcp' },
+  { filename: 'gcp2.xml', name: 'gcp' },
   { filename: 'kubernetes2.xml', name: 'kubernetes' },
   { filename: 'azure.xml', name: 'azure' },
-  { filename: 'cisco.xml', name: 'cisco' },
-  { filename: 'network.xml', name: 'network' },
+  { filename: 'cisco19.xml', name: 'cisco' },
+  { filename: 'networks.xml', name: 'network' },
 ];
 
 /** Download timeout in milliseconds. */
