@@ -248,6 +248,7 @@ export interface CanvasActions {
    */
   autoUnparentOnDrag: (expressionId: string) => void;
 
+  /**
    * Compute and apply an automatic layout to canvas expressions.
    *
    * Uses the specified algorithm to calculate new positions, then
