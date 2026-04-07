@@ -213,6 +213,117 @@ describe('getStencil — fortinet stencils', () => {
   });
 });
 
+// ── getStencil — Cisco Pro category ───────────────────────
+
+describe('getStencil — cisco-pro stencils', () => {
+  const ciscoProStencils: Array<{ id: string; label: string }> = [
+    // Networking
+    { id: 'cisco-pro-router', label: 'Router' },
+    { id: 'cisco-pro-switch', label: 'Switch' },
+    { id: 'cisco-pro-l3-switch', label: 'L3 Switch' },
+    { id: 'cisco-pro-firewall', label: 'Firewall' },
+    { id: 'cisco-pro-wireless-ap', label: 'Wireless AP' },
+    { id: 'cisco-pro-wlc', label: 'Wireless Controller' },
+    // Security
+    { id: 'cisco-pro-asa', label: 'ASA' },
+    { id: 'cisco-pro-ise', label: 'ISE' },
+    { id: 'cisco-pro-umbrella', label: 'Umbrella' },
+    { id: 'cisco-pro-amp', label: 'AMP' },
+    { id: 'cisco-pro-stealthwatch', label: 'Stealthwatch' },
+    // Collaboration
+    { id: 'cisco-pro-ip-phone', label: 'IP Phone' },
+    { id: 'cisco-pro-video-endpoint', label: 'Video Endpoint' },
+    { id: 'cisco-pro-webex', label: 'Webex' },
+    { id: 'cisco-pro-call-manager', label: 'Call Manager' },
+    // Data Center
+    { id: 'cisco-pro-ucs', label: 'UCS Server' },
+    { id: 'cisco-pro-nexus', label: 'Nexus Switch' },
+    { id: 'cisco-pro-aci', label: 'ACI Fabric' },
+    { id: 'cisco-pro-hyperflex', label: 'HyperFlex' },
+    // Cloud & SD-WAN
+    { id: 'cisco-pro-meraki', label: 'Meraki' },
+    { id: 'cisco-pro-sd-wan', label: 'SD-WAN' },
+    { id: 'cisco-pro-viptela', label: 'Viptela' },
+    { id: 'cisco-pro-cloud', label: 'Cloud' },
+    { id: 'cisco-pro-internet', label: 'Internet' },
+    // Infrastructure
+    { id: 'cisco-pro-stack', label: 'Stack' },
+    { id: 'cisco-pro-server', label: 'Server' },
+    { id: 'cisco-pro-workstation', label: 'Workstation' },
+    { id: 'cisco-pro-laptop', label: 'Laptop' },
+    { id: 'cisco-pro-printer', label: 'Printer' },
+    { id: 'cisco-pro-camera', label: 'IP Camera' },
+  ];
+
+  for (const { id, label } of ciscoProStencils) {
+    it(`returns the ${id} stencil entry`, async () => {
+      const entry = await getStencil(id);
+      expect(entry).toBeDefined();
+      expect(entry!.id).toBe(id);
+      expect(entry!.category).toBe('cisco-pro');
+      expect(entry!.label).toBe(label);
+      expect(entry!.svgContent).toContain('<svg');
+      expect(entry!.svgContent).toContain('</svg>');
+      expect(entry!.svgContent).toContain('currentColor');
+      expect(entry!.defaultSize).toEqual({ width: 44, height: 44 });
+    });
+  }
+
+  it('all cisco-pro SVGs use viewBox="0 0 64 64"', async () => {
+    for (const { id } of ciscoProStencils) {
+      const entry = await getStencil(id);
+      expect(entry).toBeDefined();
+      expect(entry!.svgContent).toContain('viewBox="0 0 64 64"');
+    }
+  });
+
+  it('all cisco-pro SVGs contain xmlns attribute', async () => {
+    for (const { id } of ciscoProStencils) {
+      const entry = await getStencil(id);
+      expect(entry).toBeDefined();
+      expect(entry!.svgContent).toContain('xmlns="http://www.w3.org/2000/svg"');
+    }
+  });
+
+  it('returns 30 stencils in the cisco-pro category', () => {
+    const entries = getStencilsByCategory('cisco-pro');
+    expect(entries).toHaveLength(30);
+    const ids = entries.map((e) => e.id).sort();
+    expect(ids).toEqual([
+      'cisco-pro-aci',
+      'cisco-pro-amp',
+      'cisco-pro-asa',
+      'cisco-pro-call-manager',
+      'cisco-pro-camera',
+      'cisco-pro-cloud',
+      'cisco-pro-firewall',
+      'cisco-pro-hyperflex',
+      'cisco-pro-internet',
+      'cisco-pro-ip-phone',
+      'cisco-pro-ise',
+      'cisco-pro-l3-switch',
+      'cisco-pro-laptop',
+      'cisco-pro-meraki',
+      'cisco-pro-nexus',
+      'cisco-pro-printer',
+      'cisco-pro-router',
+      'cisco-pro-sd-wan',
+      'cisco-pro-server',
+      'cisco-pro-stack',
+      'cisco-pro-stealthwatch',
+      'cisco-pro-switch',
+      'cisco-pro-ucs',
+      'cisco-pro-umbrella',
+      'cisco-pro-video-endpoint',
+      'cisco-pro-viptela',
+      'cisco-pro-webex',
+      'cisco-pro-wireless-ap',
+      'cisco-pro-wlc',
+      'cisco-pro-workstation',
+    ]);
+  });
+});
+
 // ── getStencil — Kubernetes placeholder ───────────────────
 
 describe('getStencil — kubernetes placeholder', () => {
@@ -302,11 +413,12 @@ describe('getStencilsByCategory', () => {
 // ── getAllCategories ───────────────────────────────────────
 
 describe('getAllCategories', () => {
-  it('returns all 8 unique categories', () => {
+  it('returns all 15 unique categories', () => {
     const categories = getAllCategories();
     expect(categories).toContain('architecture');
     expect(categories).toContain('azure');
     expect(categories).toContain('azure-arm');
+    expect(categories).toContain('cisco-pro');
     expect(categories).toContain('fortinet');
     expect(categories).toContain('generic-it');
     expect(categories).toContain('kubernetes');
@@ -314,15 +426,15 @@ describe('getAllCategories', () => {
   });
 
   it('returns the correct number of categories', () => {
-    expect(getAllCategories()).toHaveLength(8);
+    expect(getAllCategories()).toHaveLength(15);
   });
 });
 
 // ── STENCIL_CATALOG integrity ─────────────────────────────
 
 describe('STENCIL_CATALOG', () => {
-  it('contains all 76 eager stencil entries', () => {
-    expect(STENCIL_CATALOG.size).toBe(76);
+  it('contains all 1857 stencil entries (76 hand-crafted + 30 cisco-pro + draw.io imports)', () => {
+    expect(STENCIL_CATALOG.size).toBe(1857);
   });
 
   it('has map keys matching entry IDs', () => {
