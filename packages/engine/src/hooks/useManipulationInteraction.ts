@@ -33,6 +33,7 @@ import {
   isPointBasedKind,
 } from '../interaction/manipulationHelpers.js';
 import type { HandleHit, PointHandleHit } from '../interaction/manipulationHelpers.js';
+import { computeSnappedDelta } from '../utils/snapToGrid.js';
 
 export interface ManipulationInteraction {
   /** Current cursor style based on pointer target. */
@@ -169,8 +170,13 @@ export function useManipulationInteraction(
 
     if (drag.kind === 'move') {
       // ── Transient move preview (AC9) ────────────────────
-      const dx = worldPoint.x - drag.startWorld.x;
-      const dy = worldPoint.y - drag.startWorld.y;
+      let dx = worldPoint.x - drag.startWorld.x;
+      let dy = worldPoint.y - drag.startWorld.y;
+
+      // Snap delta to grid when snap-to-grid is enabled
+      if (state.snapEnabled) {
+        ({ dx, dy } = computeSnappedDelta(dx, dy, drag.originalPositions, state.gridSize));
+      }
 
       useCanvasStore.setState((draft) => {
         const movedIds = new Set<string>();
@@ -331,8 +337,13 @@ export function useManipulationInteraction(
     const worldPoint = screenToWorld(e.offsetX, e.offsetY, camera);
 
     if (drag.kind === 'move') {
-      const dx = worldPoint.x - drag.startWorld.x;
-      const dy = worldPoint.y - drag.startWorld.y;
+      let dx = worldPoint.x - drag.startWorld.x;
+      let dy = worldPoint.y - drag.startWorld.y;
+
+      // Snap delta to grid when snap-to-grid is enabled
+      if (state.snapEnabled) {
+        ({ dx, dy } = computeSnappedDelta(dx, dy, drag.originalPositions, state.gridSize));
+      }
 
       // Only commit if there was actual movement
       if (Math.abs(dx) > 0.001 || Math.abs(dy) > 0.001) {

@@ -18,7 +18,7 @@ import {
   computeFitToContent,
   ZOOM_STEP,
 } from '@infinicanvas/engine';
-import { ZoomIn, ZoomOut, Maximize, Grid3x3 } from 'lucide-react';
+import { ZoomIn, ZoomOut, Maximize, Grid3x3, Magnet } from 'lucide-react';
 import type { VisualExpression } from '@infinicanvas/protocol';
 
 /** Button size in pixels. */
@@ -31,6 +31,7 @@ const ICON_SIZE = 16;
 export function ZoomControls() {
   const camera = useCanvasStore((s) => s.camera);
   const gridVisible = useCanvasStore((s) => s.gridVisible);
+  const snapEnabled = useCanvasStore((s) => s.snapEnabled);
 
   const handleZoomIn = useCallback(() => {
     const { camera: cam, setCamera: setCam } = useCanvasStore.getState();
@@ -66,6 +67,10 @@ export function ZoomControls() {
 
   const handleToggleGrid = useCallback(() => {
     useCanvasStore.getState().toggleGrid();
+  }, []);
+
+  const handleToggleSnap = useCallback(() => {
+    useCanvasStore.getState().toggleSnapEnabled();
   }, []);
 
   const zoomPercent = Math.round(camera.zoom * 100);
@@ -152,6 +157,24 @@ export function ZoomControls() {
         }}
       >
         <Grid3x3 size={ICON_SIZE} />
+      </button>
+
+      {/* Snap toggle */}
+      <button
+        type="button"
+        data-testid="snap-toggle"
+        aria-label={snapEnabled ? 'Disable snap to grid' : 'Enable snap to grid'}
+        aria-pressed={snapEnabled}
+        title={snapEnabled ? "Disable snap (Ctrl+Shift+')" : "Enable snap (Ctrl+Shift+')"}
+        onClick={handleToggleSnap}
+        style={{
+          ...buttonStyle,
+          color: snapEnabled
+            ? 'var(--accent, #4A90D9)'
+            : 'var(--text-primary, #333333)',
+        }}
+      >
+        <Magnet size={ICON_SIZE} />
       </button>
     </div>
   );
