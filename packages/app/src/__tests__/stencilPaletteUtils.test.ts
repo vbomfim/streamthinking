@@ -26,8 +26,8 @@ const MOCK_META: StencilMeta[] = [
   { id: 'firewall', category: 'network', label: 'Firewall', defaultSize: { width: 44, height: 44 } },
   { id: 'router', category: 'network', label: 'Router', defaultSize: { width: 44, height: 44 } },
   { id: 'database', category: 'generic-it', label: 'Database', defaultSize: { width: 44, height: 44 } },
-  { id: 'k8s-pod', category: 'kubernetes', label: 'Kubernetes Pod', defaultSize: { width: 44, height: 44 } },
-  { id: 'k8s-service', category: 'kubernetes', label: 'Kubernetes Service', defaultSize: { width: 44, height: 44 } },
+  { id: 'k8s-pod', category: 'kubernetes', label: 'Pod', defaultSize: { width: 44, height: 44 } },
+  { id: 'k8s-service', category: 'kubernetes', label: 'Service', defaultSize: { width: 44, height: 44 } },
   { id: 'azure-aks', category: 'azure', label: 'AKS', defaultSize: { width: 44, height: 44 } },
   { id: 'microservice', category: 'architecture', label: 'Microservice', defaultSize: { width: 44, height: 44 } },
   { id: 'drawio-ec2', category: 'drawio-aws', label: 'EC2 Instance', defaultSize: { width: 44, height: 44 } },
@@ -59,7 +59,7 @@ describe('filterStencilsBySearch', () => {
     const result = filterStencilsBySearch(MOCK_META, 'serv');
     expect(result.has('network')).toBe(true);
     expect(result.get('network')!.some((m) => m.id === 'server')).toBe(true);
-    // Also matches 'Kubernetes Service'
+    // Also matches 'Service' (k8s-service label)
     expect(result.has('kubernetes')).toBe(true);
     expect(result.get('kubernetes')!.some((m) => m.id === 'k8s-service')).toBe(true);
   });
@@ -71,11 +71,13 @@ describe('filterStencilsBySearch', () => {
   });
 
   it('groups results by category', () => {
-    const result = filterStencilsBySearch(MOCK_META, 'kubernetes');
+    // 'serv' matches "Server" (network) and "Service" (kubernetes) and "Microservice" (architecture)
+    const result = filterStencilsBySearch(MOCK_META, 'serv');
+    expect(result.size).toBeGreaterThanOrEqual(2);
     expect(result.has('kubernetes')).toBe(true);
-    expect(result.get('kubernetes')!.length).toBe(2);
-    // Should not include other categories
-    expect(result.has('network')).toBe(false);
+    expect(result.has('network')).toBe(true);
+    expect(result.get('kubernetes')!.some((m) => m.id === 'k8s-service')).toBe(true);
+    expect(result.get('network')!.some((m) => m.id === 'server')).toBe(true);
   });
 
   it('trims whitespace from query', () => {

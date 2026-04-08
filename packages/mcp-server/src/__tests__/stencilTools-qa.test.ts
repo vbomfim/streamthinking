@@ -242,7 +242,7 @@ describe('executeSearchStencils edge cases', () => {
   });
 
   it('[EDGE] search matches both id and label fields', async () => {
-    // 'pod' should match 'k8s-pod' (id) and 'Kubernetes Pod' (label)
+    // 'pod' should match 'k8s-pod' (id) and 'Pod' (label)
     const result = JSON.parse(await executeSearchStencils({ query: 'pod' }));
 
     expect(result.total).toBeGreaterThan(0);
@@ -264,7 +264,7 @@ describe('executePlaceStencil fuzzy matching integration', () => {
 
   it('[BOUNDARY] fuzzy match preserves user-provided label override', async () => {
     const result = await executePlaceStencil(client, {
-      stencilId: 'Kubernetes Pod',
+      stencilId: 'Pod',
       x: 10,
       y: 20,
       label: 'My Custom Pod',
@@ -276,7 +276,7 @@ describe('executePlaceStencil fuzzy matching integration', () => {
 
   it('[BOUNDARY] fuzzy match preserves user-provided dimensions', async () => {
     const result = await executePlaceStencil(client, {
-      stencilId: 'Kubernetes Pod',
+      stencilId: 'Pod',
       x: 0,
       y: 0,
       width: 200,
@@ -291,7 +291,7 @@ describe('executePlaceStencil fuzzy matching integration', () => {
 
   it('[BOUNDARY] fuzzy match resolves to correct stencil ID in expression', async () => {
     await executePlaceStencil(client, {
-      stencilId: 'Kubernetes Pod',
+      stencilId: 'Pod',
       x: 0,
       y: 0,
     });
@@ -571,7 +571,7 @@ describe('cross-tool stencil consistency', () => {
   it('[COVERAGE] fuzzy-matched stencil can be found via search', async () => {
     const client = createMockClient();
     const placeResult = await executePlaceStencil(client, {
-      stencilId: 'Kubernetes Pod',
+      stencilId: 'Pod',
       x: 0,
       y: 0,
     });
@@ -580,7 +580,7 @@ describe('cross-tool stencil consistency', () => {
     expect(placeResult).toContain('Placed stencil');
 
     const searchResult = JSON.parse(
-      await executeSearchStencils({ query: 'Kubernetes Pod' }),
+      await executeSearchStencils({ query: 'Pod' }),
     );
     expect(searchResult.total).toBeGreaterThan(0);
     const ids = searchResult.results.map((s: { id: string }) => s.id);

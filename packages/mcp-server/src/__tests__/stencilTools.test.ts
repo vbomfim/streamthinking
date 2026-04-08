@@ -111,7 +111,7 @@ describe('buildStencil', () => {
       kind: 'stencil',
       stencilId: 'k8s-pod',
       category: 'kubernetes',
-      label: 'Kubernetes Pod',
+      label: 'Pod',
     });
   });
 });
@@ -177,7 +177,7 @@ describe('executePlaceStencil', () => {
 
 describe('executeListStencils', () => {
   it('returns all stencils when no category is provided', async () => {
-    const result = await executeListStencils({});
+    const result = await executeListStencils({ pageSize: 300 });
     const parsed = JSON.parse(result);
 
     // Should contain stencils from multiple categories
@@ -188,7 +188,7 @@ describe('executeListStencils', () => {
   });
 
   it('groups stencils by category when no filter', async () => {
-    const result = await executeListStencils({});
+    const result = await executeListStencils({ pageSize: 300 });
     const parsed = JSON.parse(result);
 
     // Should contain stencils from multiple categories
@@ -233,7 +233,7 @@ describe('executeListStencils', () => {
     const ids = parsed.stencils.map((s: { id: string }) => s.id);
     const labels = parsed.stencils.map((s: { label: string }) => s.label);
     expect(ids).toContain('k8s-pod');
-    expect(labels).toContain('Kubernetes Pod');
+    expect(labels).toContain('Pod');
     expect(ids).not.toContain('server');
   });
 });
@@ -370,8 +370,9 @@ describe('executePlaceStencil fuzzy matching', () => {
   });
 
   it('places stencil by fuzzy name when exact ID not found', async () => {
+    // "Pod" is the label of k8s-pod — not an exact ID, so triggers fuzzy matching
     const result = await executePlaceStencil(client, {
-      stencilId: 'Kubernetes Pod', x: 0, y: 0,
+      stencilId: 'Pod', x: 0, y: 0,
     });
 
     expect(client.sendCreate).toHaveBeenCalledOnce();
