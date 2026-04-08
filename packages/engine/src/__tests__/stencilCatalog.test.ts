@@ -514,22 +514,24 @@ describe('getStencilsByCategory', () => {
 // ── getAllCategories ───────────────────────────────────────
 
 describe('getAllCategories', () => {
-  it('returns all 16 unique categories', () => {
+  it('returns all unique categories including azure-pro', () => {
     const categories = getAllCategories();
     expect(categories).toContain('architecture');
     expect(categories).toContain('aws-pro');
-    expect(categories).toContain('azure');
-    expect(categories).toContain('azure-arm');
+    expect(categories).toContain('azure-pro');
     expect(categories).toContain('cisco-pro');
     expect(categories).toContain('fortinet');
     expect(categories).toContain('gcp-pro');
     expect(categories).toContain('generic-it');
     expect(categories).toContain('kubernetes');
     expect(categories).toContain('network');
+    // Old categories removed
+    expect(categories).not.toContain('azure');
+    expect(categories).not.toContain('azure-arm');
   });
 
   it('returns the correct number of categories', () => {
-    expect(getAllCategories()).toHaveLength(17);
+    expect(getAllCategories()).toHaveLength(10);
   });
 });
 
@@ -537,7 +539,7 @@ describe('getAllCategories', () => {
 
 describe('STENCIL_CATALOG', () => {
   it('contains all stencil entries', () => {
-    expect(STENCIL_CATALOG.size).toBeGreaterThan(1900);
+    expect(STENCIL_CATALOG.size).toBeGreaterThanOrEqual(140);
   });
 
   it('has map keys matching entry IDs', () => {

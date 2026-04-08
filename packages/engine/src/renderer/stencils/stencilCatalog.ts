@@ -26,6 +26,7 @@ import {
   API_SVG,
   USER_SVG,
   BROWSER_SVG,
+  PROMETHEUS_SVG,
 } from './svgs/genericIt.js';
 import {
   BOUNDARY_ZONE_SVG,
@@ -33,22 +34,38 @@ import {
   CONTAINER_SVG,
 } from './svgs/architecture.js';
 import {
-  AZURE_APP_GATEWAY_SVG,
-  AZURE_AKS_SVG,
-  AZURE_STORAGE_SVG,
-  AZURE_SQL_SVG,
-  AZURE_FUNCTIONS_SVG,
-  AZURE_VNET_SVG,
-  AZURE_COSMOSDB_SVG,
-  AZURE_REDIS_SVG,
-  AZURE_DNS_SVG,
-  AZURE_FRONTDOOR_SVG,
-  AZURE_TRAFFIC_MANAGER_SVG,
-  AZURE_MONITOR_SVG,
-  AZURE_PRIVATE_ENDPOINT_SVG,
-  AZURE_NSP_SVG,
-  PROMETHEUS_SVG,
-} from './svgs/azure.js';
+  AZURE_PRO_VIRTUAL_MACHINES_SVG,
+  AZURE_PRO_APP_SERVICE_SVG,
+  AZURE_PRO_FUNCTIONS_SVG,
+  AZURE_PRO_AKS_SVG,
+  AZURE_PRO_CONTAINER_INSTANCES_SVG,
+  AZURE_PRO_VMSS_SVG,
+  AZURE_PRO_BLOB_STORAGE_SVG,
+  AZURE_PRO_FILE_STORAGE_SVG,
+  AZURE_PRO_DISK_STORAGE_SVG,
+  AZURE_PRO_DATA_LAKE_SVG,
+  AZURE_PRO_SQL_DATABASE_SVG,
+  AZURE_PRO_COSMOS_DB_SVG,
+  AZURE_PRO_MYSQL_SVG,
+  AZURE_PRO_POSTGRESQL_SVG,
+  AZURE_PRO_REDIS_CACHE_SVG,
+  AZURE_PRO_VIRTUAL_NETWORK_SVG,
+  AZURE_PRO_LOAD_BALANCER_SVG,
+  AZURE_PRO_APPLICATION_GATEWAY_SVG,
+  AZURE_PRO_FRONT_DOOR_SVG,
+  AZURE_PRO_DNS_ZONE_SVG,
+  AZURE_PRO_EXPRESSROUTE_SVG,
+  AZURE_PRO_KEY_VAULT_SVG,
+  AZURE_PRO_ACTIVE_DIRECTORY_SVG,
+  AZURE_PRO_SENTINEL_SVG,
+  AZURE_PRO_DDOS_PROTECTION_SVG,
+  AZURE_PRO_MONITOR_SVG,
+  AZURE_PRO_LOG_ANALYTICS_SVG,
+  AZURE_PRO_DEVOPS_SVG,
+  AZURE_PRO_RESOURCE_GROUP_SVG,
+  AZURE_PRO_COGNITIVE_SERVICES_SVG,
+  AZURE_PRO_OPENAI_SERVICE_SVG,
+} from './svgs/azure-pro.js';
 import {
   NGFW_SVG,
   WAF_SVG,
@@ -70,18 +87,7 @@ import {
   K8S_NODE_SVG,
   K8S_CLUSTER_SVG,
 } from './svgs/kubernetes.js';
-import {
-  ARM_RESOURCE_GROUP_SVG,
-  ARM_SUBSCRIPTION_SVG,
-  ARM_MANAGEMENT_GROUP_SVG,
-  ARM_VIRTUAL_MACHINE_SVG,
-  ARM_VNET_SVG,
-  ARM_SUBNET_SVG,
-  ARM_NSG_SVG,
-  ARM_KEY_VAULT_SVG,
-  ARM_APP_SERVICE_SVG,
-  ARM_CONTAINER_REGISTRY_SVG,
-} from './svgs/azureArm.js';
+// (azure-arm imports removed — replaced by azure-pro)
 import {
   FORTI_GATE_SVG,
   FORTI_SWITCH_SVG,
@@ -307,75 +313,46 @@ export const STENCIL_CATALOG: Map<string, StencilEntry> = new Map([
     },
   ],
 
-  // ── Azure (Sub-ticket C) ────────────────────────────────
-  [
-    'azure-app-gateway',
-    {
-      id: 'azure-app-gateway',
-      category: 'azure',
-      label: 'App Gateway',
-      svgContent: AZURE_APP_GATEWAY_SVG,
-      defaultSize: { width: 64, height: 64 },
-    },
-  ],
-  [
-    'azure-aks',
-    {
-      id: 'azure-aks',
-      category: 'azure',
-      label: 'Azure Kubernetes Service',
-      svgContent: AZURE_AKS_SVG,
-      defaultSize: { width: 64, height: 64 },
-    },
-  ],
-  [
-    'azure-storage',
-    {
-      id: 'azure-storage',
-      category: 'azure',
-      label: 'Azure Storage',
-      svgContent: AZURE_STORAGE_SVG,
-      defaultSize: { width: 64, height: 64 },
-    },
-  ],
-  [
-    'azure-sql',
-    {
-      id: 'azure-sql',
-      category: 'azure',
-      label: 'Azure SQL Database',
-      svgContent: AZURE_SQL_SVG,
-      defaultSize: { width: 64, height: 64 },
-    },
-  ],
-  [
-    'azure-functions',
-    {
-      id: 'azure-functions',
-      category: 'azure',
-      label: 'Azure Functions',
-      svgContent: AZURE_FUNCTIONS_SVG,
-      defaultSize: { width: 64, height: 64 },
-    },
-  ],
-  [
-    'azure-vnet',
-    {
-      id: 'azure-vnet',
-      category: 'azure',
-      label: 'Azure Virtual Network',
-      svgContent: AZURE_VNET_SVG,
-      defaultSize: { width: 64, height: 64 },
-    },
-  ],
-  ['azure-cosmosdb', { id: 'azure-cosmosdb', category: 'azure', label: 'Cosmos DB', svgContent: AZURE_COSMOSDB_SVG, defaultSize: ICON_SIZE }],
-  ['azure-redis', { id: 'azure-redis', category: 'azure', label: 'Redis Cache', svgContent: AZURE_REDIS_SVG, defaultSize: ICON_SIZE }],
-  ['azure-dns', { id: 'azure-dns', category: 'azure', label: 'DNS', svgContent: AZURE_DNS_SVG, defaultSize: ICON_SIZE }],
-  ['azure-frontdoor', { id: 'azure-frontdoor', category: 'azure', label: 'Front Door', svgContent: AZURE_FRONTDOOR_SVG, defaultSize: ICON_SIZE }],
-  ['azure-traffic-manager', { id: 'azure-traffic-manager', category: 'azure', label: 'Traffic Manager', svgContent: AZURE_TRAFFIC_MANAGER_SVG, defaultSize: ICON_SIZE }],
-  ['azure-monitor', { id: 'azure-monitor', category: 'azure', label: 'Monitor', svgContent: AZURE_MONITOR_SVG, defaultSize: ICON_SIZE }],
-  ['private-endpoint', { id: 'private-endpoint', category: 'azure', label: 'Private Endpoint', svgContent: AZURE_PRIVATE_ENDPOINT_SVG, defaultSize: ICON_SIZE }],
-  ['nsp', { id: 'nsp', category: 'azure', label: 'Network Security Perimeter', svgContent: AZURE_NSP_SVG, defaultSize: { width: 200, height: 150 } }],
+  // ── Azure Pro (hand-crafted) ─────────────────────────────
+  // Compute
+  ['azure-pro-virtual-machines', { id: 'azure-pro-virtual-machines', category: 'azure-pro', label: 'Virtual Machines', svgContent: AZURE_PRO_VIRTUAL_MACHINES_SVG, defaultSize: ICON_SIZE }],
+  ['azure-pro-app-service', { id: 'azure-pro-app-service', category: 'azure-pro', label: 'App Service', svgContent: AZURE_PRO_APP_SERVICE_SVG, defaultSize: ICON_SIZE }],
+  ['azure-pro-functions', { id: 'azure-pro-functions', category: 'azure-pro', label: 'Azure Functions', svgContent: AZURE_PRO_FUNCTIONS_SVG, defaultSize: ICON_SIZE }],
+  ['azure-pro-aks', { id: 'azure-pro-aks', category: 'azure-pro', label: 'AKS', svgContent: AZURE_PRO_AKS_SVG, defaultSize: ICON_SIZE }],
+  ['azure-pro-container-instances', { id: 'azure-pro-container-instances', category: 'azure-pro', label: 'Container Instances', svgContent: AZURE_PRO_CONTAINER_INSTANCES_SVG, defaultSize: ICON_SIZE }],
+  ['azure-pro-vmss', { id: 'azure-pro-vmss', category: 'azure-pro', label: 'VM Scale Sets', svgContent: AZURE_PRO_VMSS_SVG, defaultSize: ICON_SIZE }],
+  // Storage
+  ['azure-pro-blob-storage', { id: 'azure-pro-blob-storage', category: 'azure-pro', label: 'Blob Storage', svgContent: AZURE_PRO_BLOB_STORAGE_SVG, defaultSize: ICON_SIZE }],
+  ['azure-pro-file-storage', { id: 'azure-pro-file-storage', category: 'azure-pro', label: 'File Storage', svgContent: AZURE_PRO_FILE_STORAGE_SVG, defaultSize: ICON_SIZE }],
+  ['azure-pro-disk-storage', { id: 'azure-pro-disk-storage', category: 'azure-pro', label: 'Disk Storage', svgContent: AZURE_PRO_DISK_STORAGE_SVG, defaultSize: ICON_SIZE }],
+  ['azure-pro-data-lake', { id: 'azure-pro-data-lake', category: 'azure-pro', label: 'Data Lake', svgContent: AZURE_PRO_DATA_LAKE_SVG, defaultSize: ICON_SIZE }],
+  // Database
+  ['azure-pro-sql-database', { id: 'azure-pro-sql-database', category: 'azure-pro', label: 'SQL Database', svgContent: AZURE_PRO_SQL_DATABASE_SVG, defaultSize: ICON_SIZE }],
+  ['azure-pro-cosmos-db', { id: 'azure-pro-cosmos-db', category: 'azure-pro', label: 'Cosmos DB', svgContent: AZURE_PRO_COSMOS_DB_SVG, defaultSize: ICON_SIZE }],
+  ['azure-pro-mysql', { id: 'azure-pro-mysql', category: 'azure-pro', label: 'MySQL', svgContent: AZURE_PRO_MYSQL_SVG, defaultSize: ICON_SIZE }],
+  ['azure-pro-postgresql', { id: 'azure-pro-postgresql', category: 'azure-pro', label: 'PostgreSQL', svgContent: AZURE_PRO_POSTGRESQL_SVG, defaultSize: ICON_SIZE }],
+  ['azure-pro-redis-cache', { id: 'azure-pro-redis-cache', category: 'azure-pro', label: 'Redis Cache', svgContent: AZURE_PRO_REDIS_CACHE_SVG, defaultSize: ICON_SIZE }],
+  // Networking
+  ['azure-pro-virtual-network', { id: 'azure-pro-virtual-network', category: 'azure-pro', label: 'Virtual Network', svgContent: AZURE_PRO_VIRTUAL_NETWORK_SVG, defaultSize: ICON_SIZE }],
+  ['azure-pro-load-balancer', { id: 'azure-pro-load-balancer', category: 'azure-pro', label: 'Load Balancer', svgContent: AZURE_PRO_LOAD_BALANCER_SVG, defaultSize: ICON_SIZE }],
+  ['azure-pro-application-gateway', { id: 'azure-pro-application-gateway', category: 'azure-pro', label: 'Application Gateway', svgContent: AZURE_PRO_APPLICATION_GATEWAY_SVG, defaultSize: ICON_SIZE }],
+  ['azure-pro-front-door', { id: 'azure-pro-front-door', category: 'azure-pro', label: 'Front Door', svgContent: AZURE_PRO_FRONT_DOOR_SVG, defaultSize: ICON_SIZE }],
+  ['azure-pro-dns-zone', { id: 'azure-pro-dns-zone', category: 'azure-pro', label: 'DNS Zone', svgContent: AZURE_PRO_DNS_ZONE_SVG, defaultSize: ICON_SIZE }],
+  ['azure-pro-expressroute', { id: 'azure-pro-expressroute', category: 'azure-pro', label: 'ExpressRoute', svgContent: AZURE_PRO_EXPRESSROUTE_SVG, defaultSize: ICON_SIZE }],
+  // Security
+  ['azure-pro-key-vault', { id: 'azure-pro-key-vault', category: 'azure-pro', label: 'Key Vault', svgContent: AZURE_PRO_KEY_VAULT_SVG, defaultSize: ICON_SIZE }],
+  ['azure-pro-active-directory', { id: 'azure-pro-active-directory', category: 'azure-pro', label: 'Active Directory', svgContent: AZURE_PRO_ACTIVE_DIRECTORY_SVG, defaultSize: ICON_SIZE }],
+  ['azure-pro-sentinel', { id: 'azure-pro-sentinel', category: 'azure-pro', label: 'Sentinel', svgContent: AZURE_PRO_SENTINEL_SVG, defaultSize: ICON_SIZE }],
+  ['azure-pro-ddos-protection', { id: 'azure-pro-ddos-protection', category: 'azure-pro', label: 'DDoS Protection', svgContent: AZURE_PRO_DDOS_PROTECTION_SVG, defaultSize: ICON_SIZE }],
+  // Management
+  ['azure-pro-monitor', { id: 'azure-pro-monitor', category: 'azure-pro', label: 'Monitor', svgContent: AZURE_PRO_MONITOR_SVG, defaultSize: ICON_SIZE }],
+  ['azure-pro-log-analytics', { id: 'azure-pro-log-analytics', category: 'azure-pro', label: 'Log Analytics', svgContent: AZURE_PRO_LOG_ANALYTICS_SVG, defaultSize: ICON_SIZE }],
+  ['azure-pro-devops', { id: 'azure-pro-devops', category: 'azure-pro', label: 'DevOps', svgContent: AZURE_PRO_DEVOPS_SVG, defaultSize: ICON_SIZE }],
+  ['azure-pro-resource-group', { id: 'azure-pro-resource-group', category: 'azure-pro', label: 'Resource Group', svgContent: AZURE_PRO_RESOURCE_GROUP_SVG, defaultSize: ICON_SIZE }],
+  // AI
+  ['azure-pro-cognitive-services', { id: 'azure-pro-cognitive-services', category: 'azure-pro', label: 'Cognitive Services', svgContent: AZURE_PRO_COGNITIVE_SERVICES_SVG, defaultSize: ICON_SIZE }],
+  ['azure-pro-openai-service', { id: 'azure-pro-openai-service', category: 'azure-pro', label: 'OpenAI Service', svgContent: AZURE_PRO_OPENAI_SERVICE_SVG, defaultSize: ICON_SIZE }],
+
   ['prometheus', { id: 'prometheus', category: 'generic-it', label: 'Prometheus', svgContent: PROMETHEUS_SVG, defaultSize: ICON_SIZE }],
 
   // ── Security ────────────────────────────────────────────
@@ -570,108 +547,6 @@ export const STENCIL_CATALOG: Map<string, StencilEntry> = new Map([
       label: 'Cluster',
       svgContent: K8S_CLUSTER_SVG,
       defaultSize: { width: 250, height: 200 },
-    },
-  ],
-
-  // ── Azure ARM (Sub-ticket C) ────────────────────────────
-  [
-    'arm-resource-group',
-    {
-      id: 'arm-resource-group',
-      category: 'azure-arm',
-      label: 'Resource Group',
-      svgContent: ARM_RESOURCE_GROUP_SVG,
-      defaultSize: { width: 200, height: 150 },
-    },
-  ],
-  [
-    'arm-subscription',
-    {
-      id: 'arm-subscription',
-      category: 'azure-arm',
-      label: 'Subscription',
-      svgContent: ARM_SUBSCRIPTION_SVG,
-      defaultSize: { width: 250, height: 200 },
-    },
-  ],
-  [
-    'arm-management-group',
-    {
-      id: 'arm-management-group',
-      category: 'azure-arm',
-      label: 'Management Group',
-      svgContent: ARM_MANAGEMENT_GROUP_SVG,
-      defaultSize: { width: 300, height: 200 },
-    },
-  ],
-  [
-    'arm-virtual-machine',
-    {
-      id: 'arm-virtual-machine',
-      category: 'azure-arm',
-      label: 'Virtual Machine',
-      svgContent: ARM_VIRTUAL_MACHINE_SVG,
-      defaultSize: { width: 64, height: 64 },
-    },
-  ],
-  [
-    'arm-vnet',
-    {
-      id: 'arm-vnet',
-      category: 'azure-arm',
-      label: 'Virtual Network',
-      svgContent: ARM_VNET_SVG,
-      defaultSize: { width: 64, height: 64 },
-    },
-  ],
-  [
-    'arm-subnet',
-    {
-      id: 'arm-subnet',
-      category: 'azure-arm',
-      label: 'Subnet',
-      svgContent: ARM_SUBNET_SVG,
-      defaultSize: { width: 64, height: 64 },
-    },
-  ],
-  [
-    'arm-nsg',
-    {
-      id: 'arm-nsg',
-      category: 'azure-arm',
-      label: 'Network Security Group',
-      svgContent: ARM_NSG_SVG,
-      defaultSize: { width: 64, height: 64 },
-    },
-  ],
-  [
-    'arm-key-vault',
-    {
-      id: 'arm-key-vault',
-      category: 'azure-arm',
-      label: 'Key Vault',
-      svgContent: ARM_KEY_VAULT_SVG,
-      defaultSize: { width: 64, height: 64 },
-    },
-  ],
-  [
-    'arm-app-service',
-    {
-      id: 'arm-app-service',
-      category: 'azure-arm',
-      label: 'App Service',
-      svgContent: ARM_APP_SERVICE_SVG,
-      defaultSize: { width: 64, height: 64 },
-    },
-  ],
-  [
-    'arm-container-registry',
-    {
-      id: 'arm-container-registry',
-      category: 'azure-arm',
-      label: 'Container Registry',
-      svgContent: ARM_CONTAINER_REGISTRY_SVG,
-      defaultSize: { width: 64, height: 64 },
     },
   ],
 
