@@ -112,15 +112,64 @@ function buildArrowGuideSection(): string {
   return `## Arrow Guide
 - Connect to nearest edges: if target is below → source.bottom to target.top
 - If target is right → source.right to target.left
-- Arrowhead types: triangle (filled), chevron (open V), diamond, circle
 - Default: endArrowhead='triangle', startArrowhead='none'
 - For bidirectional: both ends = 'triangle'
 - For plain line: both ends = 'none'
 
+### Routing Modes
+Set via the \`routing\` parameter on \`canvas_draw_arrow\`:
+- **straight** — Direct line between points (default)
+- **orthogonal** — Right-angle segments (Manhattan routing)
+- **curved** — Smooth bezier curve
+- **elbow** — Single-bend elbow connector
+- **entityRelation** — ER-style routing with perpendicular exits from shapes
+- **isometric** — 30°/60° isometric routing for isometric diagrams
+- **orthogonalCurved** — Orthogonal routing with bezier-smoothed corners
+
+### Arrowhead Types
+Set via \`startArrowhead\` and \`endArrowhead\` parameters. Use \`startFill\`/\`endFill\` (boolean) to toggle filled vs outline.
+
+**Standard:**
+- \`none\` — no arrowhead
+- \`classic\` — filled triangle (draw.io default)
+- \`classicThin\` — thinner filled triangle
+- \`triangle\` — alias for classic (backward compat)
+- \`open\` — outline triangle
+- \`openThin\` — thinner outline triangle
+- \`block\` / \`blockThin\` — filled rectangle
+- \`oval\` — filled circle
+- \`diamond\` / \`diamondThin\` — filled diamond
+
+**ER Diagram:**
+- \`ERone\` — single bar (|)
+- \`ERmany\` — crow's foot (>)
+- \`ERmandOne\` — mandatory one (||)
+- \`ERoneToMany\` — one to many (|>)
+- \`ERzeroToOne\` — zero to one (o|)
+- \`ERzeroToMany\` — zero to many (o>)
+
+**UML:**
+- \`openAsync\` — open arrowhead (async message)
+- \`dash\` — dashed end
+- \`cross\` — X mark
+
+**Other:**
+- \`box\` — small filled box
+- \`halfCircle\` — half circle
+- \`doubleBlock\` — double block arrows
+
+### Connector Options
+- \`curved: true\` — Smooth bezier curves on orthogonal corners
+- \`rounded: true\` — Round corners on orthogonal route segments
+
 ### Arrow Labels
 - Use the \`label\` parameter to add text labels to arrows (e.g., "HTTPS", "/api", "TCP/443")
 - Labels render at the arrow midpoint with a white background for readability
-- Font size defaults to 12px, uses the arrow's strokeColor`;
+- Font size defaults to 12px, uses the arrow's strokeColor
+
+### ER Diagrams
+Use \`canvas_draw_er_relation\` for quick ER diagram connectors with pre-configured cardinality arrowheads.
+Supported cardinalities: one-to-one, one-to-many, many-to-many, zero-to-one, zero-to-many.`;
 }
 
 function buildThemesSection(): string {

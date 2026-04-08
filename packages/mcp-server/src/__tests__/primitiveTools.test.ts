@@ -17,13 +17,16 @@ import {
   buildArrow,
   buildText,
   buildStickyNote,
+  buildERRelation,
   executeDrawRectangle,
   executeDrawEllipse,
   executeDrawLine,
   executeDrawArrow,
   executeDrawText,
   executeAddStickyNote,
+  executeDrawERRelation,
 } from '../tools/primitiveTools.js';
+import type { ArrowData } from '@infinicanvas/protocol';
 import { DEFAULT_STYLE } from '../defaults.js';
 
 // ── Mock gateway client ────────────────────────────────────
@@ -218,6 +221,101 @@ describe('buildArrow', () => {
   });
 });
 
+describe('buildArrow — enhanced connector parameters', () => {
+  it('passes routing mode through to ArrowData', () => {
+    const expr = buildArrow({
+      points: [[0, 0], [100, 100]],
+      routing: 'orthogonal',
+    });
+
+    const data = expr.data as ArrowData;
+    expect(data.routing).toBe('orthogonal');
+  });
+
+  it('passes string arrowhead types through to ArrowData', () => {
+    const expr = buildArrow({
+      points: [[0, 0], [100, 100]],
+      startArrowhead: 'diamond',
+      endArrowhead: 'open',
+    });
+
+    const data = expr.data as ArrowData;
+    expect(data.startArrowhead).toBe('diamond');
+    expect(data.endArrowhead).toBe('open');
+  });
+
+  it('preserves backward-compatible boolean arrowhead behavior', () => {
+    const withEnd = buildArrow({
+      points: [[0, 0], [100, 100]],
+      endArrowhead: true,
+    });
+    expect((withEnd.data as ArrowData).endArrowhead).toBe('triangle');
+
+    const withoutEnd = buildArrow({
+      points: [[0, 0], [100, 100]],
+      endArrowhead: false,
+    });
+    expect((withoutEnd.data as ArrowData).endArrowhead).toBe('none');
+
+    const withStart = buildArrow({
+      points: [[0, 0], [100, 100]],
+      startArrowhead: true,
+    });
+    expect((withStart.data as ArrowData).startArrowhead).toBe('triangle');
+  });
+
+  it('passes startFill and endFill through to ArrowData', () => {
+    const expr = buildArrow({
+      points: [[0, 0], [100, 100]],
+      startFill: false,
+      endFill: true,
+    });
+
+    const data = expr.data as ArrowData;
+    expect(data.startFill).toBe(false);
+    expect(data.endFill).toBe(true);
+  });
+
+  it('passes curved and rounded through to ArrowData', () => {
+    const expr = buildArrow({
+      points: [[0, 0], [100, 100]],
+      curved: true,
+      rounded: true,
+    });
+
+    const data = expr.data as ArrowData;
+    expect(data.curved).toBe(true);
+    expect(data.rounded).toBe(true);
+  });
+
+  it('supports entityRelation routing mode', () => {
+    const expr = buildArrow({
+      points: [[0, 0], [200, 0]],
+      routing: 'entityRelation',
+      startArrowhead: 'ERmandOne',
+      endArrowhead: 'ERoneToMany',
+    });
+
+    const data = expr.data as ArrowData;
+    expect(data.routing).toBe('entityRelation');
+    expect(data.startArrowhead).toBe('ERmandOne');
+    expect(data.endArrowhead).toBe('ERoneToMany');
+  });
+
+  it('omits optional fields when not provided', () => {
+    const expr = buildArrow({
+      points: [[0, 0], [100, 100]],
+    });
+
+    const data = expr.data as ArrowData;
+    expect(data.routing).toBeUndefined();
+    expect(data.startFill).toBeUndefined();
+    expect(data.endFill).toBeUndefined();
+    expect(data.curved).toBeUndefined();
+    expect(data.rounded).toBeUndefined();
+  });
+});
+
 describe('executeDrawArrow', () => {
   it('sends create and returns confirmation with label', async () => {
     const client = createMockClient();
@@ -229,6 +327,178 @@ describe('executeDrawArrow', () => {
     expect(client.sendCreate).toHaveBeenCalledOnce();
     expect(result).toContain('Created arrow');
     expect(result).toContain("'Next'");
+  });
+
+  it('includes routing mode in confirmation when provided', async () => {
+    const client = createMockClient();
+    const result = await executeDrawArrow(client, {
+      points: [[0, 0], [100, 0]],
+      routing: 'orthogonal',
+    });
+
+    expect(result).toContain('orthogonal');
+  });
+});
+
+// ── ER Relation ───────────────────────────────────────────
+
+describe('buildERRelation', () => {
+  it('creates an arrow with entityRelation routing', () => {
+    const expr = buildERRelation({
+      from: { x: 0, y: 0 },
+      to: { x: 200, y: 0 },
+      cardinality: 'one-to-many',
+    });
+
+    const data = expr.data as ArrowData;
+    expect(expr.kind).toBe('arrow');
+    expect(data.routing).toBe('entityRelation');
+  });
+
+  it('maps one-to-one cardinality correctly', () => {
+    const expr = buildERRelation({
+      from: { x: 0, y: 0 },
+      to: { x: 200, y: 0 },
+      cardinality: 'one-to-one',
+    });
+
+    const data = expr.data as ArrowData;
+    expect(data.startArrowhead).toBe('ERmandOne');
+    expect(data.endArrowhead).toBe('ERmandOne');
+  });
+
+  it('maps one-to-many cardinality correctly', () => {
+    const expr = buildERRelation({
+      from: { x: 0, y: 0 },
+      to: { x: 200, y: 0 },
+      cardinality: 'one-to-many',
+    });
+
+    const data = expr.data as ArrowData;
+    expect(data.startArrowhead).toBe('ERmandOne');
+    expect(data.endArrowhead).toBe('ERoneToMany');
+  });
+
+  it('maps many-to-many cardinality correctly', () => {
+    const expr = buildERRelation({
+      from: { x: 0, y: 0 },
+      to: { x: 200, y: 0 },
+      cardinality: 'many-to-many',
+    });
+
+    const data = expr.data as ArrowData;
+    expect(data.startArrowhead).toBe('ERoneToMany');
+    expect(data.endArrowhead).toBe('ERoneToMany');
+  });
+
+  it('maps zero-to-one cardinality correctly', () => {
+    const expr = buildERRelation({
+      from: { x: 0, y: 0 },
+      to: { x: 200, y: 0 },
+      cardinality: 'zero-to-one',
+    });
+
+    const data = expr.data as ArrowData;
+    expect(data.startArrowhead).toBe('ERmandOne');
+    expect(data.endArrowhead).toBe('ERzeroToOne');
+  });
+
+  it('maps zero-to-many cardinality correctly', () => {
+    const expr = buildERRelation({
+      from: { x: 0, y: 0 },
+      to: { x: 200, y: 0 },
+      cardinality: 'zero-to-many',
+    });
+
+    const data = expr.data as ArrowData;
+    expect(data.startArrowhead).toBe('ERmandOne');
+    expect(data.endArrowhead).toBe('ERzeroToMany');
+  });
+
+  it('includes optional label', () => {
+    const expr = buildERRelation({
+      from: { x: 0, y: 0 },
+      to: { x: 200, y: 0 },
+      cardinality: 'one-to-many',
+      label: 'has',
+    });
+
+    const data = expr.data as ArrowData;
+    expect(data.label).toBe('has');
+  });
+
+  it('computes correct bounding box from from/to points', () => {
+    const expr = buildERRelation({
+      from: { x: 50, y: 100 },
+      to: { x: 250, y: 300 },
+      cardinality: 'one-to-one',
+    });
+
+    expect(expr.position).toEqual({ x: 50, y: 100 });
+    expect(expr.size).toEqual({ width: 200, height: 200 });
+  });
+});
+
+describe('executeDrawERRelation', () => {
+  let client: IGatewayClient;
+
+  beforeEach(() => {
+    client = createMockClient();
+  });
+
+  it('sends create and returns confirmation with cardinality', async () => {
+    const result = await executeDrawERRelation(client, {
+      from: { x: 0, y: 0 },
+      to: { x: 200, y: 0 },
+      cardinality: 'one-to-many',
+    });
+
+    expect(client.sendCreate).toHaveBeenCalledOnce();
+    expect(result).toContain('ER relation');
+    expect(result).toContain('one-to-many');
+  });
+
+  it('includes label in confirmation when provided', async () => {
+    const result = await executeDrawERRelation(client, {
+      from: { x: 0, y: 0 },
+      to: { x: 200, y: 0 },
+      cardinality: 'one-to-many',
+      label: 'owns',
+    });
+
+    expect(result).toContain("'owns'");
+  });
+
+  it('resolves expressionId to center coordinates', async () => {
+    const rect = buildRectangle({ x: 100, y: 100, width: 200, height: 100 });
+    const rect2 = buildRectangle({ x: 500, y: 100, width: 200, height: 100 });
+    client = createMockClient();
+    (client.getState as ReturnType<typeof vi.fn>).mockReturnValue([rect, rect2]);
+
+    const result = await executeDrawERRelation(client, {
+      from: rect.id,
+      to: rect2.id,
+      cardinality: 'one-to-one',
+    });
+
+    expect(client.sendCreate).toHaveBeenCalledOnce();
+    const sentExpr = (client.sendCreate as ReturnType<typeof vi.fn>).mock.calls[0]![0] as VisualExpression;
+    const data = sentExpr.data as ArrowData;
+    // Points should be computed from expression centers
+    expect(data.points).toEqual([[200, 150], [600, 150]]);
+  });
+
+  it('throws when expressionId is not found', async () => {
+    client = createMockClient();
+    (client.getState as ReturnType<typeof vi.fn>).mockReturnValue([]);
+
+    await expect(
+      executeDrawERRelation(client, {
+        from: 'nonexistent-id',
+        to: { x: 200, y: 0 },
+        cardinality: 'one-to-one',
+      }),
+    ).rejects.toThrow('not found');
   });
 });
 

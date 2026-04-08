@@ -31,6 +31,7 @@ import {
   executeDrawArrow,
   executeDrawText,
   executeAddStickyNote,
+  executeDrawERRelation,
 } from './tools/primitiveTools.js';
 import {
   executeDrawFlowchart,
@@ -107,6 +108,21 @@ const roadmapStatusSchema = z.enum(['planned', 'in-progress', 'done']);
 const roadmapOrientationSchema = z.enum(['horizontal', 'vertical']);
 const calloutPositionSchema = z.enum(['top', 'right', 'bottom', 'left']);
 const flowDirectionSchema = z.enum(['TB', 'LR', 'BT', 'RL']);
+const routingModeSchema = z.enum([
+  'straight', 'orthogonal', 'curved', 'elbow',
+  'entityRelation', 'isometric', 'orthogonalCurved',
+]);
+const arrowheadTypeSchema = z.enum([
+  'none', 'triangle', 'classic', 'classicThin', 'open', 'openThin',
+  'block', 'blockThin', 'oval', 'diamond', 'diamondThin', 'circle',
+  'chevron',
+  'ERone', 'ERmany', 'ERmandOne', 'ERoneToMany', 'ERzeroToOne', 'ERzeroToMany',
+  'openAsync', 'dash', 'cross',
+  'box', 'halfCircle', 'doubleBlock',
+]);
+const erCardinalitySchema = z.enum([
+  'one-to-one', 'one-to-many', 'many-to-many', 'zero-to-one', 'zero-to-many',
+]);
 
 // ── Server creation ────────────────────────────────────────
 
@@ -177,9 +193,43 @@ export function createMcpServer(gatewayClient: IGatewayClient): McpServer {
     {
       points: pointArraySchema.min(2).describe('Array of [x, y] coordinate pairs (minimum 2 points)'),
       label: z.string().optional().describe('Label text for the arrow'),
+      routing: routingModeSchema.optional().describe('Routing mode: straight (default), orthogonal, curved, elbow, entityRelation, isometric, orthogonalCurved'),
+      startArrowhead: arrowheadTypeSchema.optional().describe('Arrowhead style at the start (default: none)'),
+      endArrowhead: arrowheadTypeSchema.optional().describe('Arrowhead style at the end (default: triangle)'),
+      startFill: z.boolean().optional().describe('Filled (true) or outline (false) start arrowhead'),
+      endFill: z.boolean().optional().describe('Filled (true) or outline (false) end arrowhead'),
+      curved: z.boolean().optional().describe('Smooth bezier curves on orthogonal corners'),
+      rounded: z.boolean().optional().describe('Round corners on orthogonal route segments'),
     },
     async (params) => {
       const result = await executeDrawArrow(gatewayClient, params);
+      return { content: [{ type: 'text' as const, text: result }] };
+    },
+  );
+
+  server.tool(
+    'canvas_draw_er_relation',
+    'Draw an ER diagram relationship between two points or expressions. Pre-configures entityRelation routing with appropriate arrowheads based on cardinality.',
+    {
+      from: z.union([
+        z.object({
+          x: z.number().describe('X position'),
+          y: z.number().describe('Y position'),
+        }),
+        z.string().describe('Expression ID to connect from (uses center point)'),
+      ]).describe('Start endpoint — {x, y} coordinates or expression ID'),
+      to: z.union([
+        z.object({
+          x: z.number().describe('X position'),
+          y: z.number().describe('Y position'),
+        }),
+        z.string().describe('Expression ID to connect to (uses center point)'),
+      ]).describe('End endpoint — {x, y} coordinates or expression ID'),
+      cardinality: erCardinalitySchema.describe('Relationship cardinality: one-to-one, one-to-many, many-to-many, zero-to-one, zero-to-many'),
+      label: z.string().optional().describe('Optional relationship label (e.g., "has", "belongs to")'),
+    },
+    async (params) => {
+      const result = await executeDrawERRelation(gatewayClient, params);
       return { content: [{ type: 'text' as const, text: result }] };
     },
   );

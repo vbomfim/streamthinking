@@ -47,4 +47,50 @@ describe('executeCatalog', () => {
 
     expect(result).toContain('Unknown section');
   });
+
+  // ── Connector information in catalog ───────────────────
+
+  it('arrows section lists routing modes', () => {
+    const result = executeCatalog({ section: 'arrows' });
+
+    expect(result).toContain('straight');
+    expect(result).toContain('orthogonal');
+    expect(result).toContain('curved');
+    expect(result).toContain('elbow');
+    expect(result).toContain('entityRelation');
+    expect(result).toContain('isometric');
+  });
+
+  it('arrows section lists arrowhead types by category', () => {
+    const result = executeCatalog({ section: 'arrows' });
+
+    // Standard arrowheads
+    expect(result).toContain('classic');
+    expect(result).toContain('open');
+    expect(result).toContain('diamond');
+
+    // ER arrowheads
+    expect(result).toContain('ERone');
+    expect(result).toContain('ERmany');
+    expect(result).toContain('ERmandOne');
+
+    // UML arrowheads
+    expect(result).toContain('openAsync');
+    expect(result).toContain('dash');
+  });
+
+  it('full catalog includes connector section', () => {
+    const result = executeCatalog({});
+
+    expect(result).toContain('Routing');
+    expect(result).toContain('Arrowhead');
+  });
+
+  it('connectors section is available as valid section filter', () => {
+    const result = executeCatalog({ section: 'arrows' });
+
+    // Should not be an error
+    expect(result).not.toContain('Unknown section');
+    expect(result).toContain('Routing');
+  });
 });

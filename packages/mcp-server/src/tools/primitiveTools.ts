@@ -16,6 +16,8 @@ import type {
   ArrowData,
   TextData,
   StickyNoteData,
+  ArrowheadType,
+  RoutingMode,
 } from '@infinicanvas/protocol';
 import { DEFAULT_TEXT, randomStickyColor } from '../defaults.js';
 import { buildExpression } from '../expressionFactory.js';
@@ -49,8 +51,18 @@ export interface DrawLineParams {
 export interface DrawArrowParams {
   points: [number, number][];
   label?: string;
-  endArrowhead?: boolean;
-  startArrowhead?: boolean;
+  endArrowhead?: ArrowheadType | boolean;
+  startArrowhead?: ArrowheadType | boolean;
+  /** Routing mode for the connector path. */
+  routing?: RoutingMode;
+  /** Filled (true) or outline (false) start arrowhead. */
+  startFill?: boolean;
+  /** Filled (true) or outline (false) end arrowhead. */
+  endFill?: boolean;
+  /** Smooth bezier curves on orthogonal corners. */
+  curved?: boolean;
+  /** Round corners on orthogonal route segments. */
+  rounded?: boolean;
 }
 
 export interface DrawTextParams {
@@ -136,6 +148,18 @@ export function buildLine(params: DrawLineParams): VisualExpression {
   );
 }
 
+/** Resolve an arrowhead param to an ArrowheadType string. */
+function resolveArrowhead(
+  value: ArrowheadType | boolean | undefined,
+  defaultForTrue: ArrowheadType,
+  defaultForUndefined: ArrowheadType,
+): ArrowheadType {
+  if (typeof value === 'string') return value;
+  if (value === true) return defaultForTrue;
+  if (value === false) return 'none';
+  return defaultForUndefined;
+}
+
 /** Create an arrow expression on the canvas. */
 export function buildArrow(params: DrawArrowParams): VisualExpression {
   if (params.points.length < 2) {
@@ -145,9 +169,14 @@ export function buildArrow(params: DrawArrowParams): VisualExpression {
   const data: ArrowData = {
     kind: 'arrow',
     points: params.points,
-    endArrowhead: params.endArrowhead !== false ? 'triangle' : 'none',
-    startArrowhead: params.startArrowhead ? 'triangle' : 'none',
+    endArrowhead: resolveArrowhead(params.endArrowhead, 'triangle', 'triangle'),
+    startArrowhead: resolveArrowhead(params.startArrowhead, 'triangle', 'none'),
     label: params.label,
+    routing: params.routing,
+    startFill: params.startFill,
+    endFill: params.endFill,
+    curved: params.curved,
+    rounded: params.rounded,
   };
 
   // Compute bounding box from points
@@ -248,7 +277,8 @@ export async function executeDrawArrow(
   const expr = buildArrow(params);
   await client.sendCreate(expr);
   const label = params.label ? ` '${params.label}'` : '';
-  return `Created arrow${label} with ${params.points.length} points [id: ${expr.id}]`;
+  const routing = params.routing ? ` (${params.routing})` : '';
+  return `Created arrow${label} with ${params.points.length} points${routing} [id: ${expr.id}]`;
 }
 
 export async function executeDrawText(
@@ -269,4 +299,92 @@ export async function executeAddStickyNote(
   await client.sendCreate(expr);
   const preview = params.text.length > 40 ? params.text.slice(0, 40) + '…' : params.text;
   return `Created sticky note '${preview}' at (${params.x}, ${params.y}) [id: ${expr.id}]`;
+}
+
+// ── ER Relation convenience tool ───────────────────────────
+
+/** Supported ER cardinality types. */
+export type ERCardinality =
+  | 'one-to-one'
+  | 'one-to-many'
+  | 'many-to-many'
+  | 'zero-to-one'
+  | 'zero-to-many';
+
+export interface DrawERRelationParams {
+  /** Start endpoint — coordinates or expressionId string. */
+  from: { x: number; y: number } | string;
+  /** End endpoint — coordinates or expressionId string. */
+  to: { x: number; y: number } | string;
+  /** ER cardinality of the relationship. */
+  cardinality: ERCardinality;
+  /** Optional label for the relationship. */
+  label?: string;
+}
+
+/** Map cardinality to start/end ArrowheadType. */
+const CARDINALITY_MAP: Record<ERCardinality, { start: ArrowheadType; end: ArrowheadType }> = {
+  'one-to-one':   { start: 'ERmandOne',    end: 'ERmandOne' },
+  'one-to-many':  { start: 'ERmandOne',    end: 'ERoneToMany' },
+  'many-to-many': { start: 'ERoneToMany',  end: 'ERoneToMany' },
+  'zero-to-one':  { start: 'ERmandOne',    end: 'ERzeroToOne' },
+  'zero-to-many': { start: 'ERmandOne',    end: 'ERzeroToMany' },
+};
+
+/** Build an ER relation arrow from coordinate endpoints. */
+export function buildERRelation(params: {
+  from: { x: number; y: number };
+  to: { x: number; y: number };
+  cardinality: ERCardinality;
+  label?: string;
+}): VisualExpression {
+  const { start, end } = CARDINALITY_MAP[params.cardinality];
+
+  return buildArrow({
+    points: [[params.from.x, params.from.y], [params.to.x, params.to.y]],
+    routing: 'entityRelation',
+    startArrowhead: start,
+    endArrowhead: end,
+    label: params.label,
+  });
+}
+
+/** Resolve an endpoint to { x, y } — supports coordinates or expressionId lookup. */
+function resolveEndpoint(
+  endpoint: { x: number; y: number } | string,
+  expressions: VisualExpression[],
+  label: string,
+): { x: number; y: number } {
+  if (typeof endpoint === 'string') {
+    const expr = expressions.find((e) => e.id === endpoint);
+    if (!expr) {
+      throw new Error(`Expression '${endpoint}' not found for ${label} endpoint`);
+    }
+    return {
+      x: expr.position.x + expr.size.width / 2,
+      y: expr.position.y + expr.size.height / 2,
+    };
+  }
+  return endpoint;
+}
+
+/** Execute ER relation tool: resolve endpoints, build arrow, send to gateway. */
+export async function executeDrawERRelation(
+  client: IGatewayClient,
+  params: DrawERRelationParams,
+): Promise<string> {
+  const expressions = client.getState();
+  const from = resolveEndpoint(params.from, expressions, 'from');
+  const to = resolveEndpoint(params.to, expressions, 'to');
+
+  const expr = buildERRelation({
+    from,
+    to,
+    cardinality: params.cardinality,
+    label: params.label,
+  });
+  await client.sendCreate(expr);
+
+  const label = params.label ? ` '${params.label}'` : '';
+  return `Created ER relation${label} (${params.cardinality}) [id: ${expr.id}]`;
 }
