@@ -20,6 +20,8 @@ import type {
   DiamondData,
   LineData,
   ArrowData,
+  ArrowheadType,
+  RoutingMode,
   TextData,
   StickyNoteData,
   StencilData,
@@ -33,6 +35,53 @@ function attr(name: string, value: string | number | undefined): string {
   if (value === undefined) return '';
   return ` ${name}="${typeof value === 'string' ? escapeXml(value) : value}"`;
 }
+
+// ── Connector mapping tables ──────────────────────────────
+
+/** Map InfiniCanvas RoutingMode → draw.io edgeStyle value. */
+const ROUTING_TO_EDGE_STYLE: Record<string, string | undefined> = {
+  straight: undefined, // straight is the draw.io default — omit edgeStyle
+  orthogonal: 'orthogonalEdgeStyle',
+  curved: 'curvedEdgeStyle',
+  elbow: 'elbowEdgeStyle',
+  entityRelation: 'entityRelationEdgeStyle',
+  isometric: 'isometricEdgeStyle',
+  // orthogonalCurved is handled specially: orthogonalEdgeStyle + curved=1
+};
+
+/** Map draw.io edgeStyle value → InfiniCanvas RoutingMode. */
+const EDGE_STYLE_TO_ROUTING: Record<string, RoutingMode> = {
+  orthogonalEdgeStyle: 'orthogonal',
+  curvedEdgeStyle: 'curved',
+  elbowEdgeStyle: 'elbow',
+  entityRelationEdgeStyle: 'entityRelation',
+  isometricEdgeStyle: 'isometric',
+};
+
+/**
+ * Normalize an ArrowheadType (string | boolean) to a draw.io arrow name.
+ *
+ * Handles legacy InfiniCanvas values:
+ * - `true` → `'classic'`, `false` → `'none'`
+ * - `'triangle'` → `'classic'`, `'circle'` → `'oval'`, `'chevron'` → `'open'`
+ */
+function normalizeArrowhead(value: ArrowheadType | boolean): string {
+  if (typeof value === 'boolean') return value ? 'classic' : 'none';
+  switch (value) {
+    case 'triangle': return 'classic';
+    case 'circle': return 'oval';
+    case 'chevron': return 'open';
+    default: return value;
+  }
+}
+
+/** Set of all known draw.io arrowhead names for import validation. */
+const KNOWN_ARROWHEADS = new Set<string>([
+  'none', 'classic', 'classicThin', 'open', 'openThin',
+  'block', 'blockThin', 'oval', 'diamond', 'diamondThin',
+  'ERone', 'ERmany', 'ERmandOne', 'ERoneToMany', 'ERzeroToOne', 'ERzeroToMany',
+  'openAsync', 'dash', 'cross', 'box', 'halfCircle', 'doubleBlock',
+]);
 
 // ── Style conversion ──────────────────────────────────────
 
@@ -100,6 +149,73 @@ function buildStyleString(expr: VisualExpression): string {
   // Rounded for rectangles
   if (expr.kind === 'rectangle') {
     parts.push('rounded=1');
+  }
+
+  // Arrow/connector-specific style properties
+  if (expr.kind === 'arrow') {
+    const arrowData = expr.data as ArrowData;
+
+    // Routing → edgeStyle
+    if (arrowData.routing) {
+      if (arrowData.routing === 'orthogonalCurved') {
+        parts.push('edgeStyle=orthogonalEdgeStyle');
+        parts.push('curved=1');
+      } else {
+        const edgeStyle = ROUTING_TO_EDGE_STYLE[arrowData.routing];
+        if (edgeStyle) {
+          parts.push(`edgeStyle=${edgeStyle}`);
+        }
+      }
+    }
+
+    // Arrowhead types
+    if (arrowData.startArrowhead !== undefined) {
+      parts.push(`startArrow=${normalizeArrowhead(arrowData.startArrowhead)}`);
+    }
+    if (arrowData.endArrowhead !== undefined) {
+      parts.push(`endArrow=${normalizeArrowhead(arrowData.endArrowhead)}`);
+    }
+
+    // Fill flags
+    if (arrowData.startFill !== undefined) {
+      parts.push(`startFill=${arrowData.startFill ? 1 : 0}`);
+    }
+    if (arrowData.endFill !== undefined) {
+      parts.push(`endFill=${arrowData.endFill ? 1 : 0}`);
+    }
+
+    // Curved (only when not already emitted by orthogonalCurved routing)
+    if (arrowData.curved && arrowData.routing !== 'orthogonalCurved') {
+      parts.push('curved=1');
+    }
+
+    // Rounded on arrows
+    if (arrowData.rounded) {
+      parts.push('rounded=1');
+    }
+
+    // Jetty size
+    if (arrowData.jettySize !== undefined) {
+      parts.push(`jettySize=${arrowData.jettySize}`);
+    }
+
+    // Binding connection-point ports → exit/entry coordinates
+    if (arrowData.startBinding) {
+      if (arrowData.startBinding.portX !== undefined) {
+        parts.push(`exitX=${arrowData.startBinding.portX}`);
+      }
+      if (arrowData.startBinding.portY !== undefined) {
+        parts.push(`exitY=${arrowData.startBinding.portY}`);
+      }
+    }
+    if (arrowData.endBinding) {
+      if (arrowData.endBinding.portX !== undefined) {
+        parts.push(`entryX=${arrowData.endBinding.portX}`);
+      }
+      if (arrowData.endBinding.portY !== undefined) {
+        parts.push(`entryY=${arrowData.endBinding.portY}`);
+      }
+    }
   }
 
   // Text-related data properties
@@ -272,7 +388,17 @@ function resolveKindFromStyle(
 ): VisualExpression['kind'] {
   if (isEdge) {
     const endArrow = styleMap.get('endArrow');
-    if (endArrow === 'none') return 'line';
+    if (endArrow === 'none') {
+      // Check for other arrow-specific properties that distinguish from a plain line
+      const hasStartArrow = styleMap.has('startArrow') && styleMap.get('startArrow') !== 'none';
+      const hasEdgeStyle = styleMap.has('edgeStyle');
+      const hasStartFill = styleMap.has('startFill');
+      const hasEndFill = styleMap.has('endFill');
+      if (hasStartArrow || hasEdgeStyle || hasStartFill || hasEndFill) {
+        return 'arrow';
+      }
+      return 'line';
+    }
     return 'arrow';
   }
 
@@ -488,6 +614,58 @@ function buildExpressionData(
 
       const arrowData: ArrowData = { kind: 'arrow', points: allPoints, label: value || undefined };
 
+      // ── Routing mode from edgeStyle ──
+      const edgeStyle = styleMap.get('edgeStyle');
+      const curvedFlag = styleMap.get('curved');
+      if (edgeStyle) {
+        if (edgeStyle === 'orthogonalEdgeStyle' && curvedFlag === '1') {
+          arrowData.routing = 'orthogonalCurved';
+        } else {
+          const routing = EDGE_STYLE_TO_ROUTING[edgeStyle];
+          if (routing) {
+            arrowData.routing = routing;
+          }
+        }
+      }
+
+      // ── Arrowhead types ──
+      const startArrow = styleMap.get('startArrow');
+      if (startArrow && KNOWN_ARROWHEADS.has(startArrow)) {
+        arrowData.startArrowhead = startArrow as ArrowheadType;
+      }
+      const endArrow = styleMap.get('endArrow');
+      if (endArrow && KNOWN_ARROWHEADS.has(endArrow)) {
+        arrowData.endArrowhead = endArrow as ArrowheadType;
+      }
+
+      // ── Fill flags ──
+      const startFillStr = styleMap.get('startFill');
+      if (startFillStr !== undefined) {
+        arrowData.startFill = startFillStr === '1';
+      }
+      const endFillStr = styleMap.get('endFill');
+      if (endFillStr !== undefined) {
+        arrowData.endFill = endFillStr === '1';
+      }
+
+      // ── Curved flag (standalone, not consumed by orthogonalCurved) ──
+      if (curvedFlag === '1' && arrowData.routing !== 'orthogonalCurved') {
+        arrowData.curved = true;
+      }
+
+      // ── Rounded flag ──
+      const roundedStr = styleMap.get('rounded');
+      if (roundedStr === '1') {
+        arrowData.rounded = true;
+      }
+
+      // ── Jetty size ──
+      const jettySizeStr = styleMap.get('jettySize');
+      if (jettySizeStr !== undefined) {
+        arrowData.jettySize = jettySizeStr === 'auto' ? 'auto' : Number(jettySizeStr);
+      }
+
+      // ── Source/target bindings ──
       const source = cell['@_source'];
       if (source) {
         arrowData.startBinding = { expressionId: source, anchor: 'auto' };
@@ -495,6 +673,20 @@ function buildExpressionData(
       const target = cell['@_target'];
       if (target) {
         arrowData.endBinding = { expressionId: target, anchor: 'auto' };
+      }
+
+      // ── Connection-point ports from exit/entry coordinates ──
+      const exitX = styleMap.get('exitX');
+      const exitY = styleMap.get('exitY');
+      if ((exitX !== undefined || exitY !== undefined) && arrowData.startBinding) {
+        if (exitX !== undefined) arrowData.startBinding.portX = Number(exitX);
+        if (exitY !== undefined) arrowData.startBinding.portY = Number(exitY);
+      }
+      const entryX = styleMap.get('entryX');
+      const entryY = styleMap.get('entryY');
+      if ((entryX !== undefined || entryY !== undefined) && arrowData.endBinding) {
+        if (entryX !== undefined) arrowData.endBinding.portX = Number(entryX);
+        if (entryY !== undefined) arrowData.endBinding.portY = Number(entryY);
       }
 
       return arrowData;
