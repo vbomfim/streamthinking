@@ -113,19 +113,43 @@ const arrowBindingSchema = z.object({
   anchor: z.enum(['center', 'top', 'right', 'bottom', 'left',
     'top-left', 'top-right', 'bottom-left', 'bottom-right', 'auto']),
   ratio: z.number().min(0).max(1).optional(),
+  portX: z.number().min(0).max(1).optional(),
+  portY: z.number().min(0).max(1).optional(),
 });
 
-const arrowheadTypeSchema = z.enum(['none', 'triangle', 'chevron', 'diamond', 'circle']);
+const arrowheadTypeSchema = z.enum([
+  // Legacy (backward compat)
+  'none', 'triangle', 'chevron', 'circle',
+  // Standard
+  'classic', 'classicThin', 'open', 'openThin',
+  'block', 'blockThin', 'oval', 'diamond', 'diamondThin',
+  // ER Diagram
+  'ERone', 'ERmany', 'ERmandOne', 'ERoneToMany', 'ERzeroToOne', 'ERzeroToMany',
+  // UML
+  'openAsync', 'dash', 'cross',
+  // Other
+  'box', 'halfCircle', 'doubleBlock',
+]);
+
+const routingModeSchema = z.enum([
+  'straight', 'orthogonal', 'curved', 'elbow',
+  'entityRelation', 'isometric', 'orthogonalCurved',
+]);
 
 export const arrowDataSchema = z.object({
   kind: z.literal('arrow'),
   points: z.array(point2dSchema).min(2),
   startArrowhead: z.union([z.boolean(), arrowheadTypeSchema]).optional(),
   endArrowhead: z.union([z.boolean(), arrowheadTypeSchema]).optional(),
+  startFill: z.boolean().optional(),
+  endFill: z.boolean().optional(),
   startBinding: arrowBindingSchema.optional(),
   endBinding: arrowBindingSchema.optional(),
   label: z.string().max(500).optional(),
-  routing: z.enum(['straight', 'orthogonal']).optional(),
+  routing: routingModeSchema.optional(),
+  curved: z.boolean().optional(),
+  rounded: z.boolean().optional(),
+  jettySize: z.union([z.number().nonnegative(), z.literal('auto')]).optional(),
 });
 
 const point3dSchema = z.tuple([z.number(), z.number(), z.number()]);
