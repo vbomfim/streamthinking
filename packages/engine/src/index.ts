@@ -124,6 +124,16 @@ export type {
   ShapeConnectionPointPosition,
 } from './connectors/connectionPoints.js';
 export { computeOrthogonalRoute } from './connectors/orthogonalRouter.js';
+export { computeCurvedRoute } from './connectors/curvedRouter.js';
+export { computeElbowRoute } from './connectors/elbowRouter.js';
+export { computeEntityRelationRoute } from './connectors/entityRelationRouter.js';
+export { computeIsometricRoute } from './connectors/isometricRouter.js';
+export {
+  computeOrthogonalCurvedRoute,
+  computeOrthogonalRoundedRoute,
+} from './connectors/orthogonalEnhancements.js';
+export { getRouter } from './connectors/routerRegistry.js';
+export type { PathSegment, RouterFunction, RouterOptions } from './connectors/routerTypes.js';
 
 // ── Interaction ────────────────────────────────────────────
 export {

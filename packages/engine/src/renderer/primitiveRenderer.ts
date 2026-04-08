@@ -21,6 +21,8 @@ import type { DrawableCache } from './drawableCache.js';
 import { getCompositeRenderer } from './compositeRegistry.js';
 import { resolveBindings } from '../interaction/connectorHelpers.js';
 import { computeOrthogonalRoute } from '../connectors/orthogonalRouter.js';
+import { getRouter } from '../connectors/routerRegistry.js';
+import type { PathSegment } from '../connectors/routerTypes.js';
 import { STENCIL_CATALOG, svgToDataUri } from './stencils/index.js';
 import { resolveTextConfig } from '../text/textConfig.js';
 import { renderArrowheadFromRegistry } from './arrowheads.js';
@@ -376,8 +378,14 @@ function renderArrow(
   let points = resolveBindings(expr, expressions);
   if (points.length < 2) return;
 
-  // Apply orthogonal routing if requested
-  if (data.routing === 'orthogonal' && points.length === 2) {
+  // Apply routing via registry (orthogonal, curved, elbow, ER, isometric, etc.)
+  let pathSegments: PathSegment[] | null = null;
+  const routingMode = data.routing === 'orthogonal' && data.curved
+    ? 'orthogonalCurved' as const
+    : data.routing;
+  const router = getRouter(routingMode);
+
+  if (router && points.length === 2) {
     const startBounds = data.startBinding
       ? expressions[data.startBinding.expressionId]
       : undefined;
@@ -385,24 +393,52 @@ function renderArrow(
       ? expressions[data.endBinding.expressionId]
       : undefined;
 
-    points = computeOrthogonalRoute(
-      { x: points[0]![0], y: points[0]![1] },
-      { x: points[1]![0], y: points[1]![1] },
-      data.startBinding?.anchor,
-      data.endBinding?.anchor,
-      startBounds ? {
-        x: startBounds.position.x,
-        y: startBounds.position.y,
-        width: startBounds.size.width,
-        height: startBounds.size.height,
-      } : undefined,
-      endBounds ? {
-        x: endBounds.position.x,
-        y: endBounds.position.y,
-        width: endBounds.size.width,
-        height: endBounds.size.height,
-      } : undefined,
-    );
+    // For non-orthogonal routers, pass through directly as PathSegments
+    if (routingMode !== 'orthogonal') {
+      pathSegments = router(
+        { x: points[0]![0], y: points[0]![1] },
+        { x: points[1]![0], y: points[1]![1] },
+        data.startBinding?.anchor,
+        data.endBinding?.anchor,
+        {
+          curved: data.curved,
+          rounded: data.rounded,
+          jettySize: typeof data.jettySize === 'number' ? data.jettySize : undefined,
+          startBounds: startBounds ? {
+            x: startBounds.position.x,
+            y: startBounds.position.y,
+            width: startBounds.size.width,
+            height: startBounds.size.height,
+          } : undefined,
+          endBounds: endBounds ? {
+            x: endBounds.position.x,
+            y: endBounds.position.y,
+            width: endBounds.size.width,
+            height: endBounds.size.height,
+          } : undefined,
+        },
+      );
+    } else {
+      // Orthogonal: use legacy [x,y][] path for Rough.js linearPath rendering
+      points = computeOrthogonalRoute(
+        { x: points[0]![0], y: points[0]![1] },
+        { x: points[1]![0], y: points[1]![1] },
+        data.startBinding?.anchor,
+        data.endBinding?.anchor,
+        startBounds ? {
+          x: startBounds.position.x,
+          y: startBounds.position.y,
+          width: startBounds.size.width,
+          height: startBounds.size.height,
+        } : undefined,
+        endBounds ? {
+          x: endBounds.position.x,
+          y: endBounds.position.y,
+          width: endBounds.size.width,
+          height: endBounds.size.height,
+        } : undefined,
+      );
+    }
   }
 
   // Skip position offset for bound arrows — resolveBindings returns absolute
@@ -466,6 +502,10 @@ function renderArrow(
       const angle = Math.atan2(start[1] - cp1y, start[0] - cp1x);
       renderArrowheadFromRegistry(ctx, start[0], start[1], angle, arrowSize, startType, startFilled, strokeColor, fillColor);
     }
+  } else if (pathSegments && pathSegments.length > 0) {
+    // Render PathSegment-based routes (curved, elbow, ER, isometric, orthogonalCurved)
+    renderPathSegments(ctx, points[0]!, points, pathSegments, arrowSize,
+      startType, endType, startFilled, endFilled, strokeColor, fillColor, expr);
   } else {
     // Shorten line at ends where arrowheads exist so the line doesn't overlap the tip
     const drawPoints: [number, number][] = points.map(p => [p[0], p[1]]);
@@ -536,6 +576,102 @@ function renderArrow(
     ctx.fillStyle = expr.style.strokeColor;
     ctx.fillText(data.label, midX, midY - 4);
     ctx.restore();
+  }
+}
+
+/**
+ * Render a PathSegment-based route using native Canvas2D.
+ *
+ * Draws the path using lineTo, bezierCurveTo, and arcTo based on
+ * segment types. Handles arrowhead rendering at both endpoints.
+ *
+ * [CLEAN-CODE] [SRP] — extracted from renderArrow to handle segment-based paths.
+ */
+function renderPathSegments(
+  ctx: CanvasRenderingContext2D,
+  startPoint: [number, number],
+  _originalPoints: [number, number][],
+  segments: PathSegment[],
+  arrowSize: number,
+  startType: string,
+  endType: string,
+  startFilled: boolean,
+  endFilled: boolean,
+  strokeColor: string,
+  fillColor: string,
+  expr: VisualExpression,
+): void {
+  ctx.save();
+  ctx.strokeStyle = expr.style.strokeColor;
+  ctx.lineWidth = expr.style.strokeWidth;
+  ctx.globalAlpha = expr.style.opacity;
+  const style = expr.style as unknown as Record<string, unknown>;
+  const ss = (style.strokeStyle as string | undefined) ?? 'solid';
+  if (ss === 'dashed') ctx.setLineDash([expr.style.strokeWidth * 4, expr.style.strokeWidth * 3]);
+  else if (ss === 'dotted') ctx.setLineDash([expr.style.strokeWidth, expr.style.strokeWidth * 2]);
+
+  ctx.beginPath();
+  ctx.moveTo(startPoint[0], startPoint[1]);
+
+  for (const seg of segments) {
+    switch (seg.type) {
+      case 'line':
+        ctx.lineTo(seg.x, seg.y);
+        break;
+      case 'bezier':
+        ctx.bezierCurveTo(seg.cp1x, seg.cp1y, seg.cp2x, seg.cp2y, seg.x, seg.y);
+        break;
+      case 'arc': {
+        // Get the current point from the canvas path
+        // arcTo needs the corner point and the destination
+        // We use the arc endpoint directly with quadratic approximation
+        ctx.arcTo(seg.x, seg.y, seg.x, seg.y, seg.rx);
+        ctx.lineTo(seg.x, seg.y);
+        break;
+      }
+    }
+  }
+
+  ctx.stroke();
+  ctx.restore();
+
+  // Compute arrowhead angles from the path
+  const lastSeg = segments[segments.length - 1]!;
+  const endX = lastSeg.x;
+  const endY = lastSeg.y;
+
+  if (endType !== 'none') {
+    // Angle from second-to-last position toward last position
+    let prevX: number;
+    let prevY: number;
+    if (lastSeg.type === 'bezier') {
+      prevX = lastSeg.cp2x;
+      prevY = lastSeg.cp2y;
+    } else if (segments.length >= 2) {
+      const prevSeg = segments[segments.length - 2]!;
+      prevX = prevSeg.x;
+      prevY = prevSeg.y;
+    } else {
+      prevX = startPoint[0];
+      prevY = startPoint[1];
+    }
+    const angle = Math.atan2(endY - prevY, endX - prevX);
+    renderArrowheadFromRegistry(ctx, endX, endY, angle, arrowSize, endType, endFilled, strokeColor, fillColor);
+  }
+
+  if (startType !== 'none') {
+    const firstSeg = segments[0]!;
+    let nextX: number;
+    let nextY: number;
+    if (firstSeg.type === 'bezier') {
+      nextX = firstSeg.cp1x;
+      nextY = firstSeg.cp1y;
+    } else {
+      nextX = firstSeg.x;
+      nextY = firstSeg.y;
+    }
+    const angle = Math.atan2(startPoint[1] - nextY, startPoint[0] - nextX);
+    renderArrowheadFromRegistry(ctx, startPoint[0], startPoint[1], angle, arrowSize, startType, startFilled, strokeColor, fillColor);
   }
 }
 
