@@ -100,7 +100,6 @@ import {
   K8S_CLUSTER_SVG,
 } from './svgs/kubernetes.js';
 import {
-import {
   FORTI_GATE_SVG,
   FORTI_SWITCH_SVG,
   FORTI_AP_SVG,
