@@ -99,9 +99,11 @@ describe('getCategories', () => {
     expect(categories).toContain('generic-it');
     expect(categories).toContain('architecture');
     expect(categories).toContain('kubernetes');
-    expect(categories).toContain('azure');
-    expect(categories).toContain('azure-arm');
+    expect(categories).toContain('azure-pro');
     expect(categories).toContain('security');
+    // Old categories removed
+    expect(categories).not.toContain('azure');
+    expect(categories).not.toContain('azure-arm');
   });
 
   it('returns sorted categories', () => {
