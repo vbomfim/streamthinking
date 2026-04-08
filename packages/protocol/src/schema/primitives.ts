@@ -43,10 +43,49 @@ export interface ArrowBinding {
   anchor: ArrowAnchor;
   /** Position along the edge (0-1). 0.5 = center. */
   ratio?: number;
+  /** Exact X connection point (0-1 ratio, matches draw.io exitX/entryX). */
+  portX?: number;
+  /** Exact Y connection point (0-1 ratio, matches draw.io exitY/entryY). */
+  portY?: number;
 }
 
-/** Arrowhead tip style. */
-export type ArrowheadType = 'triangle' | 'chevron' | 'diamond' | 'circle' | 'none';
+/**
+ * Arrowhead tip style.
+ *
+ * Covers all draw.io arrowhead types plus legacy InfiniCanvas values.
+ * `'triangle'` is kept as an alias for `'classic'` (backward compat).
+ */
+export type ArrowheadType =
+  // Legacy (backward compat)
+  | 'triangle'      // alias for 'classic'
+  | 'chevron'       // legacy InfiniCanvas
+  // Standard
+  | 'none'          // no arrowhead
+  | 'classic'       // filled triangle (draw.io default)
+  | 'classicThin'   // thinner filled triangle
+  | 'open'          // outline triangle
+  | 'openThin'      // thinner outline triangle
+  | 'block'         // filled rectangle/block
+  | 'blockThin'     // thinner block
+  | 'oval'          // filled circle
+  | 'diamond'       // filled diamond
+  | 'diamondThin'   // thinner diamond
+  | 'circle'        // alias kept for backward compat
+  // ER Diagram
+  | 'ERone'         // single bar (|)
+  | 'ERmany'        // crow's foot (>)
+  | 'ERmandOne'     // mandatory one (||)
+  | 'ERoneToMany'   // one to many (|>)
+  | 'ERzeroToOne'   // zero to one (o|)
+  | 'ERzeroToMany'  // zero to many (o>)
+  // UML
+  | 'openAsync'     // open arrowhead (async message)
+  | 'dash'          // dashed end
+  | 'cross'         // X mark
+  // Other
+  | 'box'           // small filled box
+  | 'halfCircle'    // half circle
+  | 'doubleBlock';  // double block arrows
 
 /** Data for an arrow expression with optional arrowheads. */
 export interface ArrowData {
@@ -57,14 +96,24 @@ export interface ArrowData {
   startArrowhead?: ArrowheadType | boolean;
   /** Arrowhead style at the end ('none' = no arrowhead). */
   endArrowhead?: ArrowheadType | boolean;
+  /** Filled (true) or outline (false) start arrowhead. */
+  startFill?: boolean;
+  /** Filled (true) or outline (false) end arrowhead. */
+  endFill?: boolean;
   /** Binding for the start endpoint to a shape. */
   startBinding?: ArrowBinding;
   /** Binding for the end endpoint to a shape. */
   endBinding?: ArrowBinding;
   /** Optional text label rendered at the arrow midpoint. */
   label?: string;
-  /** Routing mode: 'straight' (default) or 'orthogonal' (right-angle segments). */
+  /** Routing mode for the connector path. */
   routing?: RoutingMode;
+  /** Smooth bezier curves on orthogonal corners (draw.io curved=1). */
+  curved?: boolean;
+  /** Round corners on orthogonal route segments. */
+  rounded?: boolean;
+  /** Exit stub length from shape; 'auto' = calculated. */
+  jettySize?: number | 'auto';
 }
 
 /** Data for a freehand drawing expression. */
@@ -135,8 +184,25 @@ export interface ContainerData {
   collapsed: boolean;
 }
 
-/** Routing mode for arrow connectors. */
-export type RoutingMode = 'straight' | 'orthogonal';
+/**
+ * Routing mode for arrow connectors.
+ *
+ * - `'straight'` — direct line between points
+ * - `'orthogonal'` — right-angle segments
+ * - `'curved'` — smooth bezier curve
+ * - `'elbow'` — single-bend elbow connector
+ * - `'entityRelation'` — ER-style routing with perpendicular exits
+ * - `'isometric'` — 30°/60° isometric routing
+ * - `'orthogonalCurved'` — orthogonal routing with bezier-smoothed corners
+ */
+export type RoutingMode =
+  | 'straight'
+  | 'orthogonal'
+  | 'curved'
+  | 'elbow'
+  | 'entityRelation'
+  | 'isometric'
+  | 'orthogonalCurved';
 
 /** Union of all primitive expression data types. */
 export type PrimitiveData =
