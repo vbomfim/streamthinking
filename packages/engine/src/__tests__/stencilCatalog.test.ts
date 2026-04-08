@@ -20,139 +20,254 @@ import {
 // ── getStencil — Network category ─────────────────────────
 
 describe('getStencil — network stencils', () => {
-  it('returns the server stencil entry', async () => {
-    const entry = await getStencil('server');
-    expect(entry).toBeDefined();
-    expect(entry!.id).toBe('server');
-    expect(entry!.category).toBe('network');
-    expect(entry!.label).toBe('Server');
-    expect(entry!.svgContent).toContain('<svg');
-    expect(entry!.defaultSize).toEqual({ width: 44, height: 44 });
+  const networkStencils: Array<{ id: string; label: string }> = [
+    { id: 'router', label: 'Router' },
+    { id: 'switch', label: 'Switch' },
+    { id: 'hub', label: 'Hub' },
+    { id: 'bridge', label: 'Bridge' },
+    { id: 'gateway', label: 'Gateway' },
+    { id: 'firewall', label: 'Firewall' },
+    { id: 'load-balancer', label: 'Load Balancer' },
+    { id: 'proxy', label: 'Proxy' },
+    { id: 'wireless-ap', label: 'Wireless AP' },
+    { id: 'antenna', label: 'Antenna' },
+    { id: 'satellite', label: 'Satellite' },
+    { id: 'modem', label: 'Modem' },
+    { id: 'patch-panel', label: 'Patch Panel' },
+    { id: 'rack', label: 'Rack' },
+    { id: 'internet-cloud', label: 'Internet Cloud' },
+    { id: 'server', label: 'Server' },
+  ];
+
+  for (const { id, label } of networkStencils) {
+    it(`returns the ${id} stencil entry`, async () => {
+      const entry = await getStencil(id);
+      expect(entry).toBeDefined();
+      expect(entry!.id).toBe(id);
+      expect(entry!.category).toBe('network');
+      expect(entry!.label).toBe(label);
+      expect(entry!.svgContent).toContain('<svg');
+      expect(entry!.svgContent).toContain('</svg>');
+      expect(entry!.svgContent).toContain('currentColor');
+      expect(entry!.defaultSize).toEqual({ width: 44, height: 44 });
+    });
+  }
+
+  it('all network SVGs use viewBox="0 0 64 64"', async () => {
+    for (const { id } of networkStencils) {
+      const entry = await getStencil(id);
+      expect(entry).toBeDefined();
+      expect(entry!.svgContent).toContain('viewBox="0 0 64 64"');
+    }
   });
 
-  it('returns the load-balancer stencil entry', async () => {
-    const entry = await getStencil('load-balancer');
-    expect(entry).toBeDefined();
-    expect(entry!.id).toBe('load-balancer');
-    expect(entry!.category).toBe('network');
-    expect(entry!.label).toBe('Load Balancer');
-    expect(entry!.defaultSize).toEqual({ width: 44, height: 44 });
-  });
-
-  it('returns the firewall stencil entry', async () => {
-    const entry = await getStencil('firewall');
-    expect(entry).toBeDefined();
-    expect(entry!.id).toBe('firewall');
-    expect(entry!.category).toBe('network');
-    expect(entry!.label).toBe('Firewall');
-    expect(entry!.defaultSize).toEqual({ width: 44, height: 44 });
-  });
-
-  it('returns the router stencil entry', async () => {
-    const entry = await getStencil('router');
-    expect(entry).toBeDefined();
-    expect(entry!.id).toBe('router');
-    expect(entry!.category).toBe('network');
-    expect(entry!.label).toBe('Router');
-    expect(entry!.defaultSize).toEqual({ width: 44, height: 44 });
-  });
-
-  it('returns the switch stencil entry', async () => {
-    const entry = await getStencil('switch');
-    expect(entry).toBeDefined();
-    expect(entry!.id).toBe('switch');
-    expect(entry!.category).toBe('network');
-    expect(entry!.label).toBe('Switch');
-    expect(entry!.defaultSize).toEqual({ width: 44, height: 44 });
+  it('all network SVGs contain xmlns attribute', async () => {
+    for (const { id } of networkStencils) {
+      const entry = await getStencil(id);
+      expect(entry).toBeDefined();
+      expect(entry!.svgContent).toContain('xmlns="http://www.w3.org/2000/svg"');
+    }
   });
 });
 
 // ── getStencil — Generic IT category ──────────────────────
 
 describe('getStencil — generic-it stencils', () => {
-  it('returns the database stencil entry', async () => {
-    const entry = await getStencil('database');
-    expect(entry).toBeDefined();
-    expect(entry!.id).toBe('database');
-    expect(entry!.category).toBe('generic-it');
-    expect(entry!.label).toBe('Database');
-    expect(entry!.defaultSize).toEqual({ width: 44, height: 44 });
-  });
+  const genericItStencils: Array<{ id: string; label: string }> = [
+    { id: 'desktop-computer', label: 'Desktop Computer' },
+    { id: 'laptop', label: 'Laptop' },
+    { id: 'tablet', label: 'Tablet' },
+    { id: 'smartphone', label: 'Smartphone' },
+    { id: 'generic-server', label: 'Server' },
+    { id: 'database', label: 'Database' },
+    { id: 'storage-array', label: 'Storage Array' },
+    { id: 'printer', label: 'Printer' },
+    { id: 'scanner', label: 'Scanner' },
+    { id: 'monitor', label: 'Monitor' },
+    { id: 'usb-drive', label: 'USB Drive' },
+    { id: 'hard-drive', label: 'Hard Drive' },
+    { id: 'ssd', label: 'SSD' },
+    { id: 'headset', label: 'Headset' },
+    { id: 'webcam', label: 'Webcam' },
+  ];
 
-  it('returns the queue stencil entry', async () => {
-    const entry = await getStencil('queue');
-    expect(entry).toBeDefined();
-    expect(entry!.id).toBe('queue');
-    expect(entry!.category).toBe('generic-it');
-    expect(entry!.label).toBe('Queue');
-    expect(entry!.defaultSize).toEqual({ width: 44, height: 44 });
-  });
+  for (const { id, label } of genericItStencils) {
+    it(`returns the ${id} stencil entry`, async () => {
+      const entry = await getStencil(id);
+      expect(entry).toBeDefined();
+      expect(entry!.id).toBe(id);
+      expect(entry!.category).toBe('generic-it');
+      expect(entry!.label).toBe(label);
+      expect(entry!.svgContent).toContain('<svg');
+      expect(entry!.svgContent).toContain('</svg>');
+      expect(entry!.svgContent).toContain('currentColor');
+      expect(entry!.defaultSize).toEqual({ width: 44, height: 44 });
+    });
+  }
 
-  it('returns the cache stencil entry', async () => {
-    const entry = await getStencil('cache');
-    expect(entry).toBeDefined();
-    expect(entry!.id).toBe('cache');
-    expect(entry!.category).toBe('generic-it');
-    expect(entry!.label).toBe('Cache');
-    expect(entry!.defaultSize).toEqual({ width: 44, height: 44 });
-  });
-
-  it('returns the api stencil entry', async () => {
-    const entry = await getStencil('api');
-    expect(entry).toBeDefined();
-    expect(entry!.id).toBe('api');
-    expect(entry!.category).toBe('generic-it');
-    expect(entry!.label).toBe('API');
-    expect(entry!.defaultSize).toEqual({ width: 44, height: 44 });
-  });
-
-  it('returns the user stencil entry', async () => {
-    const entry = await getStencil('user');
-    expect(entry).toBeDefined();
-    expect(entry!.id).toBe('user');
-    expect(entry!.category).toBe('generic-it');
-    expect(entry!.label).toBe('User');
-    expect(entry!.defaultSize).toEqual({ width: 44, height: 44 });
-  });
-
-  it('returns the browser stencil entry', async () => {
-    const entry = await getStencil('browser');
-    expect(entry).toBeDefined();
-    expect(entry!.id).toBe('browser');
-    expect(entry!.category).toBe('generic-it');
-    expect(entry!.label).toBe('Browser');
-    expect(entry!.defaultSize).toEqual({ width: 44, height: 44 });
+  it('all generic-it SVGs use viewBox="0 0 64 64"', async () => {
+    for (const { id } of genericItStencils) {
+      const entry = await getStencil(id);
+      expect(entry).toBeDefined();
+      expect(entry!.svgContent).toContain('viewBox="0 0 64 64"');
+    }
   });
 });
 
 // ── getStencil — Architecture category ────────────────────
 
 describe('getStencil — architecture stencils', () => {
-  it('returns the boundary-zone stencil entry with container size', async () => {
-    const entry = await getStencil('boundary-zone');
+  const architectureStencils: Array<{ id: string; label: string }> = [
+    { id: 'microservice', label: 'Microservice' },
+    { id: 'api-gateway', label: 'API Gateway' },
+    { id: 'message-queue', label: 'Message Queue' },
+    { id: 'arch-database', label: 'Database' },
+    { id: 'cache', label: 'Cache' },
+    { id: 'cdn', label: 'CDN' },
+    { id: 'arch-load-balancer', label: 'Load Balancer' },
+    { id: 'container', label: 'Container' },
+    { id: 'serverless', label: 'Serverless' },
+    { id: 'client-browser', label: 'Client/Browser' },
+    { id: 'mobile-app', label: 'Mobile App' },
+    { id: 'desktop', label: 'Desktop' },
+    { id: 'cloud', label: 'Cloud' },
+    { id: 'on-premise', label: 'On-Premise Server' },
+    { id: 'hybrid-cloud', label: 'Hybrid Cloud' },
+  ];
+
+  for (const { id, label } of architectureStencils) {
+    it(`returns the ${id} stencil entry`, async () => {
+      const entry = await getStencil(id);
+      expect(entry).toBeDefined();
+      expect(entry!.id).toBe(id);
+      expect(entry!.category).toBe('architecture');
+      expect(entry!.label).toBe(label);
+      expect(entry!.svgContent).toContain('<svg');
+      expect(entry!.svgContent).toContain('</svg>');
+      expect(entry!.svgContent).toContain('currentColor');
+      expect(entry!.defaultSize).toEqual({ width: 44, height: 44 });
+    });
+  }
+
+  it('all architecture SVGs use viewBox="0 0 64 64"', async () => {
+    for (const { id } of architectureStencils) {
+      const entry = await getStencil(id);
+      expect(entry).toBeDefined();
+      expect(entry!.svgContent).toContain('viewBox="0 0 64 64"');
+    }
+  });
+});
+
+// ── getStencil — Kubernetes category ──────────────────────
+
+describe('getStencil — kubernetes stencils', () => {
+  const k8sStencils: Array<{ id: string; label: string }> = [
+    { id: 'k8s-pod', label: 'Pod' },
+    { id: 'k8s-deployment', label: 'Deployment' },
+    { id: 'k8s-replicaset', label: 'ReplicaSet' },
+    { id: 'k8s-statefulset', label: 'StatefulSet' },
+    { id: 'k8s-daemonset', label: 'DaemonSet' },
+    { id: 'k8s-job', label: 'Job' },
+    { id: 'k8s-cronjob', label: 'CronJob' },
+    { id: 'k8s-service', label: 'Service' },
+    { id: 'k8s-ingress', label: 'Ingress' },
+    { id: 'k8s-configmap', label: 'ConfigMap' },
+    { id: 'k8s-secret', label: 'Secret' },
+    { id: 'k8s-persistent-volume', label: 'PersistentVolume' },
+    { id: 'k8s-namespace', label: 'Namespace' },
+    { id: 'k8s-node', label: 'Node' },
+    { id: 'k8s-cluster', label: 'Cluster' },
+  ];
+
+  for (const { id, label } of k8sStencils) {
+    it(`returns the ${id} stencil entry`, async () => {
+      const entry = await getStencil(id);
+      expect(entry).toBeDefined();
+      expect(entry!.id).toBe(id);
+      expect(entry!.category).toBe('kubernetes');
+      expect(entry!.label).toBe(label);
+      expect(entry!.svgContent).toContain('<svg');
+      expect(entry!.svgContent).toContain('</svg>');
+      expect(entry!.svgContent).toContain('currentColor');
+    });
+  }
+
+  it('k8s-namespace has container size', async () => {
+    const entry = await getStencil('k8s-namespace');
     expect(entry).toBeDefined();
-    expect(entry!.id).toBe('boundary-zone');
-    expect(entry!.category).toBe('architecture');
-    expect(entry!.label).toBe('Boundary Zone');
     expect(entry!.defaultSize).toEqual({ width: 200, height: 150 });
+    expect(entry!.svgContent).toContain('viewBox="0 0 200 150"');
   });
 
-  it('returns the microservice stencil entry', async () => {
-    const entry = await getStencil('microservice');
+  it('k8s-cluster has large container size', async () => {
+    const entry = await getStencil('k8s-cluster');
     expect(entry).toBeDefined();
-    expect(entry!.id).toBe('microservice');
-    expect(entry!.category).toBe('architecture');
-    expect(entry!.label).toBe('Microservice');
-    expect(entry!.defaultSize).toEqual({ width: 44, height: 44 });
+    expect(entry!.defaultSize).toEqual({ width: 250, height: 200 });
+    expect(entry!.svgContent).toContain('viewBox="0 0 250 200"');
   });
 
-  it('returns the container stencil entry', async () => {
-    const entry = await getStencil('container');
-    expect(entry).toBeDefined();
-    expect(entry!.id).toBe('container');
-    expect(entry!.category).toBe('architecture');
-    expect(entry!.label).toBe('Container');
-    expect(entry!.defaultSize).toEqual({ width: 44, height: 44 });
+  it('standard k8s icons use 44×44 default size', async () => {
+    const standardIds = k8sStencils
+      .filter(s => s.id !== 'k8s-namespace' && s.id !== 'k8s-cluster')
+      .map(s => s.id);
+    for (const id of standardIds) {
+      const entry = await getStencil(id);
+      expect(entry).toBeDefined();
+      expect(entry!.defaultSize).toEqual({ width: 44, height: 44 });
+    }
+  });
+});
+
+// ── getStencil — Security category ────────────────────────
+
+describe('getStencil — security stencils', () => {
+  const securityStencils: Array<{ id: string; label: string }> = [
+    { id: 'shield', label: 'Shield' },
+    { id: 'lock', label: 'Lock' },
+    { id: 'key', label: 'Key' },
+    { id: 'padlock', label: 'Padlock' },
+    { id: 'sec-firewall', label: 'Firewall' },
+    { id: 'vpn', label: 'VPN' },
+    { id: 'encryption', label: 'Encryption' },
+    { id: 'certificate', label: 'Certificate' },
+    { id: 'token', label: 'Token' },
+    { id: 'fingerprint', label: 'Fingerprint' },
+    { id: 'alert', label: 'Alert' },
+    { id: 'bug', label: 'Bug' },
+    { id: 'patch', label: 'Patch' },
+    { id: 'audit-log', label: 'Audit Log' },
+    { id: 'compliance', label: 'Compliance' },
+    { id: 'zero-trust', label: 'Zero Trust' },
+  ];
+
+  for (const { id, label } of securityStencils) {
+    it(`returns the ${id} stencil entry`, async () => {
+      const entry = await getStencil(id);
+      expect(entry).toBeDefined();
+      expect(entry!.id).toBe(id);
+      expect(entry!.category).toBe('security');
+      expect(entry!.label).toBe(label);
+      expect(entry!.svgContent).toContain('<svg');
+      expect(entry!.svgContent).toContain('</svg>');
+      expect(entry!.svgContent).toContain('currentColor');
+      expect(entry!.defaultSize).toEqual({ width: 44, height: 44 });
+    });
+  }
+
+  it('all security SVGs use viewBox="0 0 64 64"', async () => {
+    for (const { id } of securityStencils) {
+      const entry = await getStencil(id);
+      expect(entry).toBeDefined();
+      expect(entry!.svgContent).toContain('viewBox="0 0 64 64"');
+    }
+  });
+
+  it('all security SVGs contain xmlns attribute', async () => {
+    for (const { id } of securityStencils) {
+      const entry = await getStencil(id);
+      expect(entry).toBeDefined();
+      expect(entry!.svgContent).toContain('xmlns="http://www.w3.org/2000/svg"');
+    }
   });
 });
 
@@ -425,16 +540,9 @@ describe('getStencil — gcp-pro stencils', () => {
   });
 });
 
-// ── getStencil — Kubernetes placeholder ───────────────────
+// ── getStencil — edge cases ───────────────────────────────
 
-describe('getStencil — kubernetes placeholder', () => {
-  it('returns the k8s-pod stencil entry', async () => {
-    const entry = await getStencil('k8s-pod');
-    expect(entry).toBeDefined();
-    expect(entry!.id).toBe('k8s-pod');
-    expect(entry!.category).toBe('kubernetes');
-  });
-
+describe('getStencil — edge cases', () => {
   it('returns undefined for an unknown stencil ID', async () => {
     expect(await getStencil('nonexistent')).toBeUndefined();
   });
@@ -447,31 +555,48 @@ describe('getStencil — kubernetes placeholder', () => {
 // ── getStencilsByCategory ─────────────────────────────────
 
 describe('getStencilsByCategory', () => {
-  it('returns 5 stencils in the network category', () => {
+  it('returns 16 stencils in the network category', () => {
     const entries = getStencilsByCategory('network');
-    expect(entries).toHaveLength(5);
+    expect(entries).toHaveLength(16);
     const ids = entries.map((e) => e.id).sort();
-    expect(ids).toEqual(['firewall', 'load-balancer', 'router', 'server', 'switch']);
+    expect(ids).toContain('router');
+    expect(ids).toContain('switch');
+    expect(ids).toContain('firewall');
+    expect(ids).toContain('server');
   });
 
-  it('returns 7 stencils in the generic-it category', () => {
+  it('returns 15 stencils in the generic-it category (plus prometheus)', () => {
     const entries = getStencilsByCategory('generic-it');
-    expect(entries).toHaveLength(7);
+    expect(entries).toHaveLength(16);
     const ids = entries.map((e) => e.id).sort();
-    expect(ids).toEqual(['api', 'browser', 'cache', 'database', 'prometheus', 'queue', 'user']);
+    expect(ids).toContain('database');
+    expect(ids).toContain('laptop');
+    expect(ids).toContain('printer');
+    expect(ids).toContain('prometheus');
   });
 
-  it('returns 3 stencils in the architecture category', () => {
+  it('returns 15 stencils in the architecture category', () => {
     const entries = getStencilsByCategory('architecture');
-    expect(entries).toHaveLength(3);
+    expect(entries).toHaveLength(15);
     const ids = entries.map((e) => e.id).sort();
-    expect(ids).toEqual(['boundary-zone', 'container', 'microservice']);
+    expect(ids).toContain('microservice');
+    expect(ids).toContain('container');
+    expect(ids).toContain('cloud');
   });
 
-  it('returns 1 stencil in the kubernetes category', () => {
+  it('returns 15 stencils in the kubernetes category', () => {
     const entries = getStencilsByCategory('kubernetes');
-    expect(entries).toHaveLength(10);
+    expect(entries).toHaveLength(15);
     expect(entries.some((e) => e.id === 'k8s-pod')).toBe(true);
+  });
+
+  it('returns 16 stencils in the security category', () => {
+    const entries = getStencilsByCategory('security');
+    expect(entries).toHaveLength(16);
+    const ids = entries.map((e) => e.id).sort();
+    expect(ids).toContain('shield');
+    expect(ids).toContain('lock');
+    expect(ids).toContain('zero-trust');
   });
 
   it('returns 20 stencils in the fortinet category', () => {
@@ -514,24 +639,23 @@ describe('getStencilsByCategory', () => {
 // ── getAllCategories ───────────────────────────────────────
 
 describe('getAllCategories', () => {
-  it('returns all unique categories including azure-pro', () => {
+  it('returns all expected categories', () => {
     const categories = getAllCategories();
     expect(categories).toContain('architecture');
     expect(categories).toContain('aws-pro');
-    expect(categories).toContain('azure-pro');
+    expect(categories).toContain('azure');
+    expect(categories).toContain('azure-arm');
     expect(categories).toContain('cisco-pro');
     expect(categories).toContain('fortinet');
     expect(categories).toContain('gcp-pro');
     expect(categories).toContain('generic-it');
     expect(categories).toContain('kubernetes');
     expect(categories).toContain('network');
-    // Old categories removed
-    expect(categories).not.toContain('azure');
-    expect(categories).not.toContain('azure-arm');
+    expect(categories).toContain('security');
   });
 
   it('returns the correct number of categories', () => {
-    expect(getAllCategories()).toHaveLength(10);
+    expect(getAllCategories()).toHaveLength(12);
   });
 });
 
@@ -539,7 +663,7 @@ describe('getAllCategories', () => {
 
 describe('STENCIL_CATALOG', () => {
   it('contains all stencil entries', () => {
-    expect(STENCIL_CATALOG.size).toBeGreaterThanOrEqual(140);
+    expect(STENCIL_CATALOG.size).toBeGreaterThan(200);
   });
 
   it('has map keys matching entry IDs', () => {
@@ -574,17 +698,11 @@ describe('STENCIL_CATALOG', () => {
     }
   });
 
-  it('boundary-zone has the container viewBox 200×150', async () => {
-    const entry = await getStencil('boundary-zone');
-    expect(entry).toBeDefined();
-    expect(entry!.svgContent).toContain('viewBox="0 0 200 150"');
-  });
-
   it('regular icons have 64×64 viewBox', async () => {
     const regularIds = [
       'server', 'load-balancer', 'firewall', 'router', 'switch',
-      'database', 'queue', 'cache', 'api', 'user', 'browser',
-      'microservice', 'container', 'k8s-pod',
+      'database', 'microservice', 'container', 'k8s-pod',
+      'shield', 'lock', 'laptop', 'printer',
     ];
     for (const id of regularIds) {
       const entry = await getStencil(id);

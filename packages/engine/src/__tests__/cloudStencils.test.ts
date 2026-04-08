@@ -144,9 +144,9 @@ describe('Kubernetes stencils', () => {
     expect(entry!.category).toBe('kubernetes');
   });
 
-  it('has exactly 10 kubernetes stencils', () => {
+  it('has exactly 15 kubernetes stencils', () => {
     const entries = getStencilsByCategory('kubernetes');
-    expect(entries).toHaveLength(10);
+    expect(entries).toHaveLength(15);
   });
 
   it.each(K8S_IDS)('%s has valid SVG content', async (id) => {
@@ -178,9 +178,9 @@ describe('Kubernetes stencils', () => {
 
   it.each(
     K8S_IDS.filter((id) => !['k8s-pod', 'k8s-namespace', 'k8s-cluster'].includes(id)),
-  )('%s has 64×64 default size', async (id) => {
+  )('%s has 44×44 default size (ICON_SIZE)', async (id) => {
     const entry = await getStencil(id);
-    expect(entry!.defaultSize).toEqual({ width: 64, height: 64 });
+    expect(entry!.defaultSize).toEqual({ width: 44, height: 44 });
   });
 });
 
@@ -228,7 +228,11 @@ describe('Cloud stencil catalog integrity', () => {
     }
   });
 
+<<<<<<< HEAD
+  it('k8s-pod is in the kubernetes category', async () => {
+=======
   it('k8s-pod is in kubernetes category (not placeholders)', async () => {
+>>>>>>> origin/main
     const entry = await getStencil('k8s-pod');
     expect(entry).toBeDefined();
     expect(entry!.category).toBe('kubernetes');
