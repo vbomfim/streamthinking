@@ -23,6 +23,7 @@ import { resolveBindings } from '../interaction/connectorHelpers.js';
 import { computeOrthogonalRoute } from '../connectors/orthogonalRouter.js';
 import { STENCIL_CATALOG, svgToDataUri } from './stencils/index.js';
 import { resolveTextConfig } from '../text/textConfig.js';
+import { renderArrowheadFromRegistry } from './arrowheads.js';
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -365,6 +366,12 @@ function renderArrow(
   const minArrowSize = Math.max(expr.style.strokeWidth * 4, 8 / zoom);
   const arrowSize = Math.max(baseArrowSize, minArrowSize);
 
+  // Resolve fill mode and colors for arrowheads
+  const startFilled = data.startFill !== false;
+  const endFilled = data.endFill !== false;
+  const strokeColor = expr.style.strokeColor;
+  const fillColor = expr.style.backgroundColor;
+
   // Resolve binding positions for connected arrows
   let points = resolveBindings(expr, expressions);
   if (points.length < 2) return;
@@ -451,14 +458,13 @@ function renderArrow(
     ctx.restore();
 
     // Arrowheads for self-loop
-    ctx.fillStyle = expr.style.strokeColor;
     if (endType !== 'none') {
       const angle = Math.atan2(end[1] - cp2y, end[0] - cp2x);
-      renderArrowhead(ctx, end[0], end[1], angle, arrowSize, endType);
+      renderArrowheadFromRegistry(ctx, end[0], end[1], angle, arrowSize, endType, endFilled, strokeColor, fillColor);
     }
     if (startType !== 'none') {
       const angle = Math.atan2(start[1] - cp1y, start[0] - cp1x);
-      renderArrowhead(ctx, start[0], start[1], angle, arrowSize, startType);
+      renderArrowheadFromRegistry(ctx, start[0], start[1], angle, arrowSize, startType, startFilled, strokeColor, fillColor);
     }
   } else {
     // Shorten line at ends where arrowheads exist so the line doesn't overlap the tip
@@ -484,20 +490,18 @@ function renderArrow(
     );
     rc.draw(drawable);
 
-    ctx.fillStyle = expr.style.strokeColor;
-
     if (endType !== 'none' && points.length >= 2) {
       const last = points[points.length - 1]!;
       const prev = points[points.length - 2]!;
       const angle = Math.atan2(last[1] - prev[1], last[0] - prev[0]);
-      renderArrowhead(ctx, last[0], last[1], angle, arrowSize, endType);
+      renderArrowheadFromRegistry(ctx, last[0], last[1], angle, arrowSize, endType, endFilled, strokeColor, fillColor);
     }
 
     if (startType !== 'none' && points.length >= 2) {
       const first = points[0]!;
       const second = points[1]!;
       const angle = Math.atan2(first[1] - second[1], first[0] - second[0]);
-      renderArrowhead(ctx, first[0], first[1], angle, arrowSize, startType);
+      renderArrowheadFromRegistry(ctx, first[0], first[1], angle, arrowSize, startType, startFilled, strokeColor, fillColor);
     }
   }
 
@@ -963,10 +967,12 @@ export function renderLabel(
 }
 
 /**
- * Draw a filled triangle arrowhead at the given point.
+ * Draw an arrowhead at the given point.
+ *
+ * @deprecated Use `renderArrowheadFromRegistry` from `./arrowheads.js` for
+ * full ArrowheadType support. This export is kept for backward compatibility.
  *
  * The arrowhead points in the direction of `angle` (radians).
- * The triangle has a base of `size` and height of `size`.
  */
 /**
  * Resolve arrowhead value to a type string.
@@ -986,74 +992,10 @@ export function renderArrowhead(
   size: number,
   type: string = 'triangle',
 ): void {
-  if (type === 'none') return;
-
-  const halfAngle = Math.PI / 6; // 30°
-
-  switch (type) {
-    case 'triangle':
-    default: {
-      ctx.beginPath();
-      ctx.moveTo(tipX, tipY);
-      ctx.lineTo(
-        tipX - size * Math.cos(angle - halfAngle),
-        tipY - size * Math.sin(angle - halfAngle),
-      );
-      ctx.lineTo(
-        tipX - size * Math.cos(angle + halfAngle),
-        tipY - size * Math.sin(angle + halfAngle),
-      );
-      ctx.closePath();
-      ctx.fill();
-      break;
-    }
-    case 'chevron': {
-      ctx.save();
-      ctx.lineWidth = Math.max(ctx.lineWidth, 1.5);
-      ctx.strokeStyle = ctx.fillStyle as string;
-      ctx.beginPath();
-      ctx.moveTo(
-        tipX - size * Math.cos(angle - halfAngle),
-        tipY - size * Math.sin(angle - halfAngle),
-      );
-      ctx.lineTo(tipX, tipY);
-      ctx.lineTo(
-        tipX - size * Math.cos(angle + halfAngle),
-        tipY - size * Math.sin(angle + halfAngle),
-      );
-      ctx.stroke();
-      ctx.restore();
-      break;
-    }
-    case 'diamond': {
-      const hSize = size * 0.6;
-      const cx = tipX - hSize * Math.cos(angle);
-      const cy = tipY - hSize * Math.sin(angle);
-      ctx.beginPath();
-      ctx.moveTo(tipX, tipY);
-      ctx.lineTo(
-        cx - hSize * 0.5 * Math.cos(angle - Math.PI / 2),
-        cy - hSize * 0.5 * Math.sin(angle - Math.PI / 2),
-      );
-      ctx.lineTo(cx - hSize * Math.cos(angle), cy - hSize * Math.sin(angle));
-      ctx.lineTo(
-        cx - hSize * 0.5 * Math.cos(angle + Math.PI / 2),
-        cy - hSize * 0.5 * Math.sin(angle + Math.PI / 2),
-      );
-      ctx.closePath();
-      ctx.fill();
-      break;
-    }
-    case 'circle': {
-      const r = size * 0.35;
-      const cx = tipX - r * Math.cos(angle);
-      const cy = tipY - r * Math.sin(angle);
-      ctx.beginPath();
-      ctx.arc(cx, cy, r, 0, Math.PI * 2);
-      ctx.fill();
-      break;
-    }
-  }
+  // Delegate to the registry-based renderer.
+  // fillStyle is assumed to be set by the caller (backward compat behavior).
+  const strokeColor = ctx.fillStyle as string;
+  renderArrowheadFromRegistry(ctx, tipX, tipY, angle, size, type, true, strokeColor, '#ffffff');
 }
 
 /**

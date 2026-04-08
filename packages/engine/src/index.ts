@@ -45,6 +45,11 @@ export {
   clearDrawableCache,
   clearImageCache,
 } from './renderer/primitiveRenderer.js';
+export {
+  renderArrowheadFromRegistry,
+  getArrowheadRenderer,
+  ALL_ARROWHEAD_TYPES,
+} from './renderer/arrowheads.js';
 export { mapStyleToRoughOptions, computeStyleHash, computeRenderHash } from './renderer/styleMapper.js';
 export { isVisible, getWorldViewport } from './renderer/viewportCulling.js';
 export type { BoundingBox, WorldViewport } from './renderer/viewportCulling.js';
