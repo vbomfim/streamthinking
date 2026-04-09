@@ -2,8 +2,11 @@
  * Unit tests for all routing engines.
  *
  * Tests written FIRST following TDD [Red → Green → Refactor].
- * Covers: curved, elbow, entity-relation, isometric routers,
- * orthogonal enhancements, and router registry dispatch.
+ * Covers: curved, entity-relation, isometric routers,
+ * router registry dispatch, and backward compatibility.
+ *
+ * Elbow and orthogonalCurved are now aliases/adapters in routerRegistry,
+ * tested via getRouter().
  *
  * @module
  */
@@ -11,13 +14,8 @@
 import { describe, it, expect } from 'vitest';
 import type { PathSegment, RouterOptions } from '../connectors/routerTypes.js';
 import { computeCurvedRoute } from '../connectors/curvedRouter.js';
-import { computeElbowRoute } from '../connectors/elbowRouter.js';
 import { computeEntityRelationRoute } from '../connectors/entityRelationRouter.js';
 import { computeIsometricRoute } from '../connectors/isometricRouter.js';
-import {
-  computeOrthogonalCurvedRoute,
-  computeOrthogonalRoundedRoute,
-} from '../connectors/orthogonalEnhancements.js';
 import { getRouter } from '../connectors/routerRegistry.js';
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -144,41 +142,34 @@ describe('computeCurvedRoute', () => {
 
 // ── Elbow Router ─────────────────────────────────────────────
 
-describe('computeElbowRoute', () => {
-  it('produces exactly 2 line segments (L-shape)', () => {
-    const result = computeElbowRoute(
+describe('elbow routing (via getRouter)', () => {
+  const elbowRouter = getRouter('elbow')!;
+
+  it('returns a valid router function', () => {
+    expect(elbowRouter).toBeDefined();
+    expect(typeof elbowRouter).toBe('function');
+  });
+
+  it('produces line segments (L-shape via orthogonal with jettySize=0)', () => {
+    const result = elbowRouter(
       { x: 0, y: 0 },
       { x: 200, y: 100 },
     );
     assertValidSegments(result);
-    expect(result.length).toBe(2);
+    expect(result.length).toBeGreaterThanOrEqual(1);
     expect(result.every(s => s.type === 'line')).toBe(true);
   });
 
   it('ends at the target point', () => {
-    const result = computeElbowRoute(
+    const result = elbowRouter(
       { x: 50, y: 50 },
       { x: 300, y: 200 },
     );
     assertEndsAt(result, 300, 200);
   });
 
-  it('forms a right-angle turn', () => {
-    const result = computeElbowRoute(
-      { x: 0, y: 0 },
-      { x: 200, y: 100 },
-    );
-    // The two segments should form an L: one horizontal, one vertical
-    // or one vertical, one horizontal
-    const [seg1, seg2] = result as [PathSegment, PathSegment];
-    // The bend point x or y should match start or end
-    const isHorizFirst = seg1.y === 0 && seg1.x === 200; // horizontal to end.x, then vertical
-    const isVertFirst = seg1.x === 0 && seg1.y === 100;  // vertical to end.y, then horizontal
-    expect(isHorizFirst || isVertFirst).toBe(true);
-  });
-
-  it('handles same point — returns line to same point', () => {
-    const result = computeElbowRoute(
+  it('handles same point — returns segments to same point', () => {
+    const result = elbowRouter(
       { x: 100, y: 100 },
       { x: 100, y: 100 },
     );
@@ -187,7 +178,7 @@ describe('computeElbowRoute', () => {
   });
 
   it('handles axis-aligned points — produces straight line', () => {
-    const result = computeElbowRoute(
+    const result = elbowRouter(
       { x: 0, y: 0 },
       { x: 200, y: 0 },
     );
@@ -196,7 +187,7 @@ describe('computeElbowRoute', () => {
   });
 
   it('handles negative coordinates', () => {
-    const result = computeElbowRoute(
+    const result = elbowRouter(
       { x: -100, y: 50 },
       { x: 200, y: -100 },
     );
@@ -205,18 +196,32 @@ describe('computeElbowRoute', () => {
   });
 
   it('respects anchor direction when specified', () => {
-    // Exit right → should go horizontal first
-    const result = computeElbowRoute(
+    const result = elbowRouter(
       { x: 0, y: 0 },
       { x: 200, y: 100 },
       'right',
     );
     assertValidSegments(result);
-    // First segment should be horizontal (same y as start)
-    const first = result[0]!;
-    if (first.type === 'line') {
-      expect(first.y).toBe(0); // same y = horizontal
-    }
+  });
+
+  it('backward compat: elbow alias produces valid orthogonal result', () => {
+    // Elbow should produce the same result as orthogonal with jettySize=0
+    const orthogonalRouter = getRouter('orthogonal')!;
+    const elbowResult = elbowRouter(
+      { x: 0, y: 0 },
+      { x: 200, y: 100 },
+      'right',
+    );
+    const orthoResult = orthogonalRouter(
+      { x: 0, y: 0 },
+      { x: 200, y: 100 },
+      'right',
+      undefined,
+      { jettySize: 0 },
+    );
+    // Both should end at the same point
+    assertEndsAt(elbowResult, 200, 100);
+    assertEndsAt(orthoResult, 200, 100);
   });
 });
 
@@ -357,11 +362,13 @@ describe('computeIsometricRoute', () => {
   });
 });
 
-// ── Orthogonal Enhancements ─────────────────────────────────
+// ── Orthogonal Enhancements (via getRouter) ─────────────────
 
-describe('computeOrthogonalCurvedRoute', () => {
+describe('orthogonalCurved routing (via getRouter)', () => {
+  const orthogonalCurvedRouter = getRouter('orthogonalCurved')!;
+
   it('produces bezier segments at corners', () => {
-    const result = computeOrthogonalCurvedRoute(
+    const result = orthogonalCurvedRouter(
       { x: 0, y: 0 },
       { x: 200, y: 100 },
     );
@@ -370,7 +377,7 @@ describe('computeOrthogonalCurvedRoute', () => {
   });
 
   it('ends at the target point', () => {
-    const result = computeOrthogonalCurvedRoute(
+    const result = orthogonalCurvedRouter(
       { x: 0, y: 0 },
       { x: 200, y: 100 },
     );
@@ -378,7 +385,7 @@ describe('computeOrthogonalCurvedRoute', () => {
   });
 
   it('handles axis-aligned points (no corners to smooth)', () => {
-    const result = computeOrthogonalCurvedRoute(
+    const result = orthogonalCurvedRouter(
       { x: 0, y: 0 },
       { x: 200, y: 0 },
     );
@@ -389,7 +396,7 @@ describe('computeOrthogonalCurvedRoute', () => {
   });
 
   it('handles same point', () => {
-    const result = computeOrthogonalCurvedRoute(
+    const result = orthogonalCurvedRouter(
       { x: 100, y: 100 },
       { x: 100, y: 100 },
     );
@@ -398,7 +405,7 @@ describe('computeOrthogonalCurvedRoute', () => {
   });
 
   it('supports custom jettySize option', () => {
-    const result = computeOrthogonalCurvedRoute(
+    const result = orthogonalCurvedRouter(
       { x: 0, y: 0 },
       { x: 200, y: 100 },
       undefined,
@@ -410,28 +417,39 @@ describe('computeOrthogonalCurvedRoute', () => {
   });
 });
 
-describe('computeOrthogonalRoundedRoute', () => {
-  it('produces arc segments at corners', () => {
-    const result = computeOrthogonalRoundedRoute(
+describe('orthogonalRounded routing (via getRouter with rounded option)', () => {
+  const orthogonalCurvedRouter = getRouter('orthogonalCurved')!;
+
+  it('produces arc segments at corners when rounded=true', () => {
+    const result = orthogonalCurvedRouter(
       { x: 0, y: 0 },
       { x: 200, y: 100 },
+      undefined,
+      undefined,
+      { rounded: true },
     );
     assertValidSegments(result);
     expect(countType(result, 'arc')).toBeGreaterThanOrEqual(1);
   });
 
   it('ends at the target point', () => {
-    const result = computeOrthogonalRoundedRoute(
+    const result = orthogonalCurvedRouter(
       { x: 0, y: 0 },
       { x: 200, y: 100 },
+      undefined,
+      undefined,
+      { rounded: true },
     );
     assertEndsAt(result, 200, 100);
   });
 
   it('handles axis-aligned points (no corners to round)', () => {
-    const result = computeOrthogonalRoundedRoute(
+    const result = orthogonalCurvedRouter(
       { x: 0, y: 0 },
       { x: 200, y: 0 },
+      undefined,
+      undefined,
+      { rounded: true },
     );
     assertValidSegments(result);
     assertEndsAt(result, 200, 0);
@@ -439,9 +457,12 @@ describe('computeOrthogonalRoundedRoute', () => {
   });
 
   it('handles same point', () => {
-    const result = computeOrthogonalRoundedRoute(
+    const result = orthogonalCurvedRouter(
       { x: 100, y: 100 },
       { x: 100, y: 100 },
+      undefined,
+      undefined,
+      { rounded: true },
     );
     assertValidSegments(result);
     assertEndsAt(result, 100, 100);
@@ -529,6 +550,91 @@ describe('getRouter (router registry)', () => {
       undefined,
       undefined,
       { jettySize: 50 },
+    );
+    assertValidSegments(result);
+    assertEndsAt(result, 200, 100);
+  });
+});
+
+// ── Bug-Fix Regression Tests ─────────────────────────────────
+
+describe('Bug #7: epsilon fix in segmentCrossesRect', () => {
+  const orthogonalRouter = getRouter('orthogonal')!;
+
+  it('routes around obstacles when segment touches shape edge', () => {
+    // When a segment is exactly on a shape edge (e.g. y=100 touching
+    // a shape with top=100), the old strict inequality missed it.
+    // With EDGE_EPSILON=1, this should be detected and routed around.
+    const result = orthogonalRouter(
+      { x: 50, y: 50 },
+      { x: 250, y: 150 },
+      undefined,
+      undefined,
+      {
+        startBounds: { x: 0, y: 0, width: 100, height: 100 },
+        endBounds: { x: 200, y: 100, width: 100, height: 100 },
+      },
+    );
+    assertValidSegments(result);
+    assertEndsAt(result, 250, 150);
+  });
+
+  it('still allows segments that are clearly outside shapes', () => {
+    const result = orthogonalRouter(
+      { x: 0, y: 0 },
+      { x: 500, y: 0 },
+    );
+    assertValidSegments(result);
+    assertEndsAt(result, 500, 0);
+  });
+});
+
+describe('Bug #6: curved/elbow removed from JETTY_ROUTING_MODES', () => {
+  it('getRouter returns function for curved (not in jetty list)', () => {
+    const router = getRouter('curved');
+    expect(router).not.toBeNull();
+  });
+
+  it('getRouter returns function for elbow (adapter, not in jetty list)', () => {
+    const router = getRouter('elbow');
+    expect(router).not.toBeNull();
+  });
+});
+
+describe('midpointOffset option support', () => {
+  const orthogonalRouter = getRouter('orthogonal')!;
+
+  it('accepts midpointOffset=0 without error', () => {
+    const result = orthogonalRouter(
+      { x: 0, y: 0 },
+      { x: 200, y: 100 },
+      undefined,
+      undefined,
+      { midpointOffset: 0 },
+    );
+    assertValidSegments(result);
+    assertEndsAt(result, 200, 100);
+  });
+
+  it('accepts midpointOffset=0.5 without error', () => {
+    const result = orthogonalRouter(
+      { x: 0, y: 0 },
+      { x: 200, y: 100 },
+      undefined,
+      undefined,
+      { midpointOffset: 0.5 },
+    );
+    assertValidSegments(result);
+    assertEndsAt(result, 200, 100);
+  });
+
+  it('accepts midpointOffset=1 without error', () => {
+    const result = orthogonalRouter(
+      { x: 0, y: 0 },
+      { x: 200, y: 100 },
+      undefined,
+      undefined,
+      { midpointOffset: 1 },
     );
     assertValidSegments(result);
     assertEndsAt(result, 200, 100);

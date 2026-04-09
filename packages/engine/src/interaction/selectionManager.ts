@@ -65,7 +65,7 @@ export function findExpressionAtPoint(
     // Skip expressions on hidden or locked layers [#109]
     if (isExcludedByLayer(expr, layers)) continue;
 
-    if (hitTestExpression(worldPoint, expr, tolerance)) {
+    if (hitTestExpression(worldPoint, expr, tolerance, expressions)) {
       return id;
     }
   }
