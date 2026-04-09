@@ -437,6 +437,7 @@ function renderArrow(
           width: endBounds.size.width,
           height: endBounds.size.height,
         } : undefined,
+        typeof data.jettySize === 'number' ? data.jettySize : undefined,
       );
     }
   }

@@ -38,6 +38,7 @@ export function computeOrthogonalRoute(
   endAnchor?: string,
   startBounds?: { x: number; y: number; width: number; height: number },
   endBounds?: { x: number; y: number; width: number; height: number },
+  jettySize?: number,
 ): [number, number][] {
   // Same point — return a degenerate route
   if (start.x === end.x && start.y === end.y) {
@@ -52,7 +53,7 @@ export function computeOrthogonalRoute(
   const startExit = resolveExitDirection(startAnchor, start, end);
   const endEntry = resolveEntryDirection(endAnchor, end, start);
 
-  const padding = ROUTE_PADDING;
+  const padding = typeof jettySize === 'number' ? jettySize : ROUTE_PADDING;
 
   // Compute route based on exit/entry direction combination
   return routeWithDirections(start, end, startExit, endEntry, padding, startBounds, endBounds);
