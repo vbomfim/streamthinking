@@ -57,6 +57,15 @@ export interface JettyHandleHit {
   position: { x: number; y: number };
   /** Unit direction vector of the stub (away from shape). */
   direction: { x: number; y: number };
+  /**
+   * Orientation of the segment where the handle sits.
+   *
+   * - `'horizontal'` — segment runs left/right → cursor should be `ns-resize`
+   * - `'vertical'` — segment runs up/down → cursor should be `ew-resize`
+   *
+   * [CLEAN-CODE] Explicit orientation avoids inferring it from direction.
+   */
+  segmentOrientation: 'horizontal' | 'vertical';
 }
 
 /** Result of detecting what the pointer is hovering over. */
@@ -344,6 +353,8 @@ export function getJettyHandlePosition(
           },
           // Drag direction is horizontal (moves the vertical bar left/right)
           direction: { x: 1, y: 0 },
+          // Middle segment runs vertically
+          segmentOrientation: 'vertical',
         };
       }
 
@@ -358,11 +369,15 @@ export function getJettyHandlePosition(
         },
         // Drag direction is vertical (moves the horizontal bar up/down)
         direction: { x: 0, y: 1 },
+        // Middle segment runs horizontally
+        segmentOrientation: 'horizontal',
       };
     }
   }
 
   // Non-Z-shape (L-shape, C-shape, etc.) → fallback to exit stub midpoint
+  // Exit stub orientation: horizontal if exitDir.x != 0, vertical if exitDir.y != 0
+  const stubOrientation: 'horizontal' | 'vertical' = exitDir.x !== 0 ? 'horizontal' : 'vertical';
   return {
     expressionId: expr.id,
     end: 'start',
@@ -371,6 +386,7 @@ export function getJettyHandlePosition(
       y: startPt.y + exitDir.y * (jettySize / 2),
     },
     direction: exitDir,
+    segmentOrientation: stubOrientation,
   };
 }
 
@@ -481,11 +497,10 @@ export function getCursorForTarget(target: PointerTarget): string {
     case 'point-handle':
       return 'crosshair';
     case 'jetty-handle': {
-      // Horizontal stub → ew-resize, vertical stub → ns-resize
-      const { direction } = target.handle;
-      return Math.abs(direction.x) >= Math.abs(direction.y)
-        ? 'ew-resize'
-        : 'ns-resize';
+      // Cursor is perpendicular to the segment: horizontal segment → ns-resize,
+      // vertical segment → ew-resize
+      const { segmentOrientation } = target.handle;
+      return segmentOrientation === 'horizontal' ? 'ns-resize' : 'ew-resize';
     }
     case 'body':
       return 'move';

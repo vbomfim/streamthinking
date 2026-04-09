@@ -145,7 +145,8 @@ const JETTY_HANDLE_COLOR = '#4A90D9';
 /**
  * Render a draggable jetty (stub length) handle on routed arrows.
  *
- * Draws a small filled circle at the midpoint of the exit stub.
+ * Draws a small filled SQUARE at the midpoint of the exit stub,
+ * matching the resize handles on shapes (8×8 screen pixels).
  * Only appears for routed arrows (orthogonal, ER, etc.).
  * Filled with the accent color to distinguish from endpoint handles.
  *
@@ -155,24 +156,23 @@ function renderJettyHandle(
   ctx: CanvasRenderingContext2D,
   expr: VisualExpression,
   camera: Camera,
-  radius: number,
+  halfHandle: number,
 ): void {
   const handle = getJettyHandlePosition(expr);
   if (!handle) return;
 
   const { x, y } = handle.position;
-
-  ctx.beginPath();
-  ctx.arc(x, y, radius * 0.75, 0, Math.PI * 2);
+  const size = halfHandle * 1.5; // Slightly smaller than endpoint handles
+  const half = size / 2;
 
   // Accent-colored fill (distinct from white endpoint handles)
   ctx.fillStyle = JETTY_HANDLE_COLOR;
-  ctx.fill();
+  ctx.fillRect(x - half, y - half, size, size);
 
   // White border for contrast
   ctx.strokeStyle = '#ffffff';
   ctx.lineWidth = 1.5 / camera.zoom;
-  ctx.stroke();
+  ctx.strokeRect(x - half, y - half, size, size);
 }
 
 /**

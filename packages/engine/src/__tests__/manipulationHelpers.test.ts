@@ -701,7 +701,7 @@ describe('computeResize [AC3, AC4, AC5]', () => {
   });
 
   describe('getCursorForTarget with jetty-handle', () => {
-    it('returns ew-resize for horizontal jetty handle', () => {
+    it('returns ew-resize for vertical segment (drag left/right)', () => {
       const target: PointerTarget = {
         kind: 'jetty-handle',
         handle: {
@@ -709,12 +709,13 @@ describe('computeResize [AC3, AC4, AC5]', () => {
           end: 'start',
           position: { x: 110, y: 200 },
           direction: { x: 1, y: 0 },
+          segmentOrientation: 'vertical',
         },
       };
       expect(getCursorForTarget(target)).toBe('ew-resize');
     });
 
-    it('returns ns-resize for vertical jetty handle', () => {
+    it('returns ns-resize for horizontal segment (drag up/down)', () => {
       const target: PointerTarget = {
         kind: 'jetty-handle',
         handle: {
@@ -722,9 +723,62 @@ describe('computeResize [AC3, AC4, AC5]', () => {
           end: 'start',
           position: { x: 200, y: 110 },
           direction: { x: 0, y: 1 },
+          segmentOrientation: 'horizontal',
         },
       };
       expect(getCursorForTarget(target)).toBe('ns-resize');
+    });
+  });
+
+  // ── Issue 5: segmentOrientation on JettyHandleHit ────────────
+
+  describe('getJettyHandlePosition — segmentOrientation', () => {
+    it('sets segmentOrientation to vertical for horizontal flow Z-shape', () => {
+      // Horizontal flow → vertical middle segment
+      const arrow = makeArrow('a1', [[100, 200], [400, 300]], {
+        routing: 'orthogonal',
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+        endBinding: { expressionId: 'shape2', anchor: 'left' },
+      });
+      const result = getJettyHandlePosition(arrow);
+      expect(result).not.toBeNull();
+      expect(result!.segmentOrientation).toBe('vertical');
+    });
+
+    it('sets segmentOrientation to horizontal for vertical flow Z-shape', () => {
+      // Vertical flow → horizontal middle segment
+      const arrow = makeArrow('a1', [[100, 100], [300, 400]], {
+        routing: 'orthogonal',
+        startBinding: { expressionId: 'shape1', anchor: 'bottom' },
+        endBinding: { expressionId: 'shape2', anchor: 'top' },
+      });
+      const result = getJettyHandlePosition(arrow);
+      expect(result).not.toBeNull();
+      expect(result!.segmentOrientation).toBe('horizontal');
+    });
+
+    it('sets segmentOrientation for non-Z-shape exit stubs', () => {
+      // L-shape: right exit → horizontal exit stub → handle is on horizontal segment
+      const arrow = makeArrow('a1', [[100, 200], [400, 300]], {
+        routing: 'orthogonal',
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+        endBinding: { expressionId: 'shape2', anchor: 'top' },
+      });
+      const result = getJettyHandlePosition(arrow);
+      expect(result).not.toBeNull();
+      expect(result!.segmentOrientation).toBe('horizontal');
+    });
+
+    it('sets vertical segmentOrientation for vertical exit stubs', () => {
+      // Exit from bottom → vertical exit stub
+      const arrow = makeArrow('a1', [[200, 100], [300, 400]], {
+        routing: 'orthogonal',
+        startBinding: { expressionId: 'shape1', anchor: 'bottom' },
+        endBinding: { expressionId: 'shape2', anchor: 'right' },
+      });
+      const result = getJettyHandlePosition(arrow);
+      expect(result).not.toBeNull();
+      expect(result!.segmentOrientation).toBe('vertical');
     });
   });
 
@@ -747,6 +801,8 @@ describe('computeResize [AC3, AC4, AC5]', () => {
       expect(result!.position.y).toBeCloseTo(250, 0);
       // Direction should be horizontal (ew-resize) — dragging moves the vertical bar
       expect(result!.direction).toEqual({ x: 1, y: 0 });
+      // Segment orientation: vertical middle segment for horizontal flow
+      expect(result!.segmentOrientation).toBe('vertical');
     });
 
     it('places handle on Z-shape middle segment for vertical flow', () => {
@@ -765,6 +821,8 @@ describe('computeResize [AC3, AC4, AC5]', () => {
       expect(result!.position.y).toBeCloseTo(250, 0);
       // Direction should be vertical (ns-resize) — dragging moves the horizontal bar
       expect(result!.direction).toEqual({ x: 0, y: 1 });
+      // Segment orientation: horizontal middle segment for vertical flow
+      expect(result!.segmentOrientation).toBe('horizontal');
     });
 
     it('uses custom midpointOffset for handle position', () => {

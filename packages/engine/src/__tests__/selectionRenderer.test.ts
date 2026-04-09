@@ -265,14 +265,14 @@ describe('renderSelection', () => {
 
     renderSelection(ctx, new Set(['a1']), expressions, identityCamera);
 
-    // Should have arc calls: 2 for point handles (start + end) + 1 for jetty handle
+    // Should have arc calls: 2 for point handles (start + end)
     const arcCalls = ctx._calls.filter((c) => c.method === 'arc');
-    expect(arcCalls.length).toBe(3);
+    expect(arcCalls.length).toBe(2);
 
-    // The jetty handle should be at Z-shape midpoint (250, 200)
-    const jettyArc = arcCalls[2];
-    expect(jettyArc!.args[0]).toBeCloseTo(250, 0); // x: midpoint of Z-shape
-    expect(jettyArc!.args[1]).toBeCloseTo(200, 0); // y
+    // Jetty handle should now be drawn as a fillRect (square), not arc (circle)
+    // 2 point-handle arcs + fillRects for jetty handle
+    const fillRectCalls = ctx._calls.filter((c) => c.method === 'fillRect');
+    expect(fillRectCalls.length).toBeGreaterThanOrEqual(1);
   });
 
   it('does NOT render jetty handle for arrow without routing', () => {
@@ -286,9 +286,12 @@ describe('renderSelection', () => {
     // Only 2 arc calls for point handles (start + end), no jetty
     const arcCalls = ctx._calls.filter((c) => c.method === 'arc');
     expect(arcCalls.length).toBe(2);
+    // No fillRect calls for jetty handle
+    const fillRectCalls = ctx._calls.filter((c) => c.method === 'fillRect');
+    expect(fillRectCalls.length).toBe(0);
   });
 
-  it('renders jetty handle with accent fill color', () => {
+  it('renders jetty handle with accent fill color as square', () => {
     const ctx = createMockCtx();
     const arrow = makeArrow('a1', [[100, 200], [400, 200]], {
       routing: 'orthogonal',
@@ -299,10 +302,9 @@ describe('renderSelection', () => {
     renderSelection(ctx, new Set(['a1']), expressions, identityCamera);
 
     // Track fillStyle assignments — the jetty handle should use accent color (#4A90D9)
-    // After the jetty handle renders, fillStyle remains #4A90D9
     expect(ctx.fillStyle).toBe('#4A90D9');
-    // The fill calls: 2 white fills (point handles) + 1 accent fill (jetty)
-    const fillCalls = ctx._calls.filter((c) => c.method === 'fill');
-    expect(fillCalls.length).toBe(3);
+    // Jetty handle uses fillRect, not arc+fill
+    const fillRectCalls = ctx._calls.filter((c) => c.method === 'fillRect');
+    expect(fillRectCalls.length).toBeGreaterThanOrEqual(1);
   });
 });

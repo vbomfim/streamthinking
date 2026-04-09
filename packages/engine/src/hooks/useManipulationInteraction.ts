@@ -394,7 +394,7 @@ export function useManipulationInteraction(
 
           const range = rangeEnd - rangeStart;
           const newOffset = range !== 0
-            ? Math.max(-1, Math.min(2, (currentPos - rangeStart) / range))
+            ? Math.max(0.05, Math.min(0.95, (currentPos - rangeStart) / range))
             : 0.5;
 
           useCanvasStore.setState((draft) => {
@@ -573,7 +573,7 @@ export function useManipulationInteraction(
 
           const range = rangeEnd - rangeStart;
           const newOffset = range !== 0
-            ? Math.max(-1, Math.min(2, (currentPos - rangeStart) / range))
+            ? Math.max(0.05, Math.min(0.95, (currentPos - rangeStart) / range))
             : 0.5;
           const rounded = Math.round(newOffset * 100) / 100;
 
