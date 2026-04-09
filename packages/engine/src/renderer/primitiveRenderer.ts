@@ -525,10 +525,11 @@ function renderArrow(
       drawPoints[0] = [first[0] - shorten * Math.cos(angle), first[1] - shorten * Math.sin(angle)];
     }
 
-    // Use shortened points for the line (not cached — depends on arrowSize)
-    const drawable = getOrCreateDrawable(expr, () =>
-      rc.generator.linearPath(drawPoints, options),
-    );
+    // For routed arrows, skip cache — routed points differ from stored points
+    const isRouted = data.routing && data.routing !== 'straight';
+    const drawable = isRouted
+      ? rc.generator.linearPath(drawPoints, options)
+      : getOrCreateDrawable(expr, () => rc.generator.linearPath(drawPoints, options));
     rc.draw(drawable);
 
     if (endType !== 'none' && points.length >= 2) {
