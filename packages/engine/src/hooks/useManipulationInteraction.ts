@@ -409,7 +409,7 @@ export function useManipulationInteraction(
         // Non-Z-shape: fallback to jettySize drag
         const dotProduct =
           dx * drag.handle.direction.x + dy * drag.handle.direction.y;
-        const newJettySize = Math.max(0, Math.min(200, drag.originalJettySize + dotProduct));
+        const newJettySize = Math.max(0, drag.originalJettySize + dotProduct);
 
         useCanvasStore.setState((draft) => {
           const expr = draft.expressions[drag.handle.expressionId];
@@ -588,7 +588,7 @@ export function useManipulationInteraction(
         const dotProduct =
           dx * drag.handle.direction.x + dy * drag.handle.direction.y;
         const newJettySize = Math.round(
-          Math.max(0, Math.min(200, drag.originalJettySize + dotProduct)),
+          Math.max(0, drag.originalJettySize + dotProduct),
         );
 
         if (newJettySize !== drag.originalJettySize) {
