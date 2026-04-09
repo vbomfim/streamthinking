@@ -40,6 +40,7 @@ import type {
 import type { CanvasState, CanvasActions, ToolType, Camera, CameraWaypoint, DefaultArrowStyle } from '../types/index.js';
 import { HistoryManager } from '../history/historyManager.js';
 import type { CanvasSnapshot } from '../history/historyManager.js';
+import { getThemeById, applyThemeToExpressions } from '../themes/presets.js';
 import { invalidateLayoutCache as invalidateFlowchartCache } from '../renderer/composites/flowchartRenderer.js';
 import { invalidateLayoutCache as invalidateSequenceCache } from '../renderer/composites/sequenceDiagramRenderer.js';
 import { invalidateLayoutCache as invalidateMindMapCache } from '../renderer/composites/mindMapRenderer.js';
@@ -1905,7 +1906,7 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
       if (existing.meta.locked) return;
 
       // Delegate to updateExpression — it handles snapshot + validation + operation
-      const mergedData = { ...existing.data, ...updates };
+      const mergedData = { ...existing.data, ...updates } as ArrowData;
       get().updateExpression(expressionId, { data: mergedData });
 
       // Update defaultArrowStyle to remember choices for the next arrow
@@ -1926,6 +1927,27 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
       set((state) => {
         Object.assign(state.defaultArrowStyle, style);
       });
+    },
+
+    applyTheme: (themeId: string, scope: 'all' | 'selected') => {
+      const theme = getThemeById(themeId);
+      if (!theme) return;
+
+      const currentState = get();
+      const targetIds = scope === 'selected'
+        ? [...currentState.selectedIds]
+        : currentState.expressionOrder;
+
+      const targetExprs = targetIds
+        .map((id) => currentState.expressions[id])
+        .filter(Boolean) as VisualExpression[];
+
+      if (targetExprs.length === 0) return;
+
+      const themed = applyThemeToExpressions(targetExprs, theme);
+      for (const expr of themed) {
+        get().styleExpressions([expr.id], expr.style);
+      }
     },
   })),
 );

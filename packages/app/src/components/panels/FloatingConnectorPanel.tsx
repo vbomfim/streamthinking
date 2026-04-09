@@ -139,15 +139,15 @@ const CHECKBOX_LABEL_STYLE: React.CSSProperties = {
 /** Calculate the visual midpoint of an arrow from its points array. */
 function getArrowMidpoint(points: [number, number][]): { x: number; y: number } {
   if (points.length === 0) return { x: 0, y: 0 };
-  if (points.length === 1) return { x: points[0][0], y: points[0][1] };
+  if (points.length === 1) return { x: points[0]![0], y: points[0]![1] };
 
   const midIdx = Math.floor(points.length / 2);
-  const p1 = points[midIdx - 1] ?? points[0];
-  const p2 = points[midIdx] ?? points[points.length - 1];
+  const p1 = points[midIdx - 1] ?? points[0]!;
+  const p2 = points[midIdx] ?? points[points.length - 1]!;
 
   return {
-    x: (p1[0] + p2[0]) / 2,
-    y: (p1[1] + p2[1]) / 2,
+    x: (p1![0] + p2![0]) / 2,
+    y: (p1![1] + p2![1]) / 2,
   };
 }
 
