@@ -148,6 +148,8 @@ export {
   hitTestImage,
   hitTestStencil,
   hitTestExpression,
+  distanceToBezier,
+  distanceToPathSegments,
 } from './interaction/hitTest.js';
 export type { WorldPoint } from './interaction/hitTest.js';
 export {

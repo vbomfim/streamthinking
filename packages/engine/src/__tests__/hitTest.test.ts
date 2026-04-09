@@ -8,6 +8,7 @@
  */
 
 import type { VisualExpression, ExpressionStyle } from '@infinicanvas/protocol';
+import type { PathSegment } from '../connectors/routerTypes.js';
 import {
   hitTestRectangle,
   hitTestEllipse,
@@ -20,6 +21,8 @@ import {
   hitTestImage,
   hitTestExpression,
   hitTestBoundingBox,
+  distanceToBezier,
+  distanceToPathSegments,
 } from '../interaction/hitTest.js';
 
 // ── Test helpers ─────────────────────────────────────────────
@@ -605,5 +608,201 @@ describe('composite expression hit testing (S6-2)', () => {
     const expr = makeComposite('kanban', 0, 0, 300, 300);
     expect(hitTestExpression({ x: 150, y: 150 }, expr, 0)).toBe(true);
     expect(hitTestExpression({ x: 400, y: 400 }, expr, 0)).toBe(false);
+  });
+});
+
+// ── distanceToBezier ─────────────────────────────────────────
+
+describe('distanceToBezier', () => {
+  it('returns zero for point on the start of the curve', () => {
+    // Curve from (0,0) to (100,0) with control points forming a straight line
+    const dist = distanceToBezier(0, 0, 0, 0, 33, 0, 66, 0, 100, 0);
+    expect(dist).toBeCloseTo(0, 1);
+  });
+
+  it('returns zero for point on the end of the curve', () => {
+    const dist = distanceToBezier(100, 0, 0, 0, 33, 0, 66, 0, 100, 0);
+    expect(dist).toBeCloseTo(0, 1);
+  });
+
+  it('returns near-zero for point on a straight bezier midpoint', () => {
+    // Straight bezier: control points collinear with endpoints
+    const dist = distanceToBezier(50, 0, 0, 0, 33, 0, 66, 0, 100, 0);
+    expect(dist).toBeLessThan(1);
+  });
+
+  it('returns correct distance for point away from curve', () => {
+    // Point 50px above a horizontal straight bezier
+    const dist = distanceToBezier(50, 50, 0, 0, 33, 0, 66, 0, 100, 0);
+    expect(dist).toBeCloseTo(50, 0);
+  });
+
+  it('handles curved bezier — point near apex is close', () => {
+    // Curve from (0,0) to (100,0) bowing upward (negative y)
+    // Control points: (33, -50) and (66, -50) — apex around y=-37
+    const dist = distanceToBezier(50, -37, 0, 0, 33, -50, 66, -50, 100, 0);
+    expect(dist).toBeLessThan(5);
+  });
+
+  it('handles curved bezier — point far from apex is far', () => {
+    // Point at (50, 50) — below horizontal, far from upward-bowing curve
+    const dist = distanceToBezier(50, 50, 0, 0, 33, -50, 66, -50, 100, 0);
+    expect(dist).toBeGreaterThan(30);
+  });
+
+  it('handles degenerate bezier (all same point)', () => {
+    const dist = distanceToBezier(10, 10, 5, 5, 5, 5, 5, 5, 5, 5);
+    expect(dist).toBeCloseTo(Math.hypot(5, 5), 1);
+  });
+});
+
+// ── distanceToPathSegments ───────────────────────────────────
+
+describe('distanceToPathSegments', () => {
+  it('returns distance to single line segment', () => {
+    const segments: PathSegment[] = [{ type: 'line', x: 100, y: 0 }];
+    const dist = distanceToPathSegments(50, 5, 0, 0, segments);
+    expect(dist).toBeCloseTo(5, 1);
+  });
+
+  it('returns distance to multi-segment L-shaped path', () => {
+    const segments: PathSegment[] = [
+      { type: 'line', x: 100, y: 0 },
+      { type: 'line', x: 100, y: 100 },
+    ];
+    // Point near second segment
+    const dist = distanceToPathSegments(97, 50, 0, 0, segments);
+    expect(dist).toBeCloseTo(3, 1);
+  });
+
+  it('returns distance to bezier segment', () => {
+    const segments: PathSegment[] = [
+      {
+        type: 'bezier',
+        cp1x: 33, cp1y: 0,
+        cp2x: 66, cp2y: 0,
+        x: 100, y: 0,
+      },
+    ];
+    // Point on the straight bezier path
+    const dist = distanceToPathSegments(50, 0, 0, 0, segments);
+    expect(dist).toBeLessThan(2);
+  });
+
+  it('returns Infinity for empty segments', () => {
+    const dist = distanceToPathSegments(50, 50, 0, 0, []);
+    expect(dist).toBe(Infinity);
+  });
+
+  it('handles mixed line and bezier segments', () => {
+    const segments: PathSegment[] = [
+      { type: 'line', x: 50, y: 0 },
+      {
+        type: 'bezier',
+        cp1x: 60, cp1y: 0,
+        cp2x: 90, cp2y: 0,
+        x: 100, y: 0,
+      },
+    ];
+    // Point near the line segment
+    const dist = distanceToPathSegments(25, 3, 0, 0, segments);
+    expect(dist).toBeCloseTo(3, 1);
+  });
+
+  it('handles arc segments by treating as line to endpoint', () => {
+    const segments: PathSegment[] = [
+      { type: 'arc', rx: 10, ry: 10, x: 100, y: 0 },
+    ];
+    // Arc treated as line segment for hit testing
+    const dist = distanceToPathSegments(50, 0, 0, 0, segments);
+    expect(dist).toBeLessThan(1);
+  });
+});
+
+// ── hitTestArrow with routed paths ───────────────────────────
+
+describe('hitTestArrow with routed paths', () => {
+  /** Create an arrow with routing mode and optional bindings. */
+  function makeRoutedArrow(
+    points: [number, number][],
+    routing: string,
+    bindings?: { startAnchor?: string; endAnchor?: string },
+  ): VisualExpression {
+    const xs = points.map(([px]) => px);
+    const ys = points.map(([, py]) => py);
+    const minX = Math.min(...xs);
+    const minY = Math.min(...ys);
+    const maxX = Math.max(...xs);
+    const maxY = Math.max(...ys);
+    return {
+      id: 'routed-arrow-1',
+      kind: 'arrow',
+      position: { x: minX, y: minY },
+      size: { width: maxX - minX || 1, height: maxY - minY || 1 },
+      angle: 0,
+      style: DEFAULT_STYLE,
+      meta: DEFAULT_META,
+      data: {
+        kind: 'arrow',
+        points,
+        routing,
+        startBinding: bindings?.startAnchor
+          ? { expressionId: 'src', anchor: bindings.startAnchor, gap: 0 }
+          : undefined,
+        endBinding: bindings?.endAnchor
+          ? { expressionId: 'tgt', anchor: bindings.endAnchor, gap: 0 }
+          : undefined,
+      },
+    };
+  }
+
+  it('straight arrow uses point-to-point segments (no router)', () => {
+    const arrow = makeRoutedArrow([[0, 0], [100, 0]], 'straight');
+    // Point on the line
+    expect(hitTestArrow({ x: 50, y: 0 }, arrow, 5)).toBe(true);
+    // Point off the line
+    expect(hitTestArrow({ x: 50, y: 20 }, arrow, 5)).toBe(false);
+  });
+
+  it('orthogonal arrow hit tests against routed segments', () => {
+    // Orthogonal arrow from (0,0) to (100,100) — router creates L/Z-shape
+    const arrow = makeRoutedArrow([[0, 0], [100, 100]], 'orthogonal');
+    // The orthogonal router will create waypoints — the point on the
+    // straight diagonal should NOT hit if the route goes L-shaped
+    // But a point along one of the orthogonal segments should hit
+    // We test that the function doesn't crash and uses routing
+    expect(hitTestArrow({ x: 0, y: 0 }, arrow, 8)).toBe(true);
+    expect(hitTestArrow({ x: 100, y: 100 }, arrow, 8)).toBe(true);
+  });
+
+  it('curved arrow hit tests against bezier path', () => {
+    // Curved arrow from (0,0) to (200,0)
+    const arrow = makeRoutedArrow([[0, 0], [200, 0]], 'curved');
+    // Point at start
+    expect(hitTestArrow({ x: 0, y: 0 }, arrow, 8)).toBe(true);
+    // Point at end
+    expect(hitTestArrow({ x: 200, y: 0 }, arrow, 8)).toBe(true);
+    // Point near the middle of the curve
+    expect(hitTestArrow({ x: 100, y: 0 }, arrow, 8)).toBe(true);
+  });
+
+  it('curved arrow — point far from curve misses', () => {
+    const arrow = makeRoutedArrow([[0, 0], [200, 0]], 'curved');
+    // Point well away from the curve
+    expect(hitTestArrow({ x: 100, y: 100 }, arrow, 8)).toBe(false);
+  });
+
+  it('elbow arrow hit tests against routed segments', () => {
+    const arrow = makeRoutedArrow([[0, 0], [100, 100]], 'elbow');
+    // Start and end should always hit
+    expect(hitTestArrow({ x: 0, y: 0 }, arrow, 8)).toBe(true);
+    expect(hitTestArrow({ x: 100, y: 100 }, arrow, 8)).toBe(true);
+  });
+
+  it('arrow with undefined routing works like straight', () => {
+    const arrow = makeArrow([[0, 0], [100, 0]]);
+    // Standard straight arrow behavior
+    expect(hitTestArrow({ x: 50, y: 0 }, arrow, 5)).toBe(true);
+    expect(hitTestArrow({ x: 50, y: 20 }, arrow, 5)).toBe(false);
   });
 });

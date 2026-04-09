@@ -151,19 +151,22 @@ const SLIDER_STYLE: React.CSSProperties = {
   cursor: 'pointer',
 };
 
-const GROUP_LABEL_STYLE: React.CSSProperties = {
-  margin: 0,
-  fontSize: 10,
-  fontWeight: 500,
-  color: '#888888',
-  marginTop: 4,
-  marginBottom: 2,
-};
-
 const CHECKBOX_LABEL_STYLE: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   gap: 6,
+  fontSize: 11,
+  cursor: 'pointer',
+};
+
+/** Dropdown select base style — matches Font <select> pattern. */
+const SELECT_STYLE: React.CSSProperties = {
+  width: '100%',
+  padding: '4px',
+  borderRadius: 4,
+  border: '1px solid var(--border, #ccc)',
+  backgroundColor: 'var(--bg-panel, #fff)',
+  color: 'var(--text-primary, #333)',
   fontSize: 11,
   cursor: 'pointer',
 };
@@ -282,6 +285,10 @@ export function StylePanel() {
   const currentCurved = isArrowSelected ? (arrowData?.curved ?? false) : false;
   const currentRounded = isArrowSelected ? (arrowData?.rounded ?? false) : false;
 
+  // Current jettySize — resolve 'auto' and undefined to default 20
+  const rawJettySize = isArrowSelected ? arrowData?.jettySize : undefined;
+  const currentJettySize = typeof rawJettySize === 'number' ? rawJettySize : 20;
+
   function handleArrowheadChange(end: 'start' | 'end', type: string) {
     if (isArrowDrawingMode) {
       // Drawing mode: update defaults
@@ -309,6 +316,14 @@ export function StylePanel() {
   function handleEdgeToggle(prop: 'curved' | 'rounded', value: boolean) {
     if (firstSelectedId && isArrowSelected) {
       updateArrowData(firstSelectedId, { [prop]: value });
+    }
+  }
+
+  function handleJettySizeChange(value: number) {
+    if (isArrowDrawingMode) {
+      setDefaultArrowStyle({ jettySize: value } as Record<string, unknown>);
+    } else if (firstSelectedId) {
+      updateArrowData(firstSelectedId, { jettySize: value });
     }
   }
 
@@ -500,44 +515,77 @@ export function StylePanel() {
       {/* ── Connector Controls (shown for arrows and arrow drawing mode) ── */}
       {showConnectorControls && (
         <>
-          {/* ── Routing Mode ── */}
+          {/* ── Routing Mode (dropdown) ── */}
           <Section label="Connector style">
-            <div style={RADIO_GROUP_STYLE} data-testid="routing-mode-selector">
+            <select
+              data-testid="routing-mode-select"
+              value={currentRouting}
+              onChange={(e) => handleRoutingChange(e.target.value as RoutingMode)}
+              style={SELECT_STYLE}
+              aria-label="Routing mode"
+            >
               {ROUTING_MODES.map(({ value, label, icon }) => (
-                <label
-                  key={value}
-                  style={radioLabelStyle(currentRouting === value)}
-                  title={label}
-                >
-                  <input
-                    type="radio"
-                    name="routingMode"
-                    value={value}
-                    checked={currentRouting === value}
-                    onChange={() => handleRoutingChange(value)}
-                    style={{ display: 'none' }}
-                  />
+                <option key={value} value={value}>
                   {icon} {label}
-                </label>
+                </option>
               ))}
-            </div>
+            </select>
           </Section>
 
-          {/* ── Start Arrowhead ── */}
+          {/* ── Start Arrowhead (dropdown) ── */}
           <Section label="Start tip">
-            <ArrowheadPicker
-              name="startArrowhead"
-              currentType={startArrowheadType}
-              onChange={(type) => handleArrowheadChange('start', type)}
-            />
+            <select
+              data-testid="start-arrowhead-select"
+              value={startArrowheadType}
+              onChange={(e) => handleArrowheadChange('start', e.target.value)}
+              style={SELECT_STYLE}
+              aria-label="Start arrowhead"
+            >
+              {ARROWHEAD_GROUPS.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.types.map(({ value, label }) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
           </Section>
 
-          {/* ── End Arrowhead ── */}
+          {/* ── End Arrowhead (dropdown) ── */}
           <Section label="End tip">
-            <ArrowheadPicker
-              name="endArrowhead"
-              currentType={endArrowheadType}
-              onChange={(type) => handleArrowheadChange('end', type)}
+            <select
+              data-testid="end-arrowhead-select"
+              value={endArrowheadType}
+              onChange={(e) => handleArrowheadChange('end', e.target.value)}
+              style={SELECT_STYLE}
+              aria-label="End arrowhead"
+            >
+              {ARROWHEAD_GROUPS.map((group) => (
+                <optgroup key={group.label} label={group.label}>
+                  {group.types.map(({ value, label }) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
+          </Section>
+
+          {/* ── JettySize (spacing slider) ── */}
+          <Section label={`Spacing: ${currentJettySize}px`}>
+            <input
+              type="range"
+              data-testid="jetty-size-slider"
+              min={0}
+              max={100}
+              step={1}
+              value={currentJettySize}
+              aria-label="Connector spacing"
+              onChange={(e) => handleJettySizeChange(parseInt(e.target.value))}
+              style={SLIDER_STYLE}
             />
           </Section>
 
@@ -578,42 +626,6 @@ function Section({ label, children }: { label: string; children: React.ReactNode
     <div>
       <p style={SECTION_LABEL_STYLE}>{label}</p>
       <div style={{ marginTop: 4 }}>{children}</div>
-    </div>
-  );
-}
-
-/** Grouped arrowhead type picker with category labels. */
-function ArrowheadPicker({
-  name,
-  currentType,
-  onChange,
-}: {
-  name: string;
-  currentType: string;
-  onChange: (type: string) => void;
-}) {
-  return (
-    <div>
-      {ARROWHEAD_GROUPS.map((group) => (
-        <div key={group.label}>
-          <p style={GROUP_LABEL_STYLE}>{group.label}</p>
-          <div style={RADIO_GROUP_STYLE}>
-            {group.types.map(({ value, label }) => (
-              <label key={`${name}-${value}`} style={radioLabelStyle(currentType === value)}>
-                <input
-                  type="radio"
-                  name={name}
-                  value={value}
-                  checked={currentType === value}
-                  onChange={() => onChange(value)}
-                  style={{ display: 'none' }}
-                />
-                {label}
-              </label>
-            ))}
-          </div>
-        </div>
-      ))}
     </div>
   );
 }

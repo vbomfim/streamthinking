@@ -11,7 +11,9 @@
  * @module
  */
 
-import type { VisualExpression } from '@infinicanvas/protocol';
+import type { VisualExpression, ArrowData } from '@infinicanvas/protocol';
+import type { PathSegment } from '../connectors/routerTypes.js';
+import { getRouter } from '../connectors/routerRegistry.js';
 
 /** A 2D point in world coordinates. */
 export interface WorldPoint {
@@ -127,6 +129,99 @@ function distanceToSegment(
 }
 
 /**
+ * Compute the minimum distance from a point to a cubic bezier curve.
+ *
+ * Approximates the curve by sampling it into `BEZIER_SAMPLES` line
+ * segments, then finds the minimum distance to any segment.
+ * 20 samples gives sub-pixel accuracy for typical canvas zoom levels.
+ */
+const BEZIER_SAMPLES = 20;
+
+export function distanceToBezier(
+  px: number,
+  py: number,
+  sx: number,
+  sy: number,
+  cp1x: number,
+  cp1y: number,
+  cp2x: number,
+  cp2y: number,
+  ex: number,
+  ey: number,
+): number {
+  let minDist = Infinity;
+  let prevX = sx;
+  let prevY = sy;
+
+  for (let i = 1; i <= BEZIER_SAMPLES; i++) {
+    const t = i / BEZIER_SAMPLES;
+    const u = 1 - t;
+    const u2 = u * u;
+    const u3 = u2 * u;
+    const t2 = t * t;
+    const t3 = t2 * t;
+
+    const x = u3 * sx + 3 * u2 * t * cp1x + 3 * u * t2 * cp2x + t3 * ex;
+    const y = u3 * sy + 3 * u2 * t * cp1y + 3 * u * t2 * cp2y + t3 * ey;
+
+    const d = distanceToSegment(px, py, prevX, prevY, x, y);
+    if (d < minDist) minDist = d;
+
+    prevX = x;
+    prevY = y;
+  }
+
+  return minDist;
+}
+
+/**
+ * Compute the minimum distance from a point to a path described by
+ * PathSegment[].
+ *
+ * Walks the segment array, tracking the current position. Delegates
+ * to `distanceToSegment` for line/arc segments and `distanceToBezier`
+ * for bezier segments.
+ *
+ * Returns `Infinity` if the segments array is empty.
+ */
+export function distanceToPathSegments(
+  px: number,
+  py: number,
+  startX: number,
+  startY: number,
+  segments: PathSegment[],
+): number {
+  if (segments.length === 0) return Infinity;
+
+  let minDist = Infinity;
+  let curX = startX;
+  let curY = startY;
+
+  for (const seg of segments) {
+    let d: number;
+
+    if (seg.type === 'bezier') {
+      d = distanceToBezier(
+        px, py,
+        curX, curY,
+        seg.cp1x, seg.cp1y,
+        seg.cp2x, seg.cp2y,
+        seg.x, seg.y,
+      );
+    } else {
+      // 'line' and 'arc' — treat as straight segment to endpoint
+      d = distanceToSegment(px, py, curX, curY, seg.x, seg.y);
+    }
+
+    if (d < minDist) minDist = d;
+    curX = seg.x;
+    curY = seg.y;
+  }
+
+  return minDist;
+}
+
+/**
  * Hit test a line expression.
  *
  * Checks if the perpendicular distance from the point to any segment
@@ -158,7 +253,10 @@ export function hitTestLine(
 /**
  * Hit test an arrow expression.
  *
- * Same as line — checks distance to any segment in the point array.
+ * For routed arrows (orthogonal, curved, elbow, etc.), computes the
+ * actual rendered path via the router and tests against those segments.
+ * For straight arrows or arrows with <2 points, falls back to testing
+ * against the stored point array.
  */
 export function hitTestArrow(
   point: WorldPoint,
@@ -166,13 +264,45 @@ export function hitTestArrow(
   tolerance: number,
 ): boolean {
   if (expression.data.kind !== 'arrow') return false;
-  const { points } = expression.data;
+  const data = expression.data as ArrowData;
+  const { points } = data;
 
   if (points.length < 2) return false;
 
   // Use wider tolerance for thin lines (minimum 8 world px for easier clicking)
   const effectiveTolerance = Math.max(tolerance, 8);
 
+  // Try routing-aware hit testing for non-straight arrows
+  const routingMode = data.routing === 'orthogonal' && data.curved
+    ? 'orthogonalCurved' as const
+    : data.routing;
+  const router = getRouter(routingMode);
+
+  if (router && points.length === 2) {
+    const start = { x: points[0]![0], y: points[0]![1] };
+    const end = { x: points[1]![0], y: points[1]![1] };
+
+    const pathSegments = router(
+      start,
+      end,
+      data.startBinding?.anchor,
+      data.endBinding?.anchor,
+      {
+        jettySize: typeof data.jettySize === 'number' ? data.jettySize : undefined,
+      },
+    );
+
+    if (pathSegments.length > 0) {
+      const dist = distanceToPathSegments(
+        point.x, point.y,
+        start.x, start.y,
+        pathSegments,
+      );
+      return dist <= effectiveTolerance;
+    }
+  }
+
+  // Fallback: test against stored point segments (straight arrows)
   for (let i = 0; i < points.length - 1; i++) {
     const [ax, ay] = points[i]!;
     const [bx, by] = points[i + 1]!;
