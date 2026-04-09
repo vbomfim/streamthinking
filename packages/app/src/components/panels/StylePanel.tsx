@@ -7,12 +7,16 @@
  * 2. **Drawing mode** — when a drawing tool is active and nothing is selected,
  *    shows/edits `lastUsedStyle` so users can pick styles before drawing.
  *
+ * Connector controls (routing, arrowheads, edge properties) appear when:
+ * - An arrow expression is selected (selection mode)
+ * - The arrow tool is active (drawing mode — edits defaultArrowStyle)
+ *
  * @module
  */
 
 import { useCanvasStore } from '@infinicanvas/engine';
 import { DEFAULT_EXPRESSION_STYLE } from '@infinicanvas/protocol';
-import type { ExpressionStyle } from '@infinicanvas/protocol';
+import type { ExpressionStyle, ArrowData, RoutingMode } from '@infinicanvas/protocol';
 
 // ── Color palette ──────────────────────────────────────────
 
@@ -49,6 +53,54 @@ const STROKE_STYLES = [
   { value: 'solid', label: 'Solid' },
   { value: 'dashed', label: 'Dashed' },
   { value: 'dotted', label: 'Dotted' },
+] as const;
+
+// ── Connector style options ────────────────────────────────
+
+/** Routing mode options for arrows. */
+const ROUTING_MODES: { value: RoutingMode; label: string; icon: string }[] = [
+  { value: 'straight', label: 'Straight', icon: '─' },
+  { value: 'orthogonal', label: 'Orthogonal', icon: '┌' },
+  { value: 'curved', label: 'Curved', icon: '╭' },
+  { value: 'elbow', label: 'Elbow', icon: '└' },
+  { value: 'entityRelation', label: 'ER', icon: '╟' },
+  { value: 'isometric', label: 'Isometric', icon: '◇' },
+  { value: 'orthogonalCurved', label: 'Smooth', icon: '╮' },
+];
+
+/** Arrowhead types grouped by category. */
+const ARROWHEAD_GROUPS = [
+  {
+    label: 'Standard',
+    types: [
+      { value: 'none', label: 'None' },
+      { value: 'classic', label: '▶ Classic' },
+      { value: 'open', label: '▷ Open' },
+      { value: 'block', label: '■ Block' },
+      { value: 'oval', label: '● Oval' },
+      { value: 'diamond', label: '◆ Diamond' },
+    ],
+  },
+  {
+    label: 'ER Diagram',
+    types: [
+      { value: 'ERone', label: '│ One' },
+      { value: 'ERmany', label: '❯ Many' },
+      { value: 'ERmandOne', label: '║ Mand. One' },
+      { value: 'ERoneToMany', label: '│❯ One→Many' },
+      { value: 'ERzeroToOne', label: 'o│ Zero→One' },
+      { value: 'ERzeroToMany', label: 'o❯ Zero→Many' },
+    ],
+  },
+  {
+    label: 'Other',
+    types: [
+      { value: 'openAsync', label: '⟩ Async' },
+      { value: 'dash', label: '— Dash' },
+      { value: 'cross', label: '✕ Cross' },
+      { value: 'halfCircle', label: '◗ Half Circle' },
+    ],
+  },
 ] as const;
 
 // ── Inline style constants ─────────────────────────────────
@@ -99,6 +151,23 @@ const SLIDER_STYLE: React.CSSProperties = {
   cursor: 'pointer',
 };
 
+const GROUP_LABEL_STYLE: React.CSSProperties = {
+  margin: 0,
+  fontSize: 10,
+  fontWeight: 500,
+  color: '#888888',
+  marginTop: 4,
+  marginBottom: 2,
+};
+
+const CHECKBOX_LABEL_STYLE: React.CSSProperties = {
+  display: 'flex',
+  alignItems: 'center',
+  gap: 6,
+  fontSize: 11,
+  cursor: 'pointer',
+};
+
 /** Swatch button base style. */
 function swatchStyle(
   color: string,
@@ -137,15 +206,6 @@ function radioLabelStyle(isActive: boolean): React.CSSProperties {
   };
 }
 
-/** Arrowhead type options. */
-const ARROWHEAD_TYPES = [
-  { value: 'none', label: 'None' },
-  { value: 'triangle', label: '▶ Triangle' },
-  { value: 'chevron', label: '❯ Chevron' },
-  { value: 'diamond', label: '◆ Diamond' },
-  { value: 'circle', label: '● Circle' },
-] as const;
-
 // ── Component ──────────────────────────────────────────────
 
 /** Style panel for editing selected expression styles or pre-draw defaults. */
@@ -156,7 +216,9 @@ export function StylePanel() {
   const activeTool = useCanvasStore((s) => s.activeTool);
   const lastUsedStyle = useCanvasStore((s) => s.lastUsedStyle);
   const setLastUsedStyle = useCanvasStore((s) => s.setLastUsedStyle);
-  const updateExpression = useCanvasStore((s) => s.updateExpression);
+  const updateArrowData = useCanvasStore((s) => s.updateArrowData);
+  const defaultArrowStyle = useCanvasStore((s) => s.defaultArrowStyle);
+  const setDefaultArrowStyle = useCanvasStore((s) => s.setDefaultArrowStyle);
 
   // Drawing mode: tool active + nothing selected → show lastUsedStyle
   const isDrawingMode = selectedIds.size === 0 && activeTool !== 'select';
@@ -187,26 +249,67 @@ export function StylePanel() {
     }
   }
 
-  // Arrowhead controls — detect if selected expression is an arrow/line
+  // Arrow controls — detect if selected expression is an arrow/line
   const isArrowSelected = !isDrawingMode && firstExpr && (firstExpr.kind === 'arrow' || firstExpr.kind === 'line');
-  const arrowData = isArrowSelected ? (firstExpr.data as { startArrowhead?: string | boolean; endArrowhead?: string | boolean }) : null;
+  const isArrowDrawingMode = isDrawingMode && activeTool === 'arrow';
+  const showConnectorControls = isArrowSelected || isArrowDrawingMode;
+
+  // Read current arrow data from selected expression
+  const arrowData = isArrowSelected
+    ? (firstExpr.data as ArrowData)
+    : null;
 
   function resolveType(val: string | boolean | undefined): string {
     if (val === true) return 'triangle';
     if (val === false || val === undefined) return 'none';
     return val;
   }
-  const startArrowheadType = arrowData ? resolveType(arrowData.startArrowhead) : 'none';
-  const endArrowheadType = arrowData ? resolveType(arrowData.endArrowhead) : 'none';
 
-  function updateArrowhead(end: 'start' | 'end', type: string) {
-    if (!firstSelectedId) return;
-    const expr = expressions[firstSelectedId];
-    if (!expr) return;
-    const field = end === 'start' ? 'startArrowhead' : 'endArrowhead';
-    updateExpression(firstSelectedId, {
-      data: { ...expr.data, [field]: type },
-    });
+  // Current arrowhead types (from expression or from defaults)
+  const startArrowheadType = isArrowSelected
+    ? resolveType(arrowData?.startArrowhead)
+    : resolveType(defaultArrowStyle.startArrowhead);
+  const endArrowheadType = isArrowSelected
+    ? resolveType(arrowData?.endArrowhead)
+    : resolveType(defaultArrowStyle.endArrowhead);
+
+  // Current routing mode
+  const currentRouting: RoutingMode = isArrowSelected
+    ? (arrowData?.routing ?? 'straight')
+    : defaultArrowStyle.routing;
+
+  // Current edge properties
+  const currentCurved = isArrowSelected ? (arrowData?.curved ?? false) : false;
+  const currentRounded = isArrowSelected ? (arrowData?.rounded ?? false) : false;
+
+  function handleArrowheadChange(end: 'start' | 'end', type: string) {
+    if (isArrowDrawingMode) {
+      // Drawing mode: update defaults
+      if (end === 'start') {
+        setDefaultArrowStyle({ startArrowhead: type as typeof defaultArrowStyle.startArrowhead });
+      } else {
+        setDefaultArrowStyle({ endArrowhead: type as typeof defaultArrowStyle.endArrowhead });
+      }
+    } else if (firstSelectedId) {
+      // Selection mode: update the expression
+      updateArrowData(firstSelectedId, {
+        [end === 'start' ? 'startArrowhead' : 'endArrowhead']: type,
+      });
+    }
+  }
+
+  function handleRoutingChange(mode: RoutingMode) {
+    if (isArrowDrawingMode) {
+      setDefaultArrowStyle({ routing: mode });
+    } else if (firstSelectedId) {
+      updateArrowData(firstSelectedId, { routing: mode });
+    }
+  }
+
+  function handleEdgeToggle(prop: 'curved' | 'rounded', value: boolean) {
+    if (firstSelectedId && isArrowSelected) {
+      updateArrowData(firstSelectedId, { [prop]: value });
+    }
   }
 
   return (
@@ -394,43 +497,73 @@ export function StylePanel() {
         />
       </Section>
 
-      {/* ── Arrowhead Controls (shown for arrow/line expressions) ── */}
-      {isArrowSelected && (
+      {/* ── Connector Controls (shown for arrows and arrow drawing mode) ── */}
+      {showConnectorControls && (
         <>
+          {/* ── Routing Mode ── */}
+          <Section label="Connector style">
+            <div style={RADIO_GROUP_STYLE} data-testid="routing-mode-selector">
+              {ROUTING_MODES.map(({ value, label, icon }) => (
+                <label
+                  key={value}
+                  style={radioLabelStyle(currentRouting === value)}
+                  title={label}
+                >
+                  <input
+                    type="radio"
+                    name="routingMode"
+                    value={value}
+                    checked={currentRouting === value}
+                    onChange={() => handleRoutingChange(value)}
+                    style={{ display: 'none' }}
+                  />
+                  {icon} {label}
+                </label>
+              ))}
+            </div>
+          </Section>
+
+          {/* ── Start Arrowhead ── */}
           <Section label="Start tip">
-            <div style={RADIO_GROUP_STYLE}>
-              {ARROWHEAD_TYPES.map(({ value, label }) => (
-                <label key={`start-${value}`} style={radioLabelStyle(startArrowheadType === value)}>
-                  <input
-                    type="radio"
-                    name="startArrowhead"
-                    value={value}
-                    checked={startArrowheadType === value}
-                    onChange={() => updateArrowhead('start', value)}
-                    style={{ display: 'none' }}
-                  />
-                  {label}
-                </label>
-              ))}
-            </div>
+            <ArrowheadPicker
+              name="startArrowhead"
+              currentType={startArrowheadType}
+              onChange={(type) => handleArrowheadChange('start', type)}
+            />
           </Section>
+
+          {/* ── End Arrowhead ── */}
           <Section label="End tip">
-            <div style={RADIO_GROUP_STYLE}>
-              {ARROWHEAD_TYPES.map(({ value, label }) => (
-                <label key={`end-${value}`} style={radioLabelStyle(endArrowheadType === value)}>
-                  <input
-                    type="radio"
-                    name="endArrowhead"
-                    value={value}
-                    checked={endArrowheadType === value}
-                    onChange={() => updateArrowhead('end', value)}
-                    style={{ display: 'none' }}
-                  />
-                  {label}
-                </label>
-              ))}
-            </div>
+            <ArrowheadPicker
+              name="endArrowhead"
+              currentType={endArrowheadType}
+              onChange={(type) => handleArrowheadChange('end', type)}
+            />
           </Section>
+
+          {/* ── Edge Properties (only for selected arrows, not drawing mode) ── */}
+          {isArrowSelected && (currentRouting === 'orthogonal' || currentRouting === 'orthogonalCurved') && (
+            <Section label="Edge properties">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <label style={CHECKBOX_LABEL_STYLE}>
+                  <input
+                    type="checkbox"
+                    checked={currentCurved}
+                    onChange={(e) => handleEdgeToggle('curved', e.target.checked)}
+                  />
+                  Smooth corners
+                </label>
+                <label style={CHECKBOX_LABEL_STYLE}>
+                  <input
+                    type="checkbox"
+                    checked={currentRounded}
+                    onChange={(e) => handleEdgeToggle('rounded', e.target.checked)}
+                  />
+                  Rounded corners
+                </label>
+              </div>
+            </Section>
+          )}
         </>
       )}
     </div>
@@ -445,6 +578,42 @@ function Section({ label, children }: { label: string; children: React.ReactNode
     <div>
       <p style={SECTION_LABEL_STYLE}>{label}</p>
       <div style={{ marginTop: 4 }}>{children}</div>
+    </div>
+  );
+}
+
+/** Grouped arrowhead type picker with category labels. */
+function ArrowheadPicker({
+  name,
+  currentType,
+  onChange,
+}: {
+  name: string;
+  currentType: string;
+  onChange: (type: string) => void;
+}) {
+  return (
+    <div>
+      {ARROWHEAD_GROUPS.map((group) => (
+        <div key={group.label}>
+          <p style={GROUP_LABEL_STYLE}>{group.label}</p>
+          <div style={RADIO_GROUP_STYLE}>
+            {group.types.map(({ value, label }) => (
+              <label key={`${name}-${value}`} style={radioLabelStyle(currentType === value)}>
+                <input
+                  type="radio"
+                  name={name}
+                  value={value}
+                  checked={currentType === value}
+                  onChange={() => onChange(value)}
+                  style={{ display: 'none' }}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

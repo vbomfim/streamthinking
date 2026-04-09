@@ -311,7 +311,7 @@ describe('ArrowTool', () => {
     expect(expr.kind).toBe('arrow');
     expect(expr.data.kind).toBe('arrow');
     if (expr.data.kind === 'arrow') {
-      expect(expr.data.endArrowhead).toBe(true);
+      expect(expr.data.endArrowhead).toBe('triangle');
       expect(expr.data.points.length).toBeGreaterThanOrEqual(2);
     }
   });

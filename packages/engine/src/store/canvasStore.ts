@@ -37,7 +37,7 @@ import type {
   Layer,
   ContainerData,
 } from '@infinicanvas/protocol';
-import type { CanvasState, CanvasActions, ToolType, Camera, CameraWaypoint } from '../types/index.js';
+import type { CanvasState, CanvasActions, ToolType, Camera, CameraWaypoint, DefaultArrowStyle } from '../types/index.js';
 import { HistoryManager } from '../history/historyManager.js';
 import type { CanvasSnapshot } from '../history/historyManager.js';
 import { invalidateLayoutCache as invalidateFlowchartCache } from '../renderer/composites/flowchartRenderer.js';
@@ -368,6 +368,13 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     // ── Layer state (UI-only, no operations or snapshots) ──
     layers: [{ id: DEFAULT_LAYER_ID, name: 'Layer 1', visible: true, locked: false, order: 0 }] as Layer[],
     activeLayerId: DEFAULT_LAYER_ID,
+
+    // ── Default arrow style (UI-only, applied to new arrows) ──
+    defaultArrowStyle: {
+      routing: 'straight',
+      startArrowhead: 'none',
+      endArrowhead: 'triangle',
+    } as DefaultArrowStyle,
 
     // ── Content mutations (emit ProtocolOperations + push snapshots) ──
 
@@ -1882,6 +1889,43 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
       });
 
       return moves.length;
+    },
+
+    // ── Arrow data mutation (emit ProtocolOperation + push snapshot) ──
+
+    updateArrowData: (expressionId: string, updates: Partial<ArrowData>) => {
+      const currentState = get();
+      const existing = currentState.expressions[expressionId];
+      if (!existing) return;
+
+      // Only operate on arrow expressions
+      if (existing.kind !== 'arrow') return;
+
+      // S5-3: Skip locked expressions
+      if (existing.meta.locked) return;
+
+      // Delegate to updateExpression — it handles snapshot + validation + operation
+      const mergedData = { ...existing.data, ...updates };
+      get().updateExpression(expressionId, { data: mergedData });
+
+      // Update defaultArrowStyle to remember choices for the next arrow
+      set((state) => {
+        if (updates.routing !== undefined) {
+          state.defaultArrowStyle.routing = updates.routing as DefaultArrowStyle['routing'];
+        }
+        if (updates.startArrowhead !== undefined && typeof updates.startArrowhead === 'string') {
+          state.defaultArrowStyle.startArrowhead = updates.startArrowhead;
+        }
+        if (updates.endArrowhead !== undefined && typeof updates.endArrowhead === 'string') {
+          state.defaultArrowStyle.endArrowhead = updates.endArrowhead;
+        }
+      });
+    },
+
+    setDefaultArrowStyle: (style: Partial<DefaultArrowStyle>) => {
+      set((state) => {
+        Object.assign(state.defaultArrowStyle, style);
+      });
     },
   })),
 );

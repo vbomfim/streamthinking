@@ -4,7 +4,7 @@
  * @module
  */
 
-import type { VisualExpression, ProtocolOperation, ExpressionStyle, Layer } from '@infinicanvas/protocol';
+import type { VisualExpression, ProtocolOperation, ExpressionStyle, Layer, ArrowData, ArrowheadType, RoutingMode } from '@infinicanvas/protocol';
 
 /** Tools available for canvas interaction. */
 export type ToolType =
@@ -35,6 +35,16 @@ export interface CameraWaypoint {
 
 /** Grid display type — dots or lines. */
 export type GridType = 'dot' | 'line';
+
+/** Default style applied to newly created arrows. */
+export interface DefaultArrowStyle {
+  /** Routing algorithm for the connector path. */
+  routing: RoutingMode;
+  /** Arrowhead at the start of the arrow. */
+  startArrowhead: ArrowheadType | 'none';
+  /** Arrowhead at the end of the arrow. */
+  endArrowhead: ArrowheadType | 'none';
+}
 
 /** Complete canvas state shape managed by Zustand. */
 export interface CanvasState {
@@ -74,6 +84,8 @@ export interface CanvasState {
   layers: Layer[];
   /** ID of the layer where new expressions are created. */
   activeLayerId: string;
+  /** Default style applied to newly created arrows. */
+  defaultArrowStyle: DefaultArrowStyle;
 }
 
 /** Actions available on the canvas store. */
@@ -260,4 +272,18 @@ export interface CanvasActions {
    * @returns Number of expressions that were repositioned
    */
   applyLayout: (options: import('../layout/types.js').LayoutOptions, scope: 'all' | 'selected') => number;
+
+  /**
+   * Update arrow-specific data fields on an existing arrow expression.
+   * Pushes an undo snapshot and emits a protocol operation.
+   * No-op if the expression doesn't exist or isn't an arrow.
+   * Also updates `defaultArrowStyle` with routing/arrowhead changes.
+   */
+  updateArrowData: (expressionId: string, updates: Partial<ArrowData>) => void;
+
+  /**
+   * Set the default arrow style (merged with existing defaults).
+   * UI-only — does NOT emit operations. Applied to new arrows by ArrowTool.
+   */
+  setDefaultArrowStyle: (style: Partial<DefaultArrowStyle>) => void;
 }
