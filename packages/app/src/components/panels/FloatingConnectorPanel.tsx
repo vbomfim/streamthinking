@@ -436,6 +436,22 @@ export function FloatingConnectorPanel() {
             />
             Rounded
           </label>
+          <label style={{ ...CHECKBOX_LABEL_STYLE, marginLeft: 12 }}>
+            Spacing
+            <input
+              type="number"
+              min={0}
+              max={200}
+              value={isArrowSelected ? (typeof arrowData?.jettySize === 'number' ? arrowData.jettySize : 20) : 20}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                if (!isNaN(val) && isArrowSelected && firstExpr) {
+                  updateArrowData(firstExpr.id, { jettySize: Math.max(0, Math.min(200, val)) });
+                }
+              }}
+              style={{ width: 50, marginLeft: 4, padding: '2px 4px', fontSize: 12 }}
+            />
+          </label>
         </div>
       )}
     </div>
