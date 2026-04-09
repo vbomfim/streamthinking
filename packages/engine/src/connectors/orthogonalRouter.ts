@@ -1,41 +1,41 @@
 /**
- * Orthogonal (right-angle) routing for arrow connectors.
+ * Orthogonal (right-angle) routing for arrow connectors — draw.io style.
  *
- * Computes a path between two points using only horizontal and vertical
- * segments. Every route begins with an **exit stub** (a short segment
- * that clears the source shape) and ends with an **entry stub** (a short
- * segment that clears the target shape). Between the stubs, segments
- * are placed outside both shapes' bounding boxes.
+ * Simple, predictable routing:
+ * 1. Exit perpendicular from the source shape edge by a fixed stub
+ * 2. Connect stubs with 0–2 right-angle segments
+ * 3. Enter the target shape edge perpendicular
+ *
+ * Produces 4–6 waypoints. Never routes through shape bounds.
+ * Five internal functions — no complex path-finding.
  *
  * [CLEAN-CODE] [SRP]
  * @module
  */
 
-/** Padding in world units to keep routes clear of shapes. */
-const ROUTE_PADDING = 20;
+/** Default exit/entry stub length in world units. */
+const DEFAULT_PADDING = 20;
 
-/** Horizontal or vertical exit direction derived from an anchor. */
-type ExitDirection = 'up' | 'down' | 'left' | 'right';
+/** Unit direction vector. */
+interface Dir { dx: number; dy: number }
 
-/** Bounding rectangle for shape-avoidance checks. */
+/** Bounding rectangle for shape-avoidance. */
 type Rect = { x: number; y: number; width: number; height: number };
+
+// ── 1. Public entry point ────────────────────────────────────
 
 /**
  * Compute an orthogonal route between two points.
  *
- * Returns an array of [x, y] waypoints where every consecutive pair
- * forms a horizontal or vertical segment. The route starts at `start`
- * and ends at `end`.
+ * Returns [x, y] waypoints forming only horizontal/vertical segments.
  *
- * Anchor strings control the exit direction from each endpoint:
- * - 'top' → exit upward (vertical)
- * - 'bottom' → exit downward (vertical)
- * - 'left' → exit leftward (horizontal)
- * - 'right' → exit rightward (horizontal)
- * - Corner anchors infer direction from the primary axis.
- * - Without anchors, a heuristic chooses the direction.
- *
- * [CLEAN-CODE] [SRP]
+ * @param start       Connection point on shape A edge
+ * @param end         Connection point on shape B edge
+ * @param startAnchor Anchor: top | bottom | left | right | corners
+ * @param endAnchor   Anchor for the target shape
+ * @param startBounds Bounding rect of shape A
+ * @param endBounds   Bounding rect of shape B
+ * @param jettySize   Exit/entry stub length (default: 20)
  */
 export function computeOrthogonalRoute(
   start: { x: number; y: number },
@@ -46,47 +46,183 @@ export function computeOrthogonalRoute(
   endBounds?: Rect,
   jettySize?: number,
 ): [number, number][] {
-  // Same point — return a degenerate route
   if (start.x === end.x && start.y === end.y) {
     return [[start.x, start.y], [end.x, end.y]];
   }
 
-  const startExit = resolveExitDirection(startAnchor, start, end);
-  const endEntry = resolveEntryDirection(endAnchor, end, start);
-  const padding = typeof jettySize === 'number' ? jettySize : ROUTE_PADDING;
+  const padding = typeof jettySize === 'number' ? jettySize : DEFAULT_PADDING;
+  const exitDir = resolveDirection(startAnchor, start, end);
+  const entryDir = resolveDirection(endAnchor, end, start);
 
-  return routeWithDirections(start, end, startExit, endEntry, padding, startBounds, endBounds);
+  // Compute exit/entry stubs — clear shape edges before turning
+  const exitStub: [number, number] = [
+    start.x + exitDir.dx * padding,
+    start.y + exitDir.dy * padding,
+  ];
+  const entryStub: [number, number] = [
+    end.x + entryDir.dx * padding,
+    end.y + entryDir.dy * padding,
+  ];
+
+  // Connect the two stubs with orthogonal segments
+  const middle = connectStubs(
+    exitStub, entryStub, exitDir, entryDir,
+    startBounds, endBounds, padding,
+  );
+
+  return [
+    [start.x, start.y],
+    exitStub,
+    ...middle,
+    entryStub,
+    [end.x, end.y],
+  ];
 }
 
-// ── Stub computation ─────────────────────────────────────────
+// ── 2. Direction resolution ──────────────────────────────────
 
 /**
- * Compute the stub endpoint — a point `padding` pixels from the
- * shape edge in the given direction.
+ * Resolve anchor name → unit direction vector.
  *
- * The stub ensures the first/last segment of the route clears the
- * connected shape before turning.
+ * Direct mapping: top→up, bottom→down, left→left, right→right.
+ * Corner anchors use horizontal component (top-right → right).
+ * No anchor: infer toward target on the longer axis.
  */
-function computeStubPoint(
-  point: { x: number; y: number },
-  direction: ExitDirection,
-  padding: number,
-): [number, number] {
-  switch (direction) {
-    case 'right': return [point.x + padding, point.y];
-    case 'left':  return [point.x - padding, point.y];
-    case 'down':  return [point.x, point.y + padding];
-    case 'up':    return [point.x, point.y - padding];
+function resolveDirection(
+  anchor: string | undefined,
+  from: { x: number; y: number },
+  to: { x: number; y: number },
+): Dir {
+  if (anchor) {
+    switch (anchor) {
+      case 'top':          return { dx:  0, dy: -1 };
+      case 'bottom':       return { dx:  0, dy:  1 };
+      case 'left':         return { dx: -1, dy:  0 };
+      case 'right':        return { dx:  1, dy:  0 };
+      case 'top-right':    return { dx:  1, dy:  0 };
+      case 'top-left':     return { dx: -1, dy:  0 };
+      case 'bottom-right': return { dx:  1, dy:  0 };
+      case 'bottom-left':  return { dx: -1, dy:  0 };
+    }
   }
+  const deltaX = to.x - from.x;
+  const deltaY = to.y - from.y;
+  if (Math.abs(deltaX) >= Math.abs(deltaY)) {
+    return deltaX >= 0 ? { dx: 1, dy: 0 } : { dx: -1, dy: 0 };
+  }
+  return deltaY >= 0 ? { dx: 0, dy: 1 } : { dx: 0, dy: -1 };
 }
 
-// ── Segment–rect crossing ────────────────────────────────────
+// ── 3. Stub connection ───────────────────────────────────────
+
+/**
+ * Connect two stub endpoints with 0–2 orthogonal segments.
+ *
+ * Cases:
+ * - **Aligned**: stubs share x or y → direct, no middle points
+ * - **Cross-axis** (H↔V): L-shape corner, fallback to C-shape
+ * - **Same-axis, normal flow**: Z-shape with adjustable midpoint
+ * - **Same-axis, opposing**: C-shape detour around shapes
+ */
+function connectStubs(
+  exit: [number, number],
+  entry: [number, number],
+  exitDir: Dir,
+  entryDir: Dir,
+  sBounds?: Rect,
+  eBounds?: Rect,
+  padding: number = DEFAULT_PADDING,
+): [number, number][] {
+  // Stubs already aligned — direct connection
+  if (exit[0] === entry[0] || exit[1] === entry[1]) return [];
+
+  const exitH = exitDir.dx !== 0;
+  const entryH = entryDir.dx !== 0;
+
+  // ── Cross-axis: L-shape ──
+  if (exitH !== entryH) {
+    // Natural corner: continue exit direction, turn to entry
+    const corner: [number, number] = exitH
+      ? [entry[0], exit[1]]
+      : [exit[0], entry[1]];
+
+    if (!segmentCrossesRect(exit, corner, sBounds) &&
+        !segmentCrossesRect(exit, corner, eBounds) &&
+        !segmentCrossesRect(corner, entry, sBounds) &&
+        !segmentCrossesRect(corner, entry, eBounds)) {
+      return [corner];
+    }
+
+    // Alt corner: turn first, then approach entry
+    const alt: [number, number] = exitH
+      ? [exit[0], entry[1]]
+      : [entry[0], exit[1]];
+
+    if (!segmentCrossesRect(exit, alt, sBounds) &&
+        !segmentCrossesRect(exit, alt, eBounds) &&
+        !segmentCrossesRect(alt, entry, sBounds) &&
+        !segmentCrossesRect(alt, entry, eBounds)) {
+      return [alt];
+    }
+
+    // Both corners blocked → C-shape detour
+    const cl = computeClearance(!exitH, sBounds, eBounds, exit, entry, padding);
+    return exitH
+      ? [[exit[0], cl], [entry[0], cl]]
+      : [[cl, exit[1]], [cl, entry[1]]];
+  }
+
+  // ── Same axis ──
+  const forward = exitH ? exitDir.dx : exitDir.dy;
+  const diff = exitH ? entry[0] - exit[0] : entry[1] - exit[1];
+  const normalFlow = (forward > 0 && diff > 0) || (forward < 0 && diff < 0);
+
+  if (normalFlow) {
+    // Z-shape: place a mid-segment between the stubs
+    if (exitH) {
+      let midX = (exit[0] + entry[0]) / 2;
+      // Push midX out of any blocking shape
+      const lo = Math.min(exit[1], entry[1]);
+      const hi = Math.max(exit[1], entry[1]);
+      for (const b of [sBounds, eBounds]) {
+        if (b && midX > b.x && midX < b.x + b.width &&
+            hi > b.y && lo < b.y + b.height) {
+          const r = b.x + b.width + padding;
+          const l = b.x - padding;
+          midX = Math.abs(r - midX) <= Math.abs(l - midX) ? r : l;
+        }
+      }
+      return [[midX, exit[1]], [midX, entry[1]]];
+    }
+
+    let midY = (exit[1] + entry[1]) / 2;
+    const lo = Math.min(exit[0], entry[0]);
+    const hi = Math.max(exit[0], entry[0]);
+    for (const b of [sBounds, eBounds]) {
+      if (b && midY > b.y && midY < b.y + b.height &&
+          hi > b.x && lo < b.x + b.width) {
+        const d = b.y + b.height + padding;
+        const u = b.y - padding;
+        midY = Math.abs(d - midY) <= Math.abs(u - midY) ? d : u;
+      }
+    }
+    return [[exit[0], midY], [entry[0], midY]];
+  }
+
+  // Opposing flow → C-shape detour
+  if (exitH) {
+    const clY = computeClearance(false, sBounds, eBounds, exit, entry, padding);
+    return [[exit[0], clY], [entry[0], clY]];
+  }
+  const clX = computeClearance(true, sBounds, eBounds, exit, entry, padding);
+  return [[clX, exit[1]], [clX, entry[1]]];
+}
+
+// ── 4. Segment–rect crossing ─────────────────────────────────
 
 /**
  * Check whether an orthogonal segment crosses strictly through a rect.
- *
- * Uses strict inequalities so segments along a shape edge (where
- * connection points sit) are not flagged as crossings.
+ * Uses strict inequalities — segments along shape edges don't trigger.
  */
 function segmentCrossesRect(
   p1: [number, number],
@@ -94,423 +230,55 @@ function segmentCrossesRect(
   rect?: Rect,
 ): boolean {
   if (!rect) return false;
-
   const [x1, y1] = p1;
   const [x2, y2] = p2;
 
-  // Horizontal segment
   if (y1 === y2) {
     const minX = Math.min(x1, x2);
     const maxX = Math.max(x1, x2);
-    return (
-      y1 > rect.y && y1 < rect.y + rect.height &&
-      maxX > rect.x && minX < rect.x + rect.width
-    );
+    return y1 > rect.y && y1 < rect.y + rect.height &&
+           maxX > rect.x && minX < rect.x + rect.width;
   }
-
-  // Vertical segment
   if (x1 === x2) {
     const minY = Math.min(y1, y2);
     const maxY = Math.max(y1, y2);
-    return (
-      x1 > rect.x && x1 < rect.x + rect.width &&
-      maxY > rect.y && minY < rect.y + rect.height
-    );
+    return x1 > rect.x && x1 < rect.x + rect.width &&
+           maxY > rect.y && minY < rect.y + rect.height;
   }
-
   return false;
 }
 
-// ── Core routing with stubs ──────────────────────────────────
+// ── 5. Clearance computation ─────────────────────────────────
 
 /**
- * Route between two points given explicit exit and entry directions.
- *
- * 1. Compute exit stub (clears source shape).
- * 2. Compute entry stub (clears target shape).
- * 3. Connect stubs based on exit/entry direction combination.
- * 4. Return: [start, exitStub, ...middle, entryStub, end].
- *
- * [CLEAN-CODE] [SRP]
- */
-function routeWithDirections(
-  start: { x: number; y: number },
-  end: { x: number; y: number },
-  startExit: ExitDirection,
-  endEntry: ExitDirection,
-  padding: number,
-  startBounds?: Rect,
-  endBounds?: Rect,
-): [number, number][] {
-  const exitStub = computeStubPoint(start, startExit, padding);
-  const entryStub = computeStubPoint(end, endEntry, padding);
-
-  const isExitH = startExit === 'left' || startExit === 'right';
-  const isEntryH = endEntry === 'left' || endEntry === 'right';
-
-  let middlePoints: [number, number][];
-
-  // Stubs already aligned on same axis — no middle needed
-  if (exitStub[0] === entryStub[0] || exitStub[1] === entryStub[1]) {
-    middlePoints = [];
-  } else if (isExitH !== isEntryH) {
-    // Cross-axis: L-shape between stubs (with fallback)
-    middlePoints = connectCrossAxis(
-      exitStub, entryStub, startExit, startBounds, endBounds, padding,
-    );
-  } else if (isExitH) {
-    // Same-axis horizontal: Z-shape with vertical middle
-    middlePoints = connectSameAxisH(
-      exitStub, entryStub, startExit, startBounds, endBounds, padding,
-    );
-  } else {
-    // Same-axis vertical: Z-shape with horizontal middle
-    middlePoints = connectSameAxisV(
-      exitStub, entryStub, startExit, startBounds, endBounds, padding,
-    );
-  }
-
-  return [
-    [start.x, start.y],
-    exitStub,
-    ...middlePoints,
-    entryStub,
-    [end.x, end.y],
-  ];
-}
-
-// ── Cross-axis (L-shape) ─────────────────────────────────────
-
-/**
- * Connect exit and entry stubs that are on different axes.
- *
- * Tries the natural L-shape corner first (continue in exit direction,
- * then turn toward entry). If that corner segment crosses a shape,
- * tries the alternative corner. Falls back to a C-shape detour.
- *
- * [CLEAN-CODE] [SRP]
- */
-function connectCrossAxis(
-  exitStub: [number, number],
-  entryStub: [number, number],
-  startExit: ExitDirection,
-  startBounds?: Rect,
-  endBounds?: Rect,
-  padding: number = ROUTE_PADDING,
-): [number, number][] {
-  const isExitH = startExit === 'left' || startExit === 'right';
-
-  // Natural corner: continue exit direction, then turn to entry
-  const corner: [number, number] = isExitH
-    ? [entryStub[0], exitStub[1]]
-    : [exitStub[0], entryStub[1]];
-
-  if (
-    !segmentCrossesRect(exitStub, corner, endBounds) &&
-    !segmentCrossesRect(exitStub, corner, startBounds) &&
-    !segmentCrossesRect(corner, entryStub, startBounds) &&
-    !segmentCrossesRect(corner, entryStub, endBounds)
-  ) {
-    return [corner];
-  }
-
-  // Alternative corner: turn first, then go toward entry
-  const altCorner: [number, number] = isExitH
-    ? [exitStub[0], entryStub[1]]
-    : [entryStub[0], exitStub[1]];
-
-  if (
-    !segmentCrossesRect(exitStub, altCorner, endBounds) &&
-    !segmentCrossesRect(exitStub, altCorner, startBounds) &&
-    !segmentCrossesRect(altCorner, entryStub, startBounds) &&
-    !segmentCrossesRect(altCorner, entryStub, endBounds)
-  ) {
-    return [altCorner];
-  }
-
-  // Both corners cross — C-shape detour around both shapes
-  return detourAroundBoth(exitStub, entryStub, isExitH, startBounds, endBounds, padding);
-}
-
-// ── Same-axis horizontal (Z-shape) ──────────────────────────
-
-/**
- * Connect two horizontal stubs with a Z-shape (vertical middle).
- *
- * Normal flow (stubs face each other): vertical middle between stubs.
- * Opposite flow (stubs face away): C-shape around both shapes.
- *
- * [CLEAN-CODE] [SRP]
- */
-function connectSameAxisH(
-  exitStub: [number, number],
-  entryStub: [number, number],
-  startExit: ExitDirection,
-  startBounds?: Rect,
-  endBounds?: Rect,
-  padding: number = ROUTE_PADDING,
-): [number, number][] {
-  const goingRight = startExit === 'right';
-  const normalFlow = goingRight
-    ? entryStub[0] > exitStub[0]
-    : entryStub[0] < exitStub[0];
-
-  if (normalFlow) {
-    // Z-shape: vertical mid between stubs
-    let midX = (exitStub[0] + entryStub[0]) / 2;
-    midX = adjustMidToAvoidBounds(
-      midX, exitStub[1], entryStub[1], true, startBounds, endBounds, padding,
-    );
-    return [[midX, exitStub[1]], [midX, entryStub[1]]];
-  }
-
-  // Opposite direction — C-shape detour
-  const clearanceY = computeClearance(
-    false, startBounds, endBounds, exitStub, entryStub, padding,
-  );
-  return [
-    [exitStub[0], clearanceY],
-    [entryStub[0], clearanceY],
-  ];
-}
-
-// ── Same-axis vertical (Z-shape) ────────────────────────────
-
-/**
- * Connect two vertical stubs with a Z-shape (horizontal middle).
- *
- * Normal flow (stubs face each other): horizontal middle between stubs.
- * Opposite flow (stubs face away): C-shape around both shapes.
- *
- * [CLEAN-CODE] [SRP]
- */
-function connectSameAxisV(
-  exitStub: [number, number],
-  entryStub: [number, number],
-  startExit: ExitDirection,
-  startBounds?: Rect,
-  endBounds?: Rect,
-  padding: number = ROUTE_PADDING,
-): [number, number][] {
-  const goingDown = startExit === 'down';
-  const normalFlow = goingDown
-    ? entryStub[1] > exitStub[1]
-    : entryStub[1] < exitStub[1];
-
-  if (normalFlow) {
-    // Z-shape: horizontal mid between stubs
-    let midY = (exitStub[1] + entryStub[1]) / 2;
-    midY = adjustMidToAvoidBounds(
-      midY, exitStub[0], entryStub[0], false, startBounds, endBounds, padding,
-    );
-    return [[exitStub[0], midY], [entryStub[0], midY]];
-  }
-
-  // Opposite direction — C-shape detour
-  const clearanceX = computeClearance(
-    true, startBounds, endBounds, exitStub, entryStub, padding,
-  );
-  return [
-    [clearanceX, exitStub[1]],
-    [clearanceX, entryStub[1]],
-  ];
-}
-
-// ── Shared helpers ───────────────────────────────────────────
-
-/**
- * Adjust a midpoint value so the segment at that position does not
- * cross through either shape.
- *
- * @param mid        The proposed midpoint (x for vertical, y for horizontal).
- * @param stubA      The other coordinate of the first stub.
- * @param stubB      The other coordinate of the second stub.
- * @param isVertical True if the segment at `mid` is vertical (adjusting X).
- * @param sBounds    Source shape bounds.
- * @param eBounds    Target shape bounds.
- * @param padding    Clearance distance.
- */
-function adjustMidToAvoidBounds(
-  mid: number,
-  stubA: number,
-  stubB: number,
-  isVertical: boolean,
-  sBounds?: Rect,
-  eBounds?: Rect,
-  padding: number = ROUTE_PADDING,
-): number {
-  const lo = Math.min(stubA, stubB);
-  const hi = Math.max(stubA, stubB);
-
-  for (const b of [sBounds, eBounds]) {
-    if (!b) continue;
-
-    if (isVertical) {
-      // The segment is vertical at x = mid, spanning lo..hi in Y.
-      // It crosses rect if mid is inside rect's x-range AND y ranges overlap.
-      if (mid > b.x && mid < b.x + b.width && hi > b.y && lo < b.y + b.height) {
-        // Push mid outside the rect
-        const pushRight = b.x + b.width + padding;
-        const pushLeft = b.x - padding;
-        mid = (Math.abs(pushRight - mid) <= Math.abs(pushLeft - mid))
-          ? pushRight
-          : pushLeft;
-      }
-    } else {
-      // The segment is horizontal at y = mid, spanning lo..hi in X.
-      if (mid > b.y && mid < b.y + b.height && hi > b.x && lo < b.x + b.width) {
-        const pushDown = b.y + b.height + padding;
-        const pushUp = b.y - padding;
-        mid = (Math.abs(pushDown - mid) <= Math.abs(pushUp - mid))
-          ? pushDown
-          : pushUp;
-      }
-    }
-  }
-
-  return mid;
-}
-
-/**
- * Compute a clearance coordinate for C-shape detour routing.
- *
- * Returns an x (if `isXAxis`) or y coordinate that is outside
- * both shapes' extents, choosing the shorter path.
+ * Compute a clearance coordinate outside both shapes for C-shape detours.
+ * Returns an x (if isXAxis) or y that clears all shape extents.
  */
 function computeClearance(
   isXAxis: boolean,
   sBounds?: Rect,
   eBounds?: Rect,
-  exitStub: [number, number] = [0, 0],
-  entryStub: [number, number] = [0, 0],
-  padding: number = ROUTE_PADDING,
+  exit: [number, number] = [0, 0],
+  entry: [number, number] = [0, 0],
+  padding: number = DEFAULT_PADDING,
 ): number {
-  const allBounds = [sBounds, eBounds].filter(Boolean) as Rect[];
+  const all = [sBounds, eBounds].filter(Boolean) as Rect[];
 
-  if (allBounds.length === 0) {
-    // No bounds — use midpoint of stubs
+  if (all.length === 0) {
     return isXAxis
-      ? (exitStub[0] + entryStub[0]) / 2
-      : (exitStub[1] + entryStub[1]) / 2;
+      ? (exit[0] + entry[0]) / 2
+      : (exit[1] + entry[1]) / 2;
   }
 
   if (isXAxis) {
-    const leftEdge = Math.min(...allBounds.map(b => b.x)) - padding;
-    const rightEdge = Math.max(...allBounds.map(b => b.x + b.width)) + padding;
-    const avgStubX = (exitStub[0] + entryStub[0]) / 2;
-    return Math.abs(avgStubX - leftEdge) < Math.abs(avgStubX - rightEdge)
-      ? leftEdge
-      : rightEdge;
-  } else {
-    const topEdge = Math.min(...allBounds.map(b => b.y)) - padding;
-    const bottomEdge = Math.max(...allBounds.map(b => b.y + b.height)) + padding;
-    const avgStubY = (exitStub[1] + entryStub[1]) / 2;
-    return Math.abs(avgStubY - topEdge) < Math.abs(avgStubY - bottomEdge)
-      ? topEdge
-      : bottomEdge;
+    const lo = Math.min(...all.map(b => b.x)) - padding;
+    const hi = Math.max(...all.map(b => b.x + b.width)) + padding;
+    const avg = (exit[0] + entry[0]) / 2;
+    return Math.abs(avg - lo) < Math.abs(avg - hi) ? lo : hi;
   }
-}
 
-/**
- * C-shape detour that routes around both shapes.
- *
- * Used when neither L-shape corner is safe for cross-axis routing.
- * Goes perpendicular to exit direction to clear both shapes, then
- * approaches the entry stub.
- */
-function detourAroundBoth(
-  exitStub: [number, number],
-  entryStub: [number, number],
-  isExitH: boolean,
-  startBounds?: Rect,
-  endBounds?: Rect,
-  padding: number = ROUTE_PADDING,
-): [number, number][] {
-  if (isExitH) {
-    // Exit horizontal → detour vertically around both shapes
-    const clearanceY = computeClearance(
-      false, startBounds, endBounds, exitStub, entryStub, padding,
-    );
-    return [
-      [exitStub[0], clearanceY],
-      [entryStub[0], clearanceY],
-    ];
-  } else {
-    // Exit vertical → detour horizontally around both shapes
-    const clearanceX = computeClearance(
-      true, startBounds, endBounds, exitStub, entryStub, padding,
-    );
-    return [
-      [clearanceX, exitStub[1]],
-      [clearanceX, entryStub[1]],
-    ];
-  }
-}
-
-// ── Direction resolution ─────────────────────────────────────
-
-/**
- * Resolve the exit direction from an anchor name.
- *
- * Falls back to a heuristic based on the relative position
- * of start and end points when no anchor is provided.
- */
-function resolveExitDirection(
-  anchor: string | undefined,
-  start: { x: number; y: number },
-  end: { x: number; y: number },
-): ExitDirection {
-  if (anchor) {
-    const dir = anchorToDirection(anchor);
-    if (dir) return dir;
-  }
-  // Heuristic: exit toward the target, preferring the longer axis
-  return inferDirection(start, end);
-}
-
-/**
- * Resolve the entry direction for the end point.
- *
- * The entry direction is the opposite of how we approach the end point.
- */
-function resolveEntryDirection(
-  anchor: string | undefined,
-  end: { x: number; y: number },
-  start: { x: number; y: number },
-): ExitDirection {
-  if (anchor) {
-    const dir = anchorToDirection(anchor);
-    if (dir) return dir;
-  }
-  return inferDirection(end, start);
-}
-
-/** Map anchor name to exit direction. Returns null for unknown anchors. */
-function anchorToDirection(anchor: string): ExitDirection | null {
-  switch (anchor) {
-    case 'top': return 'up';
-    case 'bottom': return 'down';
-    case 'left': return 'left';
-    case 'right': return 'right';
-    // Corner anchors — infer from the secondary direction
-    case 'top-right': return 'right';
-    case 'top-left': return 'left';
-    case 'bottom-right': return 'right';
-    case 'bottom-left': return 'left';
-    default: return null;
-  }
-}
-
-/** Infer direction from relative position, preferring the longer axis. */
-function inferDirection(
-  from: { x: number; y: number },
-  to: { x: number; y: number },
-): ExitDirection {
-  const dx = to.x - from.x;
-  const dy = to.y - from.y;
-
-  if (Math.abs(dx) >= Math.abs(dy)) {
-    return dx >= 0 ? 'right' : 'left';
-  }
-  return dy >= 0 ? 'down' : 'up';
+  const lo = Math.min(...all.map(b => b.y)) - padding;
+  const hi = Math.max(...all.map(b => b.y + b.height)) + padding;
+  const avg = (exit[1] + entry[1]) / 2;
+  return Math.abs(avg - lo) < Math.abs(avg - hi) ? lo : hi;
 }
