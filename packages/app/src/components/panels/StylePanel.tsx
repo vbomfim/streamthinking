@@ -285,10 +285,6 @@ export function StylePanel() {
   const currentCurved = isArrowSelected ? (arrowData?.curved ?? false) : false;
   const currentRounded = isArrowSelected ? (arrowData?.rounded ?? false) : false;
 
-  // Current jettySize — resolve 'auto' and undefined to default 20
-  const rawJettySize = isArrowSelected ? arrowData?.jettySize : undefined;
-  const currentJettySize = typeof rawJettySize === 'number' ? rawJettySize : 20;
-
   function handleArrowheadChange(end: 'start' | 'end', type: string) {
     if (isArrowDrawingMode) {
       // Drawing mode: update defaults
@@ -316,14 +312,6 @@ export function StylePanel() {
   function handleEdgeToggle(prop: 'curved' | 'rounded', value: boolean) {
     if (firstSelectedId && isArrowSelected) {
       updateArrowData(firstSelectedId, { [prop]: value });
-    }
-  }
-
-  function handleJettySizeChange(value: number) {
-    if (isArrowDrawingMode) {
-      setDefaultArrowStyle({ jettySize: value } as Record<string, unknown>);
-    } else if (firstSelectedId) {
-      updateArrowData(firstSelectedId, { jettySize: value });
     }
   }
 
@@ -572,21 +560,6 @@ export function StylePanel() {
                 </optgroup>
               ))}
             </select>
-          </Section>
-
-          {/* ── JettySize (spacing slider) ── */}
-          <Section label={`Spacing: ${currentJettySize}px`}>
-            <input
-              type="range"
-              data-testid="jetty-size-slider"
-              min={0}
-              max={100}
-              step={1}
-              value={currentJettySize}
-              aria-label="Connector spacing"
-              onChange={(e) => handleJettySizeChange(parseInt(e.target.value))}
-              style={SLIDER_STYLE}
-            />
           </Section>
 
           {/* ── Edge Properties (only for selected arrows, not drawing mode) ── */}

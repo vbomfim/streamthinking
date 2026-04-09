@@ -9,6 +9,7 @@
 
 import type { VisualExpression, ExpressionStyle } from '@infinicanvas/protocol';
 import type { Camera } from '../types/index.js';
+import { describe, it, expect, vi } from 'vitest';
 import { renderSelection } from '../renderer/selectionRenderer.js';
 
 // ── Mock canvas context ──────────────────────────────────────
@@ -23,6 +24,8 @@ function createMockCtx() {
     beginPath: vi.fn(() => calls.push({ method: 'beginPath', args: [] })),
     rect: vi.fn((...args: number[]) => calls.push({ method: 'rect', args })),
     stroke: vi.fn(() => calls.push({ method: 'stroke', args: [] })),
+    fill: vi.fn(() => calls.push({ method: 'fill', args: [] })),
+    arc: vi.fn((...args: number[]) => calls.push({ method: 'arc', args })),
     fillRect: vi.fn((...args: number[]) => calls.push({ method: 'fillRect', args })),
     strokeRect: vi.fn((...args: number[]) => calls.push({ method: 'strokeRect', args })),
     setLineDash: vi.fn((pattern: number[]) => calls.push({ method: 'setLineDash', args: [pattern] })),
@@ -64,6 +67,38 @@ function makeRect(id: string, x: number, y: number, w: number, h: number): Visua
     style: DEFAULT_STYLE,
     meta: DEFAULT_META,
     data: { kind: 'rectangle' },
+  };
+}
+
+function makeArrow(
+  id: string,
+  points: [number, number][],
+  opts?: { routing?: string; jettySize?: number; startBinding?: { expressionId: string; anchor: string } },
+): VisualExpression {
+  const p0 = points[0] ?? [0, 0];
+  const pN = points[points.length - 1] ?? p0;
+  const minX = Math.min(p0[0], pN[0]);
+  const minY = Math.min(p0[1], pN[1]);
+  const maxX = Math.max(p0[0], pN[0]);
+  const maxY = Math.max(p0[1], pN[1]);
+
+  return {
+    id,
+    kind: 'arrow',
+    position: { x: minX, y: minY },
+    size: { width: Math.max(maxX - minX, 1), height: Math.max(maxY - minY, 1) },
+    angle: 0,
+    style: DEFAULT_STYLE,
+    meta: DEFAULT_META,
+    data: {
+      kind: 'arrow',
+      points,
+      routing: opts?.routing,
+      jettySize: opts?.jettySize,
+      startBinding: opts?.startBinding
+        ? { expressionId: opts.startBinding.expressionId, anchor: opts.startBinding.anchor }
+        : undefined,
+    },
   };
 }
 
@@ -216,5 +251,58 @@ describe('renderSelection', () => {
       expect(w).toBe(4);
       expect(h).toBe(4);
     }
+  });
+
+  // ── Jetty handle rendering ─────────────────────────────────
+
+  it('renders jetty handle for routed arrow with binding', () => {
+    const ctx = createMockCtx();
+    const arrow = makeArrow('a1', [[100, 200], [400, 200]], {
+      routing: 'orthogonal',
+      startBinding: { expressionId: 'shape1', anchor: 'right' },
+    });
+    const expressions: Record<string, VisualExpression> = { a1: arrow };
+
+    renderSelection(ctx, new Set(['a1']), expressions, identityCamera);
+
+    // Should have arc calls: 2 for point handles (start + end) + 1 for jetty handle
+    const arcCalls = ctx._calls.filter((c) => c.method === 'arc');
+    expect(arcCalls.length).toBe(3);
+
+    // The jetty handle should be at (110, 200) — midpoint of 20px right stub
+    const jettyArc = arcCalls[2];
+    expect(jettyArc!.args[0]).toBeCloseTo(110, 0); // x
+    expect(jettyArc!.args[1]).toBeCloseTo(200, 0); // y
+  });
+
+  it('does NOT render jetty handle for arrow without routing', () => {
+    const ctx = createMockCtx();
+    const arrow = makeArrow('a1', [[100, 200], [400, 200]]);
+    // No routing → no jetty handle
+    const expressions: Record<string, VisualExpression> = { a1: arrow };
+
+    renderSelection(ctx, new Set(['a1']), expressions, identityCamera);
+
+    // Only 2 arc calls for point handles (start + end), no jetty
+    const arcCalls = ctx._calls.filter((c) => c.method === 'arc');
+    expect(arcCalls.length).toBe(2);
+  });
+
+  it('renders jetty handle with accent fill color', () => {
+    const ctx = createMockCtx();
+    const arrow = makeArrow('a1', [[100, 200], [400, 200]], {
+      routing: 'orthogonal',
+      startBinding: { expressionId: 'shape1', anchor: 'right' },
+    });
+    const expressions: Record<string, VisualExpression> = { a1: arrow };
+
+    renderSelection(ctx, new Set(['a1']), expressions, identityCamera);
+
+    // Track fillStyle assignments — the jetty handle should use accent color (#4A90D9)
+    // After the jetty handle renders, fillStyle remains #4A90D9
+    expect(ctx.fillStyle).toBe('#4A90D9');
+    // The fill calls: 2 white fills (point handles) + 1 accent fill (jetty)
+    const fillCalls = ctx._calls.filter((c) => c.method === 'fill');
+    expect(fillCalls.length).toBe(3);
   });
 });

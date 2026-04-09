@@ -18,6 +18,7 @@ import type { Camera } from '../types/index.js';
 import {
   isPointBasedKind,
   getPointHandlePositions,
+  getJettyHandlePosition,
 } from '../interaction/manipulationHelpers.js';
 import { isDraggingArrowEndpoint } from '../hooks/useManipulationInteraction.js';
 
@@ -79,6 +80,8 @@ export function renderSelection(
     if (isPointBasedKind(expr.kind)) {
       // ── Point-based shapes: only show endpoint circles, no bounding box ──
       renderPointHandles(ctx, expr, camera, halfHandle);
+      // ── Jetty handle for routed arrows ──
+      renderJettyHandle(ctx, expr, camera, halfHandle);
     } else {
       // ── Dashed bounding box + 8 resize handles ──────────────
       ctx.save();
@@ -134,6 +137,42 @@ function renderPointHandles(
     ctx.lineWidth = 1 / camera.zoom;
     ctx.stroke();
   }
+}
+
+/** Jetty handle accent color — distinct from white endpoint handles. */
+const JETTY_HANDLE_COLOR = '#4A90D9';
+
+/**
+ * Render a draggable jetty (stub length) handle on routed arrows.
+ *
+ * Draws a small filled circle at the midpoint of the exit stub.
+ * Only appears for routed arrows (orthogonal, ER, etc.).
+ * Filled with the accent color to distinguish from endpoint handles.
+ *
+ * [CLEAN-CODE] [SRP]
+ */
+function renderJettyHandle(
+  ctx: CanvasRenderingContext2D,
+  expr: VisualExpression,
+  camera: Camera,
+  radius: number,
+): void {
+  const handle = getJettyHandlePosition(expr);
+  if (!handle) return;
+
+  const { x, y } = handle.position;
+
+  ctx.beginPath();
+  ctx.arc(x, y, radius * 0.75, 0, Math.PI * 2);
+
+  // Accent-colored fill (distinct from white endpoint handles)
+  ctx.fillStyle = JETTY_HANDLE_COLOR;
+  ctx.fill();
+
+  // White border for contrast
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 1.5 / camera.zoom;
+  ctx.stroke();
 }
 
 /**

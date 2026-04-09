@@ -43,10 +43,27 @@ export interface PointHandleHit {
   expressionId: string;
 }
 
+/**
+ * Result of detecting a jetty (spacing) handle on a routed arrow.
+ *
+ * The handle appears at the midpoint of the exit stub and can be
+ * dragged along the stub direction to adjust `jettySize`.
+ */
+export interface JettyHandleHit {
+  expressionId: string;
+  /** Which end of the arrow this handle is near. */
+  end: 'start' | 'end';
+  /** World position of the handle. */
+  position: { x: number; y: number };
+  /** Unit direction vector of the stub (away from shape). */
+  direction: { x: number; y: number };
+}
+
 /** Result of detecting what the pointer is hovering over. */
 export type PointerTarget =
   | { kind: 'handle'; handle: HandleHit }
   | { kind: 'point-handle'; handle: PointHandleHit }
+  | { kind: 'jetty-handle'; handle: JettyHandleHit }
   | { kind: 'body'; expressionId: string }
   | { kind: 'none' };
 
@@ -187,10 +204,145 @@ export function detectPointHandle(
   return null;
 }
 
+// ── Jetty handle detection ──────────────────────────────────
+
+/** Default stub length when jettySize is not set. */
+const DEFAULT_JETTY_SIZE = 20;
+
+/** Routing modes that produce exit stubs where a jetty handle makes sense. */
+const JETTY_ROUTING_MODES = new Set(['orthogonal', 'er', 'isometric', 'elbow', 'curved']);
+
+/**
+ * Resolve the exit direction unit vector for a given anchor.
+ *
+ * Arrows exit perpendicular to the anchored edge. When no anchor is
+ * provided, infer direction from the delta between start and end.
+ *
+ * [CLEAN-CODE] [SRP]
+ */
+function resolveExitDirection(
+  anchor: string | undefined,
+  start: { x: number; y: number },
+  end: { x: number; y: number },
+): { x: number; y: number } {
+  switch (anchor) {
+    case 'right':
+      return { x: 1, y: 0 };
+    case 'left':
+      return { x: -1, y: 0 };
+    case 'bottom':
+      return { x: 0, y: 1 };
+    case 'top':
+      return { x: 0, y: -1 };
+    case 'top-right':
+      return { x: 1, y: 0 };
+    case 'bottom-right':
+      return { x: 1, y: 0 };
+    case 'top-left':
+      return { x: -1, y: 0 };
+    case 'bottom-left':
+      return { x: -1, y: 0 };
+    default: {
+      // Infer from delta — pick the dominant axis
+      const dx = end.x - start.x;
+      const dy = end.y - start.y;
+      if (Math.abs(dx) >= Math.abs(dy)) {
+        return { x: dx >= 0 ? 1 : -1, y: 0 };
+      }
+      return { x: 0, y: dy >= 0 ? 1 : -1 };
+    }
+  }
+}
+
+/**
+ * Compute the jetty (exit stub) handle position for a routed arrow.
+ *
+ * The handle sits at the midpoint of the start exit stub, which is a
+ * straight segment from the anchor point in the exit direction, with
+ * length equal to `jettySize`.
+ *
+ * Returns null for non-arrow expressions, straight arrows, or
+ * routing modes that don't produce stubs.
+ *
+ * [CLEAN-CODE] [SRP]
+ */
+export function getJettyHandlePosition(
+  expr: VisualExpression,
+): JettyHandleHit | null {
+  if (expr.data.kind !== 'arrow') return null;
+
+  const data = expr.data as {
+    kind: 'arrow';
+    points: [number, number][];
+    routing?: string;
+    jettySize?: number | 'auto';
+    startBinding?: { expressionId: string; anchor: string };
+    endBinding?: { expressionId: string; anchor: string };
+  };
+
+  if (!data.routing || !JETTY_ROUTING_MODES.has(data.routing)) return null;
+  if (data.points.length < 2) return null;
+
+  const startPt = { x: data.points[0]![0], y: data.points[0]![1] };
+  const endPt = {
+    x: data.points[data.points.length - 1]![0],
+    y: data.points[data.points.length - 1]![1],
+  };
+
+  const jettySize =
+    typeof data.jettySize === 'number' ? data.jettySize : DEFAULT_JETTY_SIZE;
+
+  const anchor = data.startBinding?.anchor;
+  const direction = resolveExitDirection(anchor, startPt, endPt);
+
+  return {
+    expressionId: expr.id,
+    end: 'start',
+    position: {
+      x: startPt.x + direction.x * (jettySize / 2),
+      y: startPt.y + direction.y * (jettySize / 2),
+    },
+    direction,
+  };
+}
+
+/**
+ * Detect whether the pointer is near a jetty handle on a selected arrow.
+ *
+ * Only checks selected, routed arrows. Returns the first hit within
+ * HANDLE_TOLERANCE_PX screen pixels.
+ *
+ * [CLEAN-CODE] [SRP]
+ */
+export function detectJettyHandle(
+  worldPoint: { x: number; y: number },
+  expressions: Record<string, VisualExpression>,
+  selectedIds: Set<string>,
+  camera: Camera,
+): JettyHandleHit | null {
+  const tolerance = HANDLE_TOLERANCE_PX / camera.zoom;
+
+  for (const id of selectedIds) {
+    const expr = expressions[id];
+    if (!expr) continue;
+
+    const handle = getJettyHandlePosition(expr);
+    if (!handle) continue;
+
+    const dx = worldPoint.x - handle.position.x;
+    const dy = worldPoint.y - handle.position.y;
+    if (Math.abs(dx) <= tolerance && Math.abs(dy) <= tolerance) {
+      return handle;
+    }
+  }
+
+  return null;
+}
+
 /**
  * Detect what the pointer is targeting: a handle, a shape body, or nothing.
  *
- * Priority: point handles (for point-based shapes) → bbox handles → body.
+ * Priority: point handles → jetty handles → bbox handles → body.
  * Point-based shapes (line, arrow, freehand) use point handles instead
  * of the 8 bounding-box handles.
  */
@@ -204,6 +356,12 @@ export function detectPointerTarget(
   const pointHandle = detectPointHandle(worldPoint, expressions, selectedIds, camera);
   if (pointHandle) {
     return { kind: 'point-handle', handle: pointHandle };
+  }
+
+  // Check jetty handles (for routed arrows with exit stubs)
+  const jettyHandle = detectJettyHandle(worldPoint, expressions, selectedIds, camera);
+  if (jettyHandle) {
+    return { kind: 'jetty-handle', handle: jettyHandle };
   }
 
   // Check bbox handles (only for non-point-based shapes)
@@ -254,6 +412,13 @@ export function getCursorForTarget(target: PointerTarget): string {
       return HANDLE_CURSORS[target.handle.type];
     case 'point-handle':
       return 'crosshair';
+    case 'jetty-handle': {
+      // Horizontal stub → ew-resize, vertical stub → ns-resize
+      const { direction } = target.handle;
+      return Math.abs(direction.x) >= Math.abs(direction.y)
+        ? 'ew-resize'
+        : 'ns-resize';
+    }
     case 'body':
       return 'move';
     case 'none':

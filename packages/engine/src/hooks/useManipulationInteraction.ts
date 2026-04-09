@@ -32,7 +32,7 @@ import {
   getCursorForTarget,
   isPointBasedKind,
 } from '../interaction/manipulationHelpers.js';
-import type { HandleHit, PointHandleHit } from '../interaction/manipulationHelpers.js';
+import type { HandleHit, PointHandleHit, JettyHandleHit } from '../interaction/manipulationHelpers.js';
 import { computeSnappedDelta } from '../utils/snapToGrid.js';
 
 export interface ManipulationInteraction {
@@ -69,6 +69,15 @@ type DragMode =
       /** Original expression bounds before drag. */
       originalPosition: { x: number; y: number };
       originalSize: { width: number; height: number };
+      /** World position where drag started. */
+      startWorld: { x: number; y: number };
+    }
+  | {
+      kind: 'jetty-drag';
+      /** Jetty handle being dragged. */
+      handle: JettyHandleHit;
+      /** Original jettySize before drag started. */
+      originalJettySize: number;
       /** World position where drag started. */
       startWorld: { x: number; y: number };
     };
@@ -122,6 +131,20 @@ export function useManipulationInteraction(
         isDraggingArrowEndpoint = true;
         currentDragSnapPoint = null;
       }
+    } else if (target.kind === 'jetty-handle') {
+      const expr = expressions[target.handle.expressionId];
+      if (!expr || expr.meta.locked) return; // AC8: locked guard
+
+      const data = expr.data as ArrowData;
+      const originalJettySize =
+        typeof data.jettySize === 'number' ? data.jettySize : 20;
+
+      dragModeRef.current = {
+        kind: 'jetty-drag',
+        handle: target.handle,
+        originalJettySize,
+        startWorld: worldPoint,
+      };
     } else if (target.kind === 'handle') {
       const expr = expressions[target.handle.expressionId];
       if (!expr || expr.meta.locked) return; // AC8: locked guard
@@ -321,6 +344,21 @@ export function useManipulationInteraction(
           expr.size = result.size;
         }
       });
+    } else if (drag.kind === 'jetty-drag') {
+      // ── Transient jetty-size drag preview ─────────────────
+      // Compute new jettySize based on drag distance along stub direction
+      const dx = worldPoint.x - drag.startWorld.x;
+      const dy = worldPoint.y - drag.startWorld.y;
+      const dotProduct =
+        dx * drag.handle.direction.x + dy * drag.handle.direction.y;
+      const newJettySize = Math.max(0, Math.min(200, drag.originalJettySize + dotProduct));
+
+      useCanvasStore.setState((draft) => {
+        const expr = draft.expressions[drag.handle.expressionId];
+        if (expr && expr.data.kind === 'arrow') {
+          (expr.data as ArrowData).jettySize = Math.round(newJettySize);
+        }
+      });
     } else {
       // ── Hover cursor feedback (AC10) ────────────────────
       const target = detectPointerTarget(worldPoint, expressions, selectedIds, camera);
@@ -440,6 +478,24 @@ export function useManipulationInteraction(
             data: updatedData as unknown as VisualExpression['data'],
             position: result.position,
             size: result.size,
+          });
+        }
+      }
+    } else if (drag.kind === 'jetty-drag') {
+      // ── Commit jettySize change ───────────────────────────
+      const dx = worldPoint.x - drag.startWorld.x;
+      const dy = worldPoint.y - drag.startWorld.y;
+      const dotProduct =
+        dx * drag.handle.direction.x + dy * drag.handle.direction.y;
+      const newJettySize = Math.round(
+        Math.max(0, Math.min(200, drag.originalJettySize + dotProduct)),
+      );
+
+      if (newJettySize !== drag.originalJettySize) {
+        const expr = state.expressions[drag.handle.expressionId];
+        if (expr && expr.data.kind === 'arrow') {
+          state.updateExpression(drag.handle.expressionId, {
+            data: { ...expr.data, jettySize: newJettySize } as unknown as VisualExpression['data'],
           });
         }
       }

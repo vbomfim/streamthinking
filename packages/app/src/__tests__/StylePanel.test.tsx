@@ -421,38 +421,6 @@ describe('StylePanel — connector controls', () => {
     expect(data?.startArrowhead).toBe('diamond');
   });
 
-  // ── JettySize slider ──
-
-  it('renders jettySize slider when arrow is selected', () => {
-    setupWithArrow();
-    const { container } = render(<StylePanel />);
-    const slider = container.querySelector('[data-testid="jetty-size-slider"]');
-    expect(slider).not.toBeNull();
-  });
-
-  it('jettySize slider defaults to 20 when auto or undefined', () => {
-    setupWithArrow({ jettySize: undefined });
-    const { container } = render(<StylePanel />);
-    const slider = container.querySelector('[data-testid="jetty-size-slider"]') as HTMLInputElement;
-    expect(slider?.value).toBe('20');
-  });
-
-  it('jettySize slider shows current numeric value', () => {
-    setupWithArrow({ jettySize: 50 });
-    const { container } = render(<StylePanel />);
-    const slider = container.querySelector('[data-testid="jetty-size-slider"]') as HTMLInputElement;
-    expect(slider?.value).toBe('50');
-  });
-
-  it('changing jettySize slider updates arrow data', () => {
-    setupWithArrow({ jettySize: 20 });
-    const { container } = render(<StylePanel />);
-    const slider = container.querySelector('[data-testid="jetty-size-slider"]') as HTMLInputElement;
-    fireEvent.change(slider, { target: { value: '40' } });
-    const data = useCanvasStore.getState().expressions['arrow-1']?.data as unknown as Record<string, unknown>;
-    expect(data?.jettySize).toBe(40);
-  });
-
   // ── Drawing mode (arrow tool) ──
 
   it('shows connector controls when arrow tool is active (drawing mode)', () => {

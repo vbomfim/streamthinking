@@ -9,6 +9,7 @@
 
 import type { VisualExpression, ExpressionStyle } from '@infinicanvas/protocol';
 import type { PathSegment } from '../connectors/routerTypes.js';
+import { describe, it, expect } from 'vitest';
 import {
   hitTestRectangle,
   hitTestEllipse,

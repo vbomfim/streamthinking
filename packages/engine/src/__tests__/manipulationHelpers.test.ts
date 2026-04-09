@@ -17,9 +17,11 @@ import {
   detectPointerTarget,
   getCursorForTarget,
   computeResize,
+  getJettyHandlePosition,
+  detectJettyHandle,
   MIN_SIZE,
 } from '../interaction/manipulationHelpers.js';
-import type { HandleType, PointerTarget } from '../interaction/manipulationHelpers.js';
+import type { HandleType, PointerTarget, JettyHandleHit } from '../interaction/manipulationHelpers.js';
 
 // ── Test fixtures ──────────────────────────────────────────────
 
@@ -50,6 +52,52 @@ function makeRect(id: string, x: number, y: number, w: number, h: number): Visua
     style: DEFAULT_STYLE,
     meta: DEFAULT_META,
     data: { kind: 'rectangle' },
+  };
+}
+
+/**
+ * Create an arrow expression for testing jetty handle detection.
+ *
+ * Arrows must have `routing` set for jetty handles to appear.
+ * Jetty handle position depends on anchor direction and jettySize.
+ */
+function makeArrow(
+  id: string,
+  points: [number, number][],
+  opts?: {
+    routing?: string;
+    jettySize?: number | 'auto';
+    startBinding?: { expressionId: string; anchor: string };
+    endBinding?: { expressionId: string; anchor: string };
+  },
+): VisualExpression {
+  const p0 = points[0] ?? [0, 0];
+  const pN = points[points.length - 1] ?? p0;
+  const minX = Math.min(p0[0], pN[0]);
+  const minY = Math.min(p0[1], pN[1]);
+  const maxX = Math.max(p0[0], pN[0]);
+  const maxY = Math.max(p0[1], pN[1]);
+
+  return {
+    id,
+    kind: 'arrow',
+    position: { x: minX, y: minY },
+    size: { width: Math.max(maxX - minX, 1), height: Math.max(maxY - minY, 1) },
+    angle: 0,
+    style: DEFAULT_STYLE,
+    meta: DEFAULT_META,
+    data: {
+      kind: 'arrow',
+      points,
+      routing: opts?.routing ?? 'orthogonal',
+      jettySize: opts?.jettySize,
+      startBinding: opts?.startBinding
+        ? { expressionId: opts.startBinding.expressionId, anchor: opts.startBinding.anchor }
+        : undefined,
+      endBinding: opts?.endBinding
+        ? { expressionId: opts.endBinding.expressionId, anchor: opts.endBinding.anchor }
+        : undefined,
+    },
   };
 }
 
@@ -438,6 +486,230 @@ describe('computeResize [AC3, AC4, AC5]', () => {
 
       // Edge handles should NOT constrain — only width changes
       expect(result.size).toEqual({ width: 300, height: 100 });
+    });
+  });
+
+  // ── Jetty handle detection ────────────────────────────────────
+
+  describe('getJettyHandlePosition', () => {
+    it('returns null for non-arrow expressions', () => {
+      const rect = makeRect('r1', 100, 100, 200, 200);
+      const result = getJettyHandlePosition(rect);
+      expect(result).toBeNull();
+    });
+
+    it('returns null for arrows without routing', () => {
+      const arrow = makeArrow('a1', [[100, 100], [300, 300]], { routing: undefined });
+      // Overwrite routing to undefined (straight arrow)
+      (arrow.data as Record<string, unknown>).routing = undefined;
+      const result = getJettyHandlePosition(arrow);
+      expect(result).toBeNull();
+    });
+
+    it('returns null for straight routing mode', () => {
+      const arrow = makeArrow('a1', [[100, 100], [300, 300]], { routing: 'straight' });
+      const result = getJettyHandlePosition(arrow);
+      expect(result).toBeNull();
+    });
+
+    it('computes handle at midpoint of start stub for right-anchored binding', () => {
+      // Arrow starts at (100, 200), goes right. Binding anchor = 'right'.
+      // Default jettySize = 20. Handle should be at (110, 200) — midway along 20px right stub.
+      const arrow = makeArrow('a1', [[100, 200], [400, 200]], {
+        routing: 'orthogonal',
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+      });
+      const result = getJettyHandlePosition(arrow);
+      expect(result).not.toBeNull();
+      expect(result!.position.x).toBeCloseTo(110, 0); // 100 + 20/2
+      expect(result!.position.y).toBeCloseTo(200, 0);
+      expect(result!.direction).toEqual({ x: 1, y: 0 }); // points right
+      expect(result!.end).toBe('start');
+    });
+
+    it('uses custom jettySize for handle position', () => {
+      const arrow = makeArrow('a1', [[100, 200], [400, 200]], {
+        routing: 'orthogonal',
+        jettySize: 60,
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+      });
+      const result = getJettyHandlePosition(arrow);
+      expect(result).not.toBeNull();
+      // Midpoint of 60px stub: 100 + 30 = 130
+      expect(result!.position.x).toBeCloseTo(130, 0);
+      expect(result!.position.y).toBeCloseTo(200, 0);
+    });
+
+    it('computes handle for bottom-anchored binding (downward)', () => {
+      const arrow = makeArrow('a1', [[200, 100], [200, 400]], {
+        routing: 'orthogonal',
+        startBinding: { expressionId: 'shape1', anchor: 'bottom' },
+      });
+      const result = getJettyHandlePosition(arrow);
+      expect(result).not.toBeNull();
+      expect(result!.position.x).toBeCloseTo(200, 0);
+      expect(result!.position.y).toBeCloseTo(110, 0); // 100 + 20/2
+      expect(result!.direction).toEqual({ x: 0, y: 1 }); // points down
+    });
+
+    it('infers direction from point delta when no binding', () => {
+      // No binding — infer direction from start→end delta
+      // Arrow goes from (100, 200) to (400, 200) — horizontal, so direction is right
+      const arrow = makeArrow('a1', [[100, 200], [400, 200]], {
+        routing: 'orthogonal',
+      });
+      const result = getJettyHandlePosition(arrow);
+      expect(result).not.toBeNull();
+      // Direction inferred: goes right
+      expect(result!.direction.x).toBe(1);
+      expect(result!.direction.y).toBe(0);
+    });
+
+    it('works with ER routing mode', () => {
+      const arrow = makeArrow('a1', [[100, 200], [400, 200]], {
+        routing: 'er',
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+      });
+      const result = getJettyHandlePosition(arrow);
+      expect(result).not.toBeNull();
+      expect(result!.end).toBe('start');
+    });
+  });
+
+  describe('detectJettyHandle', () => {
+    it('returns null when no selected arrows have routing', () => {
+      const rect = makeRect('r1', 100, 100, 200, 200);
+      const result = detectJettyHandle(
+        { x: 110, y: 200 },
+        { r1: rect },
+        new Set(['r1']),
+        DEFAULT_CAMERA,
+      );
+      expect(result).toBeNull();
+    });
+
+    it('detects click on jetty handle within tolerance', () => {
+      const arrow = makeArrow('a1', [[100, 200], [400, 200]], {
+        routing: 'orthogonal',
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+      });
+      // Handle is at (110, 200). Click at (112, 201) — within 8px tolerance
+      const result = detectJettyHandle(
+        { x: 112, y: 201 },
+        { a1: arrow },
+        new Set(['a1']),
+        DEFAULT_CAMERA,
+      );
+      expect(result).not.toBeNull();
+      expect(result!.expressionId).toBe('a1');
+      expect(result!.end).toBe('start');
+    });
+
+    it('returns null when click is outside tolerance', () => {
+      const arrow = makeArrow('a1', [[100, 200], [400, 200]], {
+        routing: 'orthogonal',
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+      });
+      // Handle is at (110, 200). Click at (130, 200) — 20px away, outside tolerance
+      const result = detectJettyHandle(
+        { x: 130, y: 200 },
+        { a1: arrow },
+        new Set(['a1']),
+        DEFAULT_CAMERA,
+      );
+      expect(result).toBeNull();
+    });
+
+    it('respects camera zoom for tolerance', () => {
+      const arrow = makeArrow('a1', [[100, 200], [400, 200]], {
+        routing: 'orthogonal',
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+      });
+      // Handle at (110, 200). Click at (115, 200) — 5px away.
+      // At zoom=2, tolerance = 8/2 = 4px — should miss.
+      const zoomedCamera = { ...DEFAULT_CAMERA, zoom: 2 };
+      const result = detectJettyHandle(
+        { x: 115, y: 200 },
+        { a1: arrow },
+        new Set(['a1']),
+        zoomedCamera,
+      );
+      expect(result).toBeNull();
+    });
+
+    it('only checks selected expressions', () => {
+      const arrow = makeArrow('a1', [[100, 200], [400, 200]], {
+        routing: 'orthogonal',
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+      });
+      // Click on handle position, but arrow is not selected
+      const result = detectJettyHandle(
+        { x: 110, y: 200 },
+        { a1: arrow },
+        new Set([]),
+        DEFAULT_CAMERA,
+      );
+      expect(result).toBeNull();
+    });
+  });
+
+  describe('detectPointerTarget with jetty handles', () => {
+    it('detects jetty-handle target for routed arrows', () => {
+      const arrow = makeArrow('a1', [[100, 200], [400, 200]], {
+        routing: 'orthogonal',
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+      });
+      // Click on jetty handle position (110, 200)
+      const result = detectPointerTarget(
+        { x: 110, y: 200 },
+        { a1: arrow },
+        new Set(['a1']),
+        DEFAULT_CAMERA,
+      );
+      expect(result.kind).toBe('jetty-handle');
+    });
+
+    it('point-handles take priority over jetty-handles', () => {
+      const arrow = makeArrow('a1', [[100, 200], [400, 200]], {
+        routing: 'orthogonal',
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+      });
+      // Click exactly on the start endpoint (100, 200) — point handle wins
+      const result = detectPointerTarget(
+        { x: 100, y: 200 },
+        { a1: arrow },
+        new Set(['a1']),
+        DEFAULT_CAMERA,
+      );
+      expect(result.kind).toBe('point-handle');
+    });
+  });
+
+  describe('getCursorForTarget with jetty-handle', () => {
+    it('returns ew-resize for horizontal jetty handle', () => {
+      const target: PointerTarget = {
+        kind: 'jetty-handle',
+        handle: {
+          expressionId: 'a1',
+          end: 'start',
+          position: { x: 110, y: 200 },
+          direction: { x: 1, y: 0 },
+        },
+      };
+      expect(getCursorForTarget(target)).toBe('ew-resize');
+    });
+
+    it('returns ns-resize for vertical jetty handle', () => {
+      const target: PointerTarget = {
+        kind: 'jetty-handle',
+        handle: {
+          expressionId: 'a1',
+          end: 'start',
+          position: { x: 200, y: 110 },
+          direction: { x: 0, y: 1 },
+        },
+      };
+      expect(getCursorForTarget(target)).toBe('ns-resize');
     });
   });
 });
