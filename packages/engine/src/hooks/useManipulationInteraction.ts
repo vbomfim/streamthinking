@@ -76,8 +76,12 @@ type DragMode =
       kind: 'jetty-drag';
       /** Jetty handle being dragged. */
       handle: JettyHandleHit;
-      /** Original jettySize before drag started. */
+      /** Original midpointOffset before drag started. */
+      originalMidpointOffset: number;
+      /** Original jettySize for range computation. */
       originalJettySize: number;
+      /** Whether this is a Z-shape drag (midpointOffset) vs exit-stub drag. */
+      isZShape: boolean;
       /** World position where drag started. */
       startWorld: { x: number; y: number };
     };
@@ -138,11 +142,20 @@ export function useManipulationInteraction(
       const data = expr.data as ArrowData;
       const originalJettySize =
         typeof data.jettySize === 'number' ? data.jettySize : 20;
+      const originalMidpointOffset =
+        typeof (data as ArrowData & { midpointOffset?: number }).midpointOffset === 'number'
+          ? (data as ArrowData & { midpointOffset?: number }).midpointOffset!
+          : 0.5;
+
+      // Z-shape handle always has a direction — use it for drag computation
+      const isZShape = true;
 
       dragModeRef.current = {
         kind: 'jetty-drag',
         handle: target.handle,
+        originalMidpointOffset,
         originalJettySize,
+        isZShape,
         startWorld: worldPoint,
       };
     } else if (target.kind === 'handle') {
@@ -345,20 +358,66 @@ export function useManipulationInteraction(
         }
       });
     } else if (drag.kind === 'jetty-drag') {
-      // ── Transient jetty-size drag preview ─────────────────
-      // Compute new jettySize based on drag distance along stub direction
+      // ── Transient midpointOffset drag preview ─────────────
+      // Compute new midpointOffset based on drag along handle direction
       const dx = worldPoint.x - drag.startWorld.x;
       const dy = worldPoint.y - drag.startWorld.y;
-      const dotProduct =
-        dx * drag.handle.direction.x + dy * drag.handle.direction.y;
-      const newJettySize = Math.max(0, Math.min(200, drag.originalJettySize + dotProduct));
 
-      useCanvasStore.setState((draft) => {
-        const expr = draft.expressions[drag.handle.expressionId];
-        if (expr && expr.data.kind === 'arrow') {
-          (expr.data as ArrowData).jettySize = Math.round(newJettySize);
+      if (drag.isZShape) {
+        // Z-shape: update midpointOffset ratio
+        const arrowExpr = expressions[drag.handle.expressionId];
+        if (arrowExpr && arrowExpr.data.kind === 'arrow') {
+          const arrowData = arrowExpr.data as ArrowData;
+          const pts = arrowData.points;
+          const startPt = pts[0]!;
+          const endPt = pts[pts.length - 1]!;
+          const jettySize = drag.originalJettySize;
+
+          // Compute range based on direction
+          const dirX = drag.handle.direction.x;
+          const dirY = drag.handle.direction.y;
+          let rangeStart: number;
+          let rangeEnd: number;
+          let currentPos: number;
+
+          if (Math.abs(dirX) >= Math.abs(dirY)) {
+            // Horizontal drag: moving the vertical Z-bar
+            rangeStart = startPt[0] + jettySize;
+            rangeEnd = endPt[0] - jettySize;
+            currentPos = drag.handle.position.x + dx;
+          } else {
+            // Vertical drag: moving the horizontal Z-bar
+            rangeStart = startPt[1] + jettySize;
+            rangeEnd = endPt[1] - jettySize;
+            currentPos = drag.handle.position.y + dy;
+          }
+
+          const range = rangeEnd - rangeStart;
+          const newOffset = range !== 0
+            ? Math.max(0, Math.min(1, (currentPos - rangeStart) / range))
+            : 0.5;
+
+          useCanvasStore.setState((draft) => {
+            const expr = draft.expressions[drag.handle.expressionId];
+            if (expr && expr.data.kind === 'arrow') {
+              (expr.data as ArrowData & { midpointOffset?: number }).midpointOffset =
+                Math.round(newOffset * 100) / 100;
+            }
+          });
         }
-      });
+      } else {
+        // Non-Z-shape: fallback to jettySize drag
+        const dotProduct =
+          dx * drag.handle.direction.x + dy * drag.handle.direction.y;
+        const newJettySize = Math.max(0, Math.min(200, drag.originalJettySize + dotProduct));
+
+        useCanvasStore.setState((draft) => {
+          const expr = draft.expressions[drag.handle.expressionId];
+          if (expr && expr.data.kind === 'arrow') {
+            (expr.data as ArrowData).jettySize = Math.round(newJettySize);
+          }
+        });
+      }
     } else {
       // ── Hover cursor feedback (AC10) ────────────────────
       const target = detectPointerTarget(worldPoint, expressions, selectedIds, camera);
@@ -482,21 +541,63 @@ export function useManipulationInteraction(
         }
       }
     } else if (drag.kind === 'jetty-drag') {
-      // ── Commit jettySize change ───────────────────────────
+      // ── Commit midpointOffset or jettySize change ──────────
       const dx = worldPoint.x - drag.startWorld.x;
       const dy = worldPoint.y - drag.startWorld.y;
-      const dotProduct =
-        dx * drag.handle.direction.x + dy * drag.handle.direction.y;
-      const newJettySize = Math.round(
-        Math.max(0, Math.min(200, drag.originalJettySize + dotProduct)),
-      );
 
-      if (newJettySize !== drag.originalJettySize) {
+      if (drag.isZShape) {
+        // Commit midpointOffset
         const expr = state.expressions[drag.handle.expressionId];
         if (expr && expr.data.kind === 'arrow') {
-          state.updateExpression(drag.handle.expressionId, {
-            data: { ...expr.data, jettySize: newJettySize } as unknown as VisualExpression['data'],
-          });
+          const arrowData = expr.data as ArrowData;
+          const pts = arrowData.points;
+          const startPt = pts[0]!;
+          const endPt = pts[pts.length - 1]!;
+          const jettySize = drag.originalJettySize;
+
+          const dirX = drag.handle.direction.x;
+          const dirY = drag.handle.direction.y;
+          let rangeStart: number;
+          let rangeEnd: number;
+          let currentPos: number;
+
+          if (Math.abs(dirX) >= Math.abs(dirY)) {
+            rangeStart = startPt[0] + jettySize;
+            rangeEnd = endPt[0] - jettySize;
+            currentPos = drag.handle.position.x + dx;
+          } else {
+            rangeStart = startPt[1] + jettySize;
+            rangeEnd = endPt[1] - jettySize;
+            currentPos = drag.handle.position.y + dy;
+          }
+
+          const range = rangeEnd - rangeStart;
+          const newOffset = range !== 0
+            ? Math.max(0, Math.min(1, (currentPos - rangeStart) / range))
+            : 0.5;
+          const rounded = Math.round(newOffset * 100) / 100;
+
+          if (rounded !== drag.originalMidpointOffset) {
+            state.updateExpression(drag.handle.expressionId, {
+              data: { ...expr.data, midpointOffset: rounded } as unknown as VisualExpression['data'],
+            });
+          }
+        }
+      } else {
+        // Commit jettySize
+        const dotProduct =
+          dx * drag.handle.direction.x + dy * drag.handle.direction.y;
+        const newJettySize = Math.round(
+          Math.max(0, Math.min(200, drag.originalJettySize + dotProduct)),
+        );
+
+        if (newJettySize !== drag.originalJettySize) {
+          const expr = state.expressions[drag.handle.expressionId];
+          if (expr && expr.data.kind === 'arrow') {
+            state.updateExpression(drag.handle.expressionId, {
+              data: { ...expr.data, jettySize: newJettySize } as unknown as VisualExpression['data'],
+            });
+          }
         }
       }
     }

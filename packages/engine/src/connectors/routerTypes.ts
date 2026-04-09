@@ -36,6 +36,8 @@ export interface RouterOptions {
   rounded?: boolean;
   /** Exit stub length from shape (default: 20). */
   jettySize?: number;
+  /** Z-shape midpoint offset as 0–1 ratio (0.5 = centered, default). */
+  midpointOffset?: number;
   /** Bounds of the source shape. */
   startBounds?: { x: number; y: number; width: number; height: number };
   /** Bounds of the target shape. */

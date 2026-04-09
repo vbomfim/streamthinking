@@ -438,6 +438,9 @@ function renderArrow(
           height: endBounds.size.height,
         } : undefined,
         typeof data.jettySize === 'number' ? data.jettySize : undefined,
+        typeof (data as ArrowData & { midpointOffset?: number }).midpointOffset === 'number'
+          ? (data as ArrowData & { midpointOffset?: number }).midpointOffset
+          : undefined,
       );
     }
   }

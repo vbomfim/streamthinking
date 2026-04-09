@@ -150,6 +150,7 @@ export const arrowDataSchema = z.object({
   curved: z.boolean().optional(),
   rounded: z.boolean().optional(),
   jettySize: z.union([z.number().nonnegative(), z.literal('auto')]).optional(),
+  midpointOffset: z.number().min(0).max(1).optional(),
 });
 
 const point3dSchema = z.tuple([z.number(), z.number(), z.number()]);

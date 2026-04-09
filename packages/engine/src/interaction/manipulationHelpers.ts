@@ -262,11 +262,15 @@ function resolveExitDirection(
 }
 
 /**
- * Compute the jetty (exit stub) handle position for a routed arrow.
+ * Compute the jetty handle position for a routed arrow.
  *
- * The handle sits at the midpoint of the start exit stub, which is a
- * straight segment from the anchor point in the exit direction, with
- * length equal to `jettySize`.
+ * For Z-shape routes (same-axis exits, normal flow), the handle sits
+ * at the midpoint of the middle segment — the vertical or horizontal
+ * bar that connects the exit and entry stubs. Dragging it adjusts
+ * `midpointOffset` (0–1 ratio controlling the Z-turn position).
+ *
+ * For non-Z-shape routes (L-shape, C-shape, etc.), the handle sits
+ * at the midpoint of the exit stub for jettySize adjustment.
  *
  * Returns null for non-arrow expressions, straight arrows, or
  * routing modes that don't produce stubs.
@@ -283,6 +287,7 @@ export function getJettyHandlePosition(
     points: [number, number][];
     routing?: string;
     jettySize?: number | 'auto';
+    midpointOffset?: number;
     startBinding?: { expressionId: string; anchor: string };
     endBinding?: { expressionId: string; anchor: string };
   };
@@ -299,17 +304,73 @@ export function getJettyHandlePosition(
   const jettySize =
     typeof data.jettySize === 'number' ? data.jettySize : DEFAULT_JETTY_SIZE;
 
-  const anchor = data.startBinding?.anchor;
-  const direction = resolveExitDirection(anchor, startPt, endPt);
+  const startAnchor = data.startBinding?.anchor;
+  const endAnchor = data.endBinding?.anchor;
+  const exitDir = resolveExitDirection(startAnchor, startPt, endPt);
+  const entryDir = resolveExitDirection(endAnchor, endPt, startPt);
 
+  // Check if this is a Z-shape route (same-axis exits, normal flow)
+  const exitH = exitDir.x !== 0;
+  const entryH = entryDir.x !== 0;
+
+  if (exitH === entryH) {
+    // Same axis — check for normal flow (Z-shape)
+    const exitStubEnd = exitH
+      ? startPt.x + exitDir.x * jettySize
+      : startPt.y + exitDir.y * jettySize;
+    const entryStubEnd = entryH
+      ? endPt.x + entryDir.x * jettySize
+      : endPt.y + entryDir.y * jettySize;
+
+    const forward = exitH ? exitDir.x : exitDir.y;
+    const diff = exitH
+      ? entryStubEnd - exitStubEnd
+      : entryStubEnd - exitStubEnd;
+    const normalFlow = (forward > 0 && diff > 0) || (forward < 0 && diff < 0);
+
+    if (normalFlow) {
+      // Z-shape: handle on the middle segment
+      const t = data.midpointOffset ?? 0.5;
+
+      if (exitH) {
+        // Horizontal flow → vertical middle segment
+        const midX = exitStubEnd + (entryStubEnd - exitStubEnd) * t;
+        return {
+          expressionId: expr.id,
+          end: 'start',
+          position: {
+            x: midX,
+            y: (startPt.y + endPt.y) / 2,
+          },
+          // Drag direction is horizontal (moves the vertical bar left/right)
+          direction: { x: 1, y: 0 },
+        };
+      }
+
+      // Vertical flow → horizontal middle segment
+      const midY = exitStubEnd + (entryStubEnd - exitStubEnd) * t;
+      return {
+        expressionId: expr.id,
+        end: 'start',
+        position: {
+          x: (startPt.x + endPt.x) / 2,
+          y: midY,
+        },
+        // Drag direction is vertical (moves the horizontal bar up/down)
+        direction: { x: 0, y: 1 },
+      };
+    }
+  }
+
+  // Non-Z-shape (L-shape, C-shape, etc.) → fallback to exit stub midpoint
   return {
     expressionId: expr.id,
     end: 'start',
     position: {
-      x: startPt.x + direction.x * (jettySize / 2),
-      y: startPt.y + direction.y * (jettySize / 2),
+      x: startPt.x + exitDir.x * (jettySize / 2),
+      y: startPt.y + exitDir.y * (jettySize / 2),
     },
-    direction,
+    direction: exitDir,
   };
 }
 

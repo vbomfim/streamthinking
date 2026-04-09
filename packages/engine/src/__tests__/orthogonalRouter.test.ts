@@ -636,3 +636,186 @@ describe('computeOrthogonalRoute — clearance stubs', () => {
     expect(route.length).toBeGreaterThan(2);
   });
 });
+
+// ── midpointOffset — Z-shape control ─────────────────────────
+// [TDD] Tests for the midpointOffset parameter that controls
+// where the Z-turn happens in the orthogonal route.
+
+describe('computeOrthogonalRoute — midpointOffset', () => {
+  it('defaults to centered Z-shape when midpointOffset is undefined', () => {
+    // Horizontal Z-shape: right exit → left entry
+    const route = computeOrthogonalRoute(
+      { x: 100, y: 100 },
+      { x: 400, y: 200 },
+      'right',
+      'left',
+      undefined,
+      undefined,
+      20,
+      undefined, // midpointOffset = default (0.5)
+    );
+    assertOrthogonal(route);
+    // The mid-segment x should be halfway between exitStub and entryStub
+    // exitX = 100 + 20 = 120, entryX = 400 - 20 = 380
+    // midX = 120 + (380 - 120) * 0.5 = 250
+    const midX = route[2]![0];
+    expect(midX).toBe(250);
+  });
+
+  it('explicit midpointOffset=0.5 produces same result as default', () => {
+    const routeDefault = computeOrthogonalRoute(
+      { x: 100, y: 100 },
+      { x: 400, y: 200 },
+      'right',
+      'left',
+      undefined,
+      undefined,
+      20,
+    );
+    const routeExplicit = computeOrthogonalRoute(
+      { x: 100, y: 100 },
+      { x: 400, y: 200 },
+      'right',
+      'left',
+      undefined,
+      undefined,
+      20,
+      0.5,
+    );
+    expect(routeExplicit).toEqual(routeDefault);
+  });
+
+  it('midpointOffset=0 places Z-turn at exit stub end (horizontal)', () => {
+    const route = computeOrthogonalRoute(
+      { x: 100, y: 100 },
+      { x: 400, y: 200 },
+      'right',
+      'left',
+      undefined,
+      undefined,
+      20,
+      0.0,
+    );
+    assertOrthogonal(route);
+    // exitX = 120, entryX = 380
+    // midX = 120 + (380 - 120) * 0 = 120
+    const midX = route[2]![0];
+    expect(midX).toBe(120);
+  });
+
+  it('midpointOffset=1 places Z-turn at entry stub end (horizontal)', () => {
+    const route = computeOrthogonalRoute(
+      { x: 100, y: 100 },
+      { x: 400, y: 200 },
+      'right',
+      'left',
+      undefined,
+      undefined,
+      20,
+      1.0,
+    );
+    assertOrthogonal(route);
+    // exitX = 120, entryX = 380
+    // midX = 120 + (380 - 120) * 1 = 380
+    const midX = route[2]![0];
+    expect(midX).toBe(380);
+  });
+
+  it('midpointOffset=0.25 places Z-turn at 25% between stubs (horizontal)', () => {
+    const route = computeOrthogonalRoute(
+      { x: 100, y: 100 },
+      { x: 400, y: 200 },
+      'right',
+      'left',
+      undefined,
+      undefined,
+      20,
+      0.25,
+    );
+    assertOrthogonal(route);
+    // exitX = 120, entryX = 380
+    // midX = 120 + (380 - 120) * 0.25 = 120 + 65 = 185
+    const midX = route[2]![0];
+    expect(midX).toBe(185);
+  });
+
+  it('midpointOffset controls vertical Z-shape (bottom→top)', () => {
+    const route = computeOrthogonalRoute(
+      { x: 100, y: 100 },
+      { x: 300, y: 400 },
+      'bottom',
+      'top',
+      undefined,
+      undefined,
+      20,
+      0.75,
+    );
+    assertOrthogonal(route);
+    // exitY = 100 + 20 = 120, entryY = 400 - 20 = 380
+    // midY = 120 + (380 - 120) * 0.75 = 120 + 195 = 315
+    const midY = route[2]![1];
+    expect(midY).toBe(315);
+  });
+
+  it('Z-shape route with midpointOffset still avoids shapes', () => {
+    const startBounds = { x: 0, y: 100, width: 100, height: 100 };
+    const endBounds = { x: 300, y: 150, width: 100, height: 100 };
+    const route = computeOrthogonalRoute(
+      { x: 100, y: 150 },
+      { x: 300, y: 200 },
+      'right',
+      'left',
+      startBounds,
+      endBounds,
+      20,
+      0.3,
+    );
+    assertOrthogonal(route);
+    assertRouteAvoidsRect(route, startBounds, 'source');
+    assertRouteAvoidsRect(route, endBounds, 'target');
+  });
+
+  it('midpointOffset does not affect L-shape routes (cross-axis)', () => {
+    // L-shape: right exit, top entry (cross-axis — no Z-turn to control)
+    const route = computeOrthogonalRoute(
+      { x: 100, y: 100 },
+      { x: 300, y: 300 },
+      'right',
+      'top',
+      undefined,
+      undefined,
+      20,
+      0.25,
+    );
+    const routeDefault = computeOrthogonalRoute(
+      { x: 100, y: 100 },
+      { x: 300, y: 300 },
+      'right',
+      'top',
+      undefined,
+      undefined,
+      20,
+    );
+    assertOrthogonal(route);
+    // L-shape should be unchanged by midpointOffset
+    expect(route).toEqual(routeDefault);
+  });
+
+  it('all segments remain orthogonal with extreme midpointOffset', () => {
+    for (const offset of [0, 0.1, 0.5, 0.9, 1.0]) {
+      const route = computeOrthogonalRoute(
+        { x: 50, y: 50 },
+        { x: 350, y: 200 },
+        'right',
+        'left',
+        undefined,
+        undefined,
+        20,
+        offset,
+      );
+      assertOrthogonal(route);
+      expect(route[0]).toEqual([50, 50]);
+      expect(route[route.length - 1]).toEqual([350, 200]);
+    }
+  });
+});

@@ -512,22 +512,24 @@ describe('computeResize [AC3, AC4, AC5]', () => {
       expect(result).toBeNull();
     });
 
-    it('computes handle at midpoint of start stub for right-anchored binding', () => {
-      // Arrow starts at (100, 200), goes right. Binding anchor = 'right'.
-      // Default jettySize = 20. Handle should be at (110, 200) — midway along 20px right stub.
+    it('computes handle on Z-shape middle segment for right-anchored binding', () => {
+      // Arrow starts at (100, 200), goes to (400, 200). Both on same y.
+      // Binding anchor = 'right'. Default jettySize = 20, midpointOffset = 0.5.
+      // exitStub = 120, entryStub = 380, midX = 250
+      // Handle should be at (250, 200) — midpoint of middle segment.
       const arrow = makeArrow('a1', [[100, 200], [400, 200]], {
         routing: 'orthogonal',
         startBinding: { expressionId: 'shape1', anchor: 'right' },
       });
       const result = getJettyHandlePosition(arrow);
       expect(result).not.toBeNull();
-      expect(result!.position.x).toBeCloseTo(110, 0); // 100 + 20/2
+      expect(result!.position.x).toBeCloseTo(250, 0);
       expect(result!.position.y).toBeCloseTo(200, 0);
-      expect(result!.direction).toEqual({ x: 1, y: 0 }); // points right
+      expect(result!.direction).toEqual({ x: 1, y: 0 }); // drag horizontally
       expect(result!.end).toBe('start');
     });
 
-    it('uses custom jettySize for handle position', () => {
+    it('uses custom jettySize for Z-shape handle position', () => {
       const arrow = makeArrow('a1', [[100, 200], [400, 200]], {
         routing: 'orthogonal',
         jettySize: 60,
@@ -535,21 +537,24 @@ describe('computeResize [AC3, AC4, AC5]', () => {
       });
       const result = getJettyHandlePosition(arrow);
       expect(result).not.toBeNull();
-      // Midpoint of 60px stub: 100 + 30 = 130
-      expect(result!.position.x).toBeCloseTo(130, 0);
+      // exitStub = 100 + 60 = 160, entryStub = 400 - 60 = 340
+      // midX = 160 + (340 - 160) * 0.5 = 250
+      expect(result!.position.x).toBeCloseTo(250, 0);
       expect(result!.position.y).toBeCloseTo(200, 0);
     });
 
-    it('computes handle for bottom-anchored binding (downward)', () => {
+    it('computes handle on Z-shape middle segment for bottom-anchored binding (downward)', () => {
       const arrow = makeArrow('a1', [[200, 100], [200, 400]], {
         routing: 'orthogonal',
         startBinding: { expressionId: 'shape1', anchor: 'bottom' },
       });
       const result = getJettyHandlePosition(arrow);
       expect(result).not.toBeNull();
+      // exitStub = 100 + 20 = 120, entryStub = 400 - 20 = 380
+      // midY = 120 + (380 - 120) * 0.5 = 250
       expect(result!.position.x).toBeCloseTo(200, 0);
-      expect(result!.position.y).toBeCloseTo(110, 0); // 100 + 20/2
-      expect(result!.direction).toEqual({ x: 0, y: 1 }); // points down
+      expect(result!.position.y).toBeCloseTo(250, 0);
+      expect(result!.direction).toEqual({ x: 0, y: 1 }); // drag vertically
     });
 
     it('infers direction from point delta when no binding', () => {
@@ -603,9 +608,9 @@ describe('computeResize [AC3, AC4, AC5]', () => {
         routing: 'orthogonal',
         startBinding: { expressionId: 'shape1', anchor: 'right' },
       });
-      // Handle is at (110, 200). Click at (112, 201) — within 8px tolerance
+      // Z-shape handle is at (250, 200). Click at (252, 201) — within 8px tolerance
       const result = detectJettyHandle(
-        { x: 112, y: 201 },
+        { x: 252, y: 201 },
         { a1: arrow },
         new Set(['a1']),
         DEFAULT_CAMERA,
@@ -620,9 +625,9 @@ describe('computeResize [AC3, AC4, AC5]', () => {
         routing: 'orthogonal',
         startBinding: { expressionId: 'shape1', anchor: 'right' },
       });
-      // Handle is at (110, 200). Click at (130, 200) — 20px away, outside tolerance
+      // Z-shape handle is at (250, 200). Click at (270, 200) — 20px away, outside tolerance
       const result = detectJettyHandle(
-        { x: 130, y: 200 },
+        { x: 270, y: 200 },
         { a1: arrow },
         new Set(['a1']),
         DEFAULT_CAMERA,
@@ -635,11 +640,11 @@ describe('computeResize [AC3, AC4, AC5]', () => {
         routing: 'orthogonal',
         startBinding: { expressionId: 'shape1', anchor: 'right' },
       });
-      // Handle at (110, 200). Click at (115, 200) — 5px away.
+      // Z-shape handle at (250, 200). Click at (255, 200) — 5px away.
       // At zoom=2, tolerance = 8/2 = 4px — should miss.
       const zoomedCamera = { ...DEFAULT_CAMERA, zoom: 2 };
       const result = detectJettyHandle(
-        { x: 115, y: 200 },
+        { x: 255, y: 200 },
         { a1: arrow },
         new Set(['a1']),
         zoomedCamera,
@@ -652,9 +657,9 @@ describe('computeResize [AC3, AC4, AC5]', () => {
         routing: 'orthogonal',
         startBinding: { expressionId: 'shape1', anchor: 'right' },
       });
-      // Click on handle position, but arrow is not selected
+      // Click on handle position (250, 200), but arrow is not selected
       const result = detectJettyHandle(
-        { x: 110, y: 200 },
+        { x: 250, y: 200 },
         { a1: arrow },
         new Set([]),
         DEFAULT_CAMERA,
@@ -669,9 +674,9 @@ describe('computeResize [AC3, AC4, AC5]', () => {
         routing: 'orthogonal',
         startBinding: { expressionId: 'shape1', anchor: 'right' },
       });
-      // Click on jetty handle position (110, 200)
+      // Z-shape handle is at (250, 200). Click there.
       const result = detectPointerTarget(
-        { x: 110, y: 200 },
+        { x: 250, y: 200 },
         { a1: arrow },
         new Set(['a1']),
         DEFAULT_CAMERA,
@@ -720,6 +725,76 @@ describe('computeResize [AC3, AC4, AC5]', () => {
         },
       };
       expect(getCursorForTarget(target)).toBe('ns-resize');
+    });
+  });
+
+  // ── midpointOffset-based handle positioning ──────────────────
+
+  describe('getJettyHandlePosition — midpointOffset', () => {
+    it('places handle on Z-shape middle segment for horizontal flow', () => {
+      // Arrow exits right from (100, 200), enters left at (400, 300)
+      // Default midpointOffset = 0.5, jettySize = 20
+      // exitX = 120, entryX = 380, midX = 250
+      // Handle should be at (250, 250) — midpoint of vertical middle segment
+      const arrow = makeArrow('a1', [[100, 200], [400, 300]], {
+        routing: 'orthogonal',
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+        endBinding: { expressionId: 'shape2', anchor: 'left' },
+      });
+      const result = getJettyHandlePosition(arrow);
+      expect(result).not.toBeNull();
+      expect(result!.position.x).toBeCloseTo(250, 0);
+      expect(result!.position.y).toBeCloseTo(250, 0);
+      // Direction should be horizontal (ew-resize) — dragging moves the vertical bar
+      expect(result!.direction).toEqual({ x: 1, y: 0 });
+    });
+
+    it('places handle on Z-shape middle segment for vertical flow', () => {
+      // Arrow exits bottom from (100, 100), enters top at (300, 400)
+      // Default midpointOffset = 0.5, jettySize = 20
+      // exitY = 120, entryY = 380, midY = 250
+      // Handle should be at (200, 250) — midpoint of horizontal middle segment
+      const arrow = makeArrow('a1', [[100, 100], [300, 400]], {
+        routing: 'orthogonal',
+        startBinding: { expressionId: 'shape1', anchor: 'bottom' },
+        endBinding: { expressionId: 'shape2', anchor: 'top' },
+      });
+      const result = getJettyHandlePosition(arrow);
+      expect(result).not.toBeNull();
+      expect(result!.position.x).toBeCloseTo(200, 0);
+      expect(result!.position.y).toBeCloseTo(250, 0);
+      // Direction should be vertical (ns-resize) — dragging moves the horizontal bar
+      expect(result!.direction).toEqual({ x: 0, y: 1 });
+    });
+
+    it('uses custom midpointOffset for handle position', () => {
+      // Arrow exits right from (100, 200), enters left at (400, 300)
+      // midpointOffset = 0.25, jettySize = 20
+      // exitX = 120, entryX = 380, midX = 120 + 260 * 0.25 = 185
+      const arrow = makeArrow('a1', [[100, 200], [400, 300]], {
+        routing: 'orthogonal',
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+        endBinding: { expressionId: 'shape2', anchor: 'left' },
+      });
+      (arrow.data as Record<string, unknown>).midpointOffset = 0.25;
+      const result = getJettyHandlePosition(arrow);
+      expect(result).not.toBeNull();
+      expect(result!.position.x).toBeCloseTo(185, 0);
+    });
+
+    it('returns handle at exit stub midpoint for non-Z-shape routes', () => {
+      // L-shape: right exit, top entry — no Z-shape middle segment
+      // Falls back to exit stub midpoint behavior
+      const arrow = makeArrow('a1', [[100, 200], [400, 300]], {
+        routing: 'orthogonal',
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+        endBinding: { expressionId: 'shape2', anchor: 'top' },
+      });
+      const result = getJettyHandlePosition(arrow);
+      expect(result).not.toBeNull();
+      // Exit stub midpoint: (100 + 20/2, 200) = (110, 200)
+      expect(result!.position.x).toBeCloseTo(110, 0);
+      expect(result!.position.y).toBeCloseTo(200, 0);
     });
   });
 });

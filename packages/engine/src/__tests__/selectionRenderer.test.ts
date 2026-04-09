@@ -269,9 +269,9 @@ describe('renderSelection', () => {
     const arcCalls = ctx._calls.filter((c) => c.method === 'arc');
     expect(arcCalls.length).toBe(3);
 
-    // The jetty handle should be at (110, 200) — midpoint of 20px right stub
+    // The jetty handle should be at Z-shape midpoint (250, 200)
     const jettyArc = arcCalls[2];
-    expect(jettyArc!.args[0]).toBeCloseTo(110, 0); // x
+    expect(jettyArc!.args[0]).toBeCloseTo(250, 0); // x: midpoint of Z-shape
     expect(jettyArc!.args[1]).toBeCloseTo(200, 0); // y
   });
 

@@ -46,6 +46,7 @@ export function computeOrthogonalCurvedRoute(
     options?.startBounds,
     options?.endBounds,
     options?.jettySize,
+    options?.midpointOffset,
   );
 
   return smoothCornersWithBezier(basePoints);
@@ -74,6 +75,7 @@ export function computeOrthogonalRoundedRoute(
     options?.startBounds,
     options?.endBounds,
     options?.jettySize,
+    options?.midpointOffset,
   );
 
   return roundCornersWithArcs(basePoints);

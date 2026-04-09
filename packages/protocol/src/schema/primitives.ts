@@ -114,6 +114,8 @@ export interface ArrowData {
   rounded?: boolean;
   /** Exit stub length from shape; 'auto' = calculated. */
   jettySize?: number | 'auto';
+  /** Z-shape midpoint offset as 0–1 ratio (0.5 = centered, default). */
+  midpointOffset?: number;
 }
 
 /** Data for a freehand drawing expression. */

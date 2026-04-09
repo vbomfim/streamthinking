@@ -36,6 +36,7 @@ type Rect = { x: number; y: number; width: number; height: number };
  * @param startBounds Bounding rect of shape A
  * @param endBounds   Bounding rect of shape B
  * @param jettySize   Exit/entry stub length (default: 20)
+ * @param midpointOffset Z-shape midpoint ratio 0–1 (0.5 = centered, default)
  */
 export function computeOrthogonalRoute(
   start: { x: number; y: number },
@@ -45,6 +46,7 @@ export function computeOrthogonalRoute(
   startBounds?: Rect,
   endBounds?: Rect,
   jettySize?: number,
+  midpointOffset?: number,
 ): [number, number][] {
   if (start.x === end.x && start.y === end.y) {
     return [[start.x, start.y], [end.x, end.y]];
@@ -67,7 +69,7 @@ export function computeOrthogonalRoute(
   // Connect the two stubs with orthogonal segments
   const middle = connectStubs(
     exitStub, entryStub, exitDir, entryDir,
-    startBounds, endBounds, padding,
+    startBounds, endBounds, padding, midpointOffset,
   );
 
   return [
@@ -132,6 +134,7 @@ function connectStubs(
   sBounds?: Rect,
   eBounds?: Rect,
   padding: number = DEFAULT_PADDING,
+  midpointOffset?: number,
 ): [number, number][] {
   // Stubs already aligned — direct connection
   if (exit[0] === entry[0] || exit[1] === entry[1]) return [];
@@ -178,9 +181,10 @@ function connectStubs(
   const normalFlow = (forward > 0 && diff > 0) || (forward < 0 && diff < 0);
 
   if (normalFlow) {
-    // Z-shape: place a mid-segment between the stubs
+    // Z-shape: place a mid-segment between the stubs, controlled by midpointOffset
+    const t = midpointOffset ?? 0.5;
     if (exitH) {
-      let midX = (exit[0] + entry[0]) / 2;
+      let midX = exit[0] + (entry[0] - exit[0]) * t;
       // Push midX out of any blocking shape
       const lo = Math.min(exit[1], entry[1]);
       const hi = Math.max(exit[1], entry[1]);
@@ -195,7 +199,7 @@ function connectStubs(
       return [[midX, exit[1]], [midX, entry[1]]];
     }
 
-    let midY = (exit[1] + entry[1]) / 2;
+    let midY = exit[1] + (entry[1] - exit[1]) * t;
     const lo = Math.min(exit[0], entry[0]);
     const hi = Math.max(exit[0], entry[0]);
     for (const b of [sBounds, eBounds]) {
