@@ -166,8 +166,9 @@ function clampPosition(
 
 /** Resolve arrowhead value to a normalized string type. */
 function resolveArrowheadType(val: string | boolean | undefined): string {
-  if (val === true) return 'triangle';
+  if (val === true) return 'classic';
   if (val === false || val === undefined) return 'none';
+  if (val === 'triangle') return 'classic';
   return val;
 }
 

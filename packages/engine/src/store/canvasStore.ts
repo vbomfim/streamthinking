@@ -374,7 +374,7 @@ export const useCanvasStore = create<CanvasState & CanvasActions>()(
     defaultArrowStyle: {
       routing: 'straight',
       startArrowhead: 'none',
-      endArrowhead: 'triangle',
+      endArrowhead: 'classic',
     } as DefaultArrowStyle,
 
     // ── Content mutations (emit ProtocolOperations + push snapshots) ──
