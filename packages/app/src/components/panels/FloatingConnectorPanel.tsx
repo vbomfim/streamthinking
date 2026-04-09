@@ -9,9 +9,14 @@
  * 1. **Selection mode** — arrow/line selected → positions near its midpoint
  * 2. **Drawing mode** — arrow tool active → static position (bottom-center)
  *
+ * The panel header is draggable — grab it to reposition the panel without
+ * interfering with canvas pan/zoom. Drag offset resets when a different
+ * arrow is selected. [CLEAN-CODE]
+ *
  * @module
  */
 
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useCanvasStore, worldToScreen } from '@infinicanvas/engine';
 import type { ArrowData, RoutingMode } from '@infinicanvas/protocol';
 
@@ -19,7 +24,7 @@ import type { ArrowData, RoutingMode } from '@infinicanvas/protocol';
 
 /** Offset from the arrow midpoint (screen pixels). */
 const PANEL_OFFSET_X = 20;
-const PANEL_OFFSET_Y = 20;
+const PANEL_OFFSET_Y = 60;
 
 /** Approximate panel dimensions for viewport clamping. */
 const PANEL_WIDTH = 200;
@@ -99,6 +104,9 @@ const PANEL_HEADER_STYLE: React.CSSProperties = {
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
   marginBottom: 6,
+  cursor: 'grab',
+  userSelect: 'none',
+  padding: '2px 0',
 };
 
 const SELECT_STYLE: React.CSSProperties = {
@@ -189,12 +197,65 @@ export function FloatingConnectorPanel() {
   const defaultArrowStyle = useCanvasStore((s) => s.defaultArrowStyle);
   const setDefaultArrowStyle = useCanvasStore((s) => s.setDefaultArrowStyle);
 
+  // ── Drag state (ephemeral — not persisted to canvas state) ──
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef<{ mouseX: number; mouseY: number; offsetX: number; offsetY: number } | null>(null);
+  const prevSelectedIdRef = useRef<string | undefined>(undefined);
+
   // Determine mode
   const isDrawingMode = selectedIds.size === 0 && activeTool === 'arrow';
   const firstSelectedId = selectedIds.size > 0 ? [...selectedIds][0]! : undefined;
   const firstExpr = firstSelectedId ? expressions[firstSelectedId] : undefined;
   const isArrowSelected = !isDrawingMode && firstExpr &&
     (firstExpr.kind === 'arrow' || firstExpr.kind === 'line');
+
+  // Reset drag offset when a different arrow is selected [CLEAN-CODE]
+  useEffect(() => {
+    prevSelectedIdRef.current = firstSelectedId;
+    setDragOffset(null);
+  }, [firstSelectedId]);
+
+  // ── Drag event handlers ──
+
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+    dragStartRef.current = {
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      offsetX: dragOffset?.x ?? 0,
+      offsetY: dragOffset?.y ?? 0,
+    };
+  }, [dragOffset]);
+
+  useEffect(() => {
+    if (!isDragging) return;
+
+    function handleMouseMove(e: MouseEvent) {
+      if (!dragStartRef.current) return;
+      const dx = e.clientX - dragStartRef.current.mouseX;
+      const dy = e.clientY - dragStartRef.current.mouseY;
+      setDragOffset({
+        x: dragStartRef.current.offsetX + dx,
+        y: dragStartRef.current.offsetY + dy,
+      });
+    }
+
+    function handleMouseUp() {
+      setIsDragging(false);
+      dragStartRef.current = null;
+    }
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
 
   // Only show for arrow/line selection or arrow drawing mode
   if (!isArrowSelected && !isDrawingMode) return null;
@@ -237,7 +298,11 @@ export function FloatingConnectorPanel() {
   // Clamp to viewport
   const viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1024;
   const viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 768;
-  const clamped = clampPosition(panelX, panelY, viewportWidth, viewportHeight);
+
+  // Apply drag offset before clamping [CLEAN-CODE]
+  const finalX = panelX + (dragOffset?.x ?? 0);
+  const finalY = panelY + (dragOffset?.y ?? 0);
+  const clamped = clampPosition(finalX, finalY, viewportWidth, viewportHeight);
 
   // ── Event handlers ──
 
@@ -274,6 +339,7 @@ export function FloatingConnectorPanel() {
       data-testid="floating-connector-panel"
       role="region"
       aria-label="Connector controls"
+      onMouseDown={(e) => e.stopPropagation()}
       style={{
         ...FLOATING_PANEL_STYLE,
         position: 'fixed',
@@ -281,7 +347,16 @@ export function FloatingConnectorPanel() {
         top: `${clamped.y}px`,
       }}
     >
-      <p style={PANEL_HEADER_STYLE}>Connector</p>
+      <p
+        data-testid="connector-drag-handle"
+        onMouseDown={handleDragStart}
+        style={{
+          ...PANEL_HEADER_STYLE,
+          cursor: isDragging ? 'grabbing' : 'grab',
+        }}
+      >
+        Connector
+      </p>
 
       {/* Routing mode dropdown */}
       <select

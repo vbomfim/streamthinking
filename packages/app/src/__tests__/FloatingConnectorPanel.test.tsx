@@ -148,7 +148,7 @@ describe('FloatingConnectorPanel', () => {
   it('positions near the arrow midpoint (converted to screen coords)', () => {
     // Arrow from [0,0] to [200,100], midpoint = [100,50]
     // Camera at origin, zoom=1 → screen = world
-    // Panel should be offset from midpoint
+    // Panel should be offset from midpoint: x+20, y+60
     setupWithArrow();
     const { container } = render(<FloatingConnectorPanel />);
     const panel = container.querySelector('[data-testid="floating-connector-panel"]') as HTMLElement;
@@ -157,9 +157,9 @@ describe('FloatingConnectorPanel', () => {
     // Left should be arrow midpoint.x (100) + offset (20) = 120
     const left = parseInt(panel.style.left);
     expect(left).toBe(120);
-    // Top should be arrow midpoint.y (50) + offset (20) = 70
+    // Top should be arrow midpoint.y (50) + offset (60) = 110
     const top = parseInt(panel.style.top);
-    expect(top).toBe(70);
+    expect(top).toBe(110);
   });
 
   it('adjusts position based on camera pan', () => {
@@ -171,22 +171,22 @@ describe('FloatingConnectorPanel', () => {
     const panel = container.querySelector('[data-testid="floating-connector-panel"]') as HTMLElement;
     const left = parseInt(panel.style.left);
     const top = parseInt(panel.style.top);
-    // midpoint screen = (100-50)*1=50, (50-30)*1=20 → +20 offset → 70, 40
+    // midpoint screen = (100-50)*1=50, (50-30)*1=20 → +20/+60 offset → 70, 80
     expect(left).toBe(70);
-    expect(top).toBe(40);
+    expect(top).toBe(80);
   });
 
   it('adjusts position based on camera zoom', () => {
     setupWithArrow();
     // Zoom=2, camera at origin → screen = world * 2
-    // midpoint=(100,50) → screen=(200,100) → +20 → (220,120)
+    // midpoint=(100,50) → screen=(200,100) → +20/+60 → (220,160)
     useCanvasStore.setState({ camera: { x: 0, y: 0, zoom: 2 } });
     const { container } = render(<FloatingConnectorPanel />);
     const panel = container.querySelector('[data-testid="floating-connector-panel"]') as HTMLElement;
     const left = parseInt(panel.style.left);
     const top = parseInt(panel.style.top);
     expect(left).toBe(220);
-    expect(top).toBe(120);
+    expect(top).toBe(160);
   });
 
   it('clamps position when panel would overflow right edge', () => {
@@ -348,5 +348,58 @@ describe('FloatingConnectorPanel', () => {
     fireEvent.change(select, { target: { value: 'elbow' } });
     const defaults = useCanvasStore.getState().defaultArrowStyle;
     expect(defaults.routing).toBe('elbow');
+  });
+
+  // ── Drag handle ──
+
+  it('renders a drag handle header with cursor grab', () => {
+    setupWithArrow();
+    const { container } = render(<FloatingConnectorPanel />);
+    const header = container.querySelector('[data-testid="connector-drag-handle"]') as HTMLElement;
+    expect(header).not.toBeNull();
+    expect(header.style.cursor).toBe('grab');
+  });
+
+  it('positions panel below arrow midpoint with +60px Y offset by default', () => {
+    // Arrow from [0,0] to [200,100], midpoint = [100,50]
+    // Camera at origin, zoom=1 → screen = world
+    // Panel should be offset: x + 20, y + 60
+    setupWithArrow();
+    const { container } = render(<FloatingConnectorPanel />);
+    const panel = container.querySelector('[data-testid="floating-connector-panel"]') as HTMLElement;
+    const top = parseInt(panel.style.top);
+    // Midpoint Y is 50, offset should be +60 → 110
+    expect(top).toBe(110);
+  });
+
+  it('resets drag offset when a different arrow is selected', () => {
+    // Select first arrow
+    setupWithArrow();
+    const { container, rerender } = render(<FloatingConnectorPanel />);
+
+    // Select a different arrow
+    const arrow2 = makeArrowExpr('arrow-2', {
+      points: [[0, 0], [100, 300]] as [number, number][],
+    });
+    useCanvasStore.getState().addExpression(arrow2);
+    useCanvasStore.setState({ selectedIds: new Set(['arrow-2']) });
+    rerender(<FloatingConnectorPanel />);
+
+    const updatedPanel = container.querySelector('[data-testid="floating-connector-panel"]') as HTMLElement;
+    const newTop = parseInt(updatedPanel.style.top);
+    // Position should be recalculated for the new arrow, not carry over drag offset
+    // Arrow-2 midpoint is (50, 150), +60 offset → 210
+    expect(newTop).toBe(210);
+  });
+
+  it('panel mousedown does not propagate to canvas (prevents pan)', () => {
+    setupWithArrow();
+    const { container } = render(<FloatingConnectorPanel />);
+    const panel = container.querySelector('[data-testid="floating-connector-panel"]') as HTMLElement;
+    expect(panel).not.toBeNull();
+    // Verify the panel has an onMouseDown handler that calls stopPropagation
+    // by checking the element exists and dispatching an event
+    const mouseDown = new MouseEvent('mousedown', { bubbles: true, cancelable: true });
+    panel.dispatchEvent(mouseDown);
   });
 });

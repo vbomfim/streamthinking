@@ -210,7 +210,14 @@ export function detectPointHandle(
 const DEFAULT_JETTY_SIZE = 20;
 
 /** Routing modes that produce exit stubs where a jetty handle makes sense. */
-const JETTY_ROUTING_MODES = new Set(['orthogonal', 'er', 'isometric', 'elbow', 'curved']);
+const JETTY_ROUTING_MODES = new Set([
+  'orthogonal',
+  'entityRelation',
+  'isometric',
+  'elbow',
+  'curved',
+  'orthogonalCurved',
+]);
 
 /**
  * Resolve the exit direction unit vector for a given anchor.

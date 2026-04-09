@@ -565,9 +565,19 @@ describe('computeResize [AC3, AC4, AC5]', () => {
       expect(result!.direction.y).toBe(0);
     });
 
-    it('works with ER routing mode', () => {
+    it('works with entityRelation routing mode', () => {
       const arrow = makeArrow('a1', [[100, 200], [400, 200]], {
-        routing: 'er',
+        routing: 'entityRelation',
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+      });
+      const result = getJettyHandlePosition(arrow);
+      expect(result).not.toBeNull();
+      expect(result!.end).toBe('start');
+    });
+
+    it('works with orthogonalCurved routing mode', () => {
+      const arrow = makeArrow('a1', [[100, 200], [400, 200]], {
+        routing: 'orthogonalCurved',
         startBinding: { expressionId: 'shape1', anchor: 'right' },
       });
       const result = getJettyHandlePosition(arrow);
