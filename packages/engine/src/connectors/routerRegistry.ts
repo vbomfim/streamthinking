@@ -43,6 +43,7 @@ function orthogonalAdapter(
     endAnchor,
     options?.startBounds,
     options?.endBounds,
+    options?.jettySize,
   );
 
   // Convert [x,y][] to PathSegment[] — skip the first point (moveTo)

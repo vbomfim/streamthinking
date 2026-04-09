@@ -3,7 +3,7 @@
  *
  * Tests written FIRST following TDD [Red → Green → Refactor].
  * Covers L-shape, Z-shape routing, anchor-based exit direction,
- * and shape padding.
+ * shape padding, and exit/entry clearance stubs.
  *
  * @module
  */
@@ -11,7 +11,10 @@
 import { describe, it, expect } from 'vitest';
 import { computeOrthogonalRoute } from '../connectors/orthogonalRouter.js';
 
-// ── Helper ───────────────────────────────────────────────────
+// ── Helpers ──────────────────────────────────────────────────
+
+/** Bounding box type matching the router's parameter shape. */
+type Rect = { x: number; y: number; width: number; height: number };
 
 /** Assert all segments in a route are horizontal or vertical. */
 function assertOrthogonal(points: [number, number][]): void {
@@ -24,6 +27,69 @@ function assertOrthogonal(points: [number, number][]): void {
       isHorizontal || isVertical,
       `Segment ${i - 1}→${i} is diagonal: (${x1},${y1})→(${x2},${y2})`,
     ).toBe(true);
+  }
+}
+
+/**
+ * Assert that no INTERMEDIATE segment of the route crosses through
+ * the given bounding rectangle. Start and end points are excluded
+ * because they sit on the shape edge by design.
+ *
+ * A segment crosses a rect if both endpoints have x within the
+ * rect's x-range AND y within the rect's y-range (for the shared
+ * axis of an orthogonal segment, this means the segment cuts
+ * through the rect interior).
+ */
+function assertRouteAvoidsRect(
+  points: [number, number][],
+  rect: Rect,
+  label: string,
+): void {
+  for (let i = 1; i < points.length; i++) {
+    const [x1, y1] = points[i - 1]!;
+    const [x2, y2] = points[i]!;
+
+    // Skip the first segment (starts at shape edge) and last segment
+    // (ends at shape edge) — those are the stubs connecting TO the shape.
+    if (i === 1 || i === points.length - 1) continue;
+
+    // For a horizontal segment (y1 === y2), check if the y is inside
+    // the rect AND the x-range overlaps the rect.
+    if (y1 === y2) {
+      const y = y1;
+      const minX = Math.min(x1, x2);
+      const maxX = Math.max(x1, x2);
+      if (
+        y > rect.y &&
+        y < rect.y + rect.height &&
+        maxX > rect.x &&
+        minX < rect.x + rect.width
+      ) {
+        expect.fail(
+          `Segment (${x1},${y1})→(${x2},${y2}) crosses ${label} ` +
+            `[${rect.x},${rect.y} ${rect.width}×${rect.height}]`,
+        );
+      }
+    }
+
+    // For a vertical segment (x1 === x2), check if the x is inside
+    // the rect AND the y-range overlaps the rect.
+    if (x1 === x2) {
+      const x = x1;
+      const minY = Math.min(y1, y2);
+      const maxY = Math.max(y1, y2);
+      if (
+        x > rect.x &&
+        x < rect.x + rect.width &&
+        maxY > rect.y &&
+        minY < rect.y + rect.height
+      ) {
+        expect.fail(
+          `Segment (${x1},${y1})→(${x2},${y2}) crosses ${label} ` +
+            `[${rect.x},${rect.y} ${rect.width}×${rect.height}]`,
+        );
+      }
+    }
   }
 }
 
@@ -68,8 +134,12 @@ describe('computeOrthogonalRoute — basic', () => {
       { x: 100, y: 200 },
     );
     assertOrthogonal(route);
-    // Should be a simple vertical line
-    expect(route).toEqual([[100, 0], [100, 200]]);
+    // All points should share x = 100 (collinear vertical line)
+    for (const [x] of route) {
+      expect(x).toBe(100);
+    }
+    expect(route[0]).toEqual([100, 0]);
+    expect(route[route.length - 1]).toEqual([100, 200]);
   });
 
   it('handles same y (horizontal only) — straight horizontal line', () => {
@@ -78,7 +148,12 @@ describe('computeOrthogonalRoute — basic', () => {
       { x: 200, y: 100 },
     );
     assertOrthogonal(route);
-    expect(route).toEqual([[0, 100], [200, 100]]);
+    // All points should share y = 100 (collinear horizontal line)
+    for (const [, y] of route) {
+      expect(y).toBe(100);
+    }
+    expect(route[0]).toEqual([0, 100]);
+    expect(route[route.length - 1]).toEqual([200, 100]);
   });
 });
 
@@ -342,5 +417,222 @@ describe('computeOrthogonalRoute — edge cases', () => {
     assertOrthogonal(route);
     expect(route[0]).toEqual([100, 100]);
     expect(route[route.length - 1]).toEqual([300, 300]);
+  });
+});
+
+// ── Clearance / exit-entry stubs ─────────────────────────────
+// [TDD] These tests encode the fix for the "lines go through shapes" bug.
+// The router must add exit/entry stubs so route segments never cross
+// through either connected shape.
+
+describe('computeOrthogonalRoute — clearance stubs', () => {
+  // ── Scenario: two rects stacked vertically, bottom→top ─────
+  // Shape A at (100, 100) 200×100, bottom edge at y=200
+  // Shape B at (150, 350) 200×100, top edge at y=350
+  const shapesVertical = {
+    startBounds: { x: 100, y: 100, width: 200, height: 100 } as Rect,
+    endBounds: { x: 150, y: 350, width: 200, height: 100 } as Rect,
+    start: { x: 200, y: 200 },  // bottom center of A
+    end: { x: 250, y: 350 },    // top center of B
+  };
+
+  it('exits with a stub that clears the source shape (bottom→top)', () => {
+    const { start, end, startBounds, endBounds } = shapesVertical;
+    const route = computeOrthogonalRoute(
+      start, end, 'bottom', 'top', startBounds, endBounds,
+    );
+    assertOrthogonal(route);
+    expect(route[0]).toEqual([start.x, start.y]);
+    expect(route[route.length - 1]).toEqual([end.x, end.y]);
+
+    // Second point should be the exit stub — same x, y > start.y
+    expect(route[1]![0]).toBe(start.x);
+    expect(route[1]![1]).toBeGreaterThan(start.y);
+  });
+
+  it('enters with a stub that clears the target shape (bottom→top)', () => {
+    const { start, end, startBounds, endBounds } = shapesVertical;
+    const route = computeOrthogonalRoute(
+      start, end, 'bottom', 'top', startBounds, endBounds,
+    );
+    // Second-to-last point should be the entry stub — same x as end, y < end.y
+    const entryStub = route[route.length - 2]!;
+    expect(entryStub[0]).toBe(end.x);
+    expect(entryStub[1]).toBeLessThan(end.y);
+  });
+
+  it('route segments never cross source shape (bottom→top)', () => {
+    const { start, end, startBounds, endBounds } = shapesVertical;
+    const route = computeOrthogonalRoute(
+      start, end, 'bottom', 'top', startBounds, endBounds,
+    );
+    assertRouteAvoidsRect(route, startBounds, 'source');
+  });
+
+  it('route segments never cross target shape (bottom→top)', () => {
+    const { start, end, startBounds, endBounds } = shapesVertical;
+    const route = computeOrthogonalRoute(
+      start, end, 'bottom', 'top', startBounds, endBounds,
+    );
+    assertRouteAvoidsRect(route, endBounds, 'target');
+  });
+
+  // ── Scenario: two rects side by side, right→left ───────────
+  // Shape A at (0, 100) 100×100, right edge at x=100
+  // Shape B at (300, 150) 100×100, left edge at x=300
+  const shapesHorizontal = {
+    startBounds: { x: 0, y: 100, width: 100, height: 100 } as Rect,
+    endBounds: { x: 300, y: 150, width: 100, height: 100 } as Rect,
+    start: { x: 100, y: 150 },  // right center of A
+    end: { x: 300, y: 200 },    // left center of B
+  };
+
+  it('exits with a stub that clears the source shape (right→left)', () => {
+    const { start, end, startBounds, endBounds } = shapesHorizontal;
+    const route = computeOrthogonalRoute(
+      start, end, 'right', 'left', startBounds, endBounds,
+    );
+    assertOrthogonal(route);
+    expect(route[0]).toEqual([start.x, start.y]);
+    expect(route[route.length - 1]).toEqual([end.x, end.y]);
+
+    // Second point should be exit stub — same y, x > start.x
+    expect(route[1]![1]).toBe(start.y);
+    expect(route[1]![0]).toBeGreaterThan(start.x);
+  });
+
+  it('enters with a stub that clears the target shape (right→left)', () => {
+    const { start, end, startBounds, endBounds } = shapesHorizontal;
+    const route = computeOrthogonalRoute(
+      start, end, 'right', 'left', startBounds, endBounds,
+    );
+    // Second-to-last point should be entry stub — same y as end, x < end.x
+    const entryStub = route[route.length - 2]!;
+    expect(entryStub[1]).toBe(end.y);
+    expect(entryStub[0]).toBeLessThan(end.x);
+  });
+
+  it('route segments never cross source shape (right→left)', () => {
+    const { start, end, startBounds, endBounds } = shapesHorizontal;
+    const route = computeOrthogonalRoute(
+      start, end, 'right', 'left', startBounds, endBounds,
+    );
+    assertRouteAvoidsRect(route, startBounds, 'source');
+  });
+
+  it('route segments never cross target shape (right→left)', () => {
+    const { start, end, startBounds, endBounds } = shapesHorizontal;
+    const route = computeOrthogonalRoute(
+      start, end, 'right', 'left', startBounds, endBounds,
+    );
+    assertRouteAvoidsRect(route, endBounds, 'target');
+  });
+
+  // ── Scenario: L-shape cross-axis, right exit → top entry ───
+  // Shape A at (50, 100) 100×80, right edge at x=150
+  // Shape B at (300, 250) 100×80, top edge at y=250
+  const shapesLShape = {
+    startBounds: { x: 50, y: 100, width: 100, height: 80 } as Rect,
+    endBounds: { x: 300, y: 250, width: 100, height: 80 } as Rect,
+    start: { x: 150, y: 140 },  // right center of A
+    end: { x: 350, y: 250 },    // top center of B
+  };
+
+  it('L-shape route avoids both shapes (right→top)', () => {
+    const { start, end, startBounds, endBounds } = shapesLShape;
+    const route = computeOrthogonalRoute(
+      start, end, 'right', 'top', startBounds, endBounds,
+    );
+    assertOrthogonal(route);
+    expect(route[0]).toEqual([start.x, start.y]);
+    expect(route[route.length - 1]).toEqual([end.x, end.y]);
+    assertRouteAvoidsRect(route, startBounds, 'source');
+    assertRouteAvoidsRect(route, endBounds, 'target');
+  });
+
+  // ── Scenario: shapes close together vertically ─────────────
+  // Shape A at (100, 100) 200×100
+  // Shape B at (150, 220) 200×100 — only 20px gap
+  const shapesClose = {
+    startBounds: { x: 100, y: 100, width: 200, height: 100 } as Rect,
+    endBounds: { x: 150, y: 220, width: 200, height: 100 } as Rect,
+    start: { x: 200, y: 200 },  // bottom center of A
+    end: { x: 250, y: 220 },    // top center of B
+  };
+
+  it('routes between close shapes without crossing either (bottom→top)', () => {
+    const { start, end, startBounds, endBounds } = shapesClose;
+    const route = computeOrthogonalRoute(
+      start, end, 'bottom', 'top', startBounds, endBounds,
+    );
+    assertOrthogonal(route);
+    expect(route[0]).toEqual([start.x, start.y]);
+    expect(route[route.length - 1]).toEqual([end.x, end.y]);
+    assertRouteAvoidsRect(route, startBounds, 'source');
+    assertRouteAvoidsRect(route, endBounds, 'target');
+  });
+
+  // ── Scenario: opposite-direction exit (right exit, target is left) ──
+  const shapesOpposite = {
+    startBounds: { x: 200, y: 100, width: 100, height: 80 } as Rect,
+    endBounds: { x: 50, y: 250, width: 100, height: 80 } as Rect,
+    start: { x: 300, y: 140 },  // right edge of A
+    end: { x: 50, y: 290 },     // left edge of B
+  };
+
+  it('routes around both shapes in opposite-direction case (right→left, target behind)', () => {
+    const { start, end, startBounds, endBounds } = shapesOpposite;
+    const route = computeOrthogonalRoute(
+      start, end, 'right', 'left', startBounds, endBounds,
+    );
+    assertOrthogonal(route);
+    expect(route[0]).toEqual([start.x, start.y]);
+    expect(route[route.length - 1]).toEqual([end.x, end.y]);
+    assertRouteAvoidsRect(route, startBounds, 'source');
+    assertRouteAvoidsRect(route, endBounds, 'target');
+  });
+
+  // ── Scenario: custom jettySize ─────────────────────────────
+  it('uses jettySize as stub length', () => {
+    const startBounds = { x: 0, y: 0, width: 100, height: 100 };
+    const endBounds = { x: 300, y: 200, width: 100, height: 100 };
+    const jettySize = 40;
+    const route = computeOrthogonalRoute(
+      { x: 100, y: 50 },  // right edge of source
+      { x: 300, y: 250 }, // left edge of target
+      'right',
+      'left',
+      startBounds,
+      endBounds,
+      jettySize,
+    );
+    assertOrthogonal(route);
+    // Exit stub should be jettySize pixels from start
+    expect(route[1]![0]).toBe(100 + jettySize);
+    expect(route[1]![1]).toBe(50);
+    // Entry stub should be jettySize pixels from end
+    const entryStub = route[route.length - 2]!;
+    expect(entryStub[0]).toBe(300 - jettySize);
+    expect(entryStub[1]).toBe(250);
+  });
+
+  // ── Scenario: axis-aligned with shapes in the way ──────────
+  it('does not shortcut axis-aligned routes when shapes block the path', () => {
+    // Same x, bottom→top with shapes that would be crossed by a straight line
+    const startBounds = { x: 150, y: 100, width: 100, height: 100 };
+    const endBounds = { x: 130, y: 250, width: 100, height: 100 };
+    const route = computeOrthogonalRoute(
+      { x: 200, y: 200 },  // bottom of A
+      { x: 200, y: 250 },  // top of B (same x!)
+      'bottom',
+      'top',
+      startBounds,
+      endBounds,
+    );
+    assertOrthogonal(route);
+    expect(route[0]).toEqual([200, 200]);
+    expect(route[route.length - 1]).toEqual([200, 250]);
+    // Should have stubs — not just a straight 2-point line
+    expect(route.length).toBeGreaterThan(2);
   });
 });
