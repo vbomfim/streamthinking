@@ -16,6 +16,13 @@
 /** Default exit/entry stub length in world units. */
 const DEFAULT_PADDING = 20;
 
+/**
+ * Epsilon for shape-edge comparisons.
+ * Segments exactly on a shape edge (within 1px) are treated as crossing.
+ * [CLEAN-CODE] — named constant instead of magic number.
+ */
+const EDGE_EPSILON = 1;
+
 /** Unit direction vector. */
 interface Dir { dx: number; dy: number }
 
@@ -101,10 +108,24 @@ function resolveDirection(
       case 'bottom':       return { dx:  0, dy:  1 };
       case 'left':         return { dx: -1, dy:  0 };
       case 'right':        return { dx:  1, dy:  0 };
-      case 'top-right':    return { dx:  1, dy:  0 };
-      case 'top-left':     return { dx: -1, dy:  0 };
-      case 'bottom-right': return { dx:  1, dy:  0 };
-      case 'bottom-left':  return { dx: -1, dy:  0 };
+      // Corner anchors: prefer vertical if target is more above/below,
+      // otherwise horizontal (draw.io-style corner exit logic).
+      case 'top-right':
+        return Math.abs(to.y - from.y) > Math.abs(to.x - from.x)
+          ? { dx: 0, dy: -1 }
+          : { dx: 1, dy:  0 };
+      case 'top-left':
+        return Math.abs(to.y - from.y) > Math.abs(to.x - from.x)
+          ? { dx: 0, dy: -1 }
+          : { dx: -1, dy: 0 };
+      case 'bottom-right':
+        return Math.abs(to.y - from.y) > Math.abs(to.x - from.x)
+          ? { dx: 0, dy:  1 }
+          : { dx: 1, dy:  0 };
+      case 'bottom-left':
+        return Math.abs(to.y - from.y) > Math.abs(to.x - from.x)
+          ? { dx: 0, dy:  1 }
+          : { dx: -1, dy: 0 };
     }
   }
   const deltaX = to.x - from.x;
@@ -225,8 +246,9 @@ function connectStubs(
 // ── 4. Segment–rect crossing ─────────────────────────────────
 
 /**
- * Check whether an orthogonal segment crosses strictly through a rect.
- * Uses strict inequalities — segments along shape edges don't trigger.
+ * Check whether an orthogonal segment crosses through a rect.
+ * Uses epsilon tolerance — segments within 1px of shape edges trigger.
+ * Fixes bug #7: strict inequalities caused false negatives on edges.
  */
 function segmentCrossesRect(
   p1: [number, number],
@@ -240,14 +262,14 @@ function segmentCrossesRect(
   if (y1 === y2) {
     const minX = Math.min(x1, x2);
     const maxX = Math.max(x1, x2);
-    return y1 > rect.y && y1 < rect.y + rect.height &&
-           maxX > rect.x && minX < rect.x + rect.width;
+    return y1 > rect.y - EDGE_EPSILON && y1 < rect.y + rect.height + EDGE_EPSILON &&
+           maxX > rect.x - EDGE_EPSILON && minX < rect.x + rect.width + EDGE_EPSILON;
   }
   if (x1 === x2) {
     const minY = Math.min(y1, y2);
     const maxY = Math.max(y1, y2);
-    return x1 > rect.x && x1 < rect.x + rect.width &&
-           maxY > rect.y && minY < rect.y + rect.height;
+    return x1 > rect.x - EDGE_EPSILON && x1 < rect.x + rect.width + EDGE_EPSILON &&
+           maxY > rect.y - EDGE_EPSILON && minY < rect.y + rect.height + EDGE_EPSILON;
   }
   return false;
 }

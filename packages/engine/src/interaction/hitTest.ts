@@ -257,11 +257,15 @@ export function hitTestLine(
  * actual rendered path via the router and tests against those segments.
  * For straight arrows or arrows with <2 points, falls back to testing
  * against the stored point array.
+ *
+ * When `expressions` is provided, shape bounds are passed to the router
+ * so the hit-test path matches the rendered path exactly. [AC4]
  */
 export function hitTestArrow(
   point: WorldPoint,
   expression: VisualExpression,
   tolerance: number,
+  expressions?: Record<string, VisualExpression>,
 ): boolean {
   if (expression.data.kind !== 'arrow') return false;
   const data = expression.data as ArrowData;
@@ -282,6 +286,15 @@ export function hitTestArrow(
     const start = { x: points[0]![0], y: points[0]![1] };
     const end = { x: points[1]![0], y: points[1]![1] };
 
+    // Resolve shape bounds for routed path computation (bug #3 fix).
+    // Without bounds, the hit-test path may differ from the rendered path.
+    const startBoundExpr = expressions && data.startBinding
+      ? expressions[data.startBinding.expressionId]
+      : undefined;
+    const endBoundExpr = expressions && data.endBinding
+      ? expressions[data.endBinding.expressionId]
+      : undefined;
+
     const pathSegments = router(
       start,
       end,
@@ -289,6 +302,21 @@ export function hitTestArrow(
       data.endBinding?.anchor,
       {
         jettySize: typeof data.jettySize === 'number' ? data.jettySize : undefined,
+        midpointOffset: typeof data.midpointOffset === 'number'
+          ? data.midpointOffset
+          : undefined,
+        startBounds: startBoundExpr ? {
+          x: startBoundExpr.position.x,
+          y: startBoundExpr.position.y,
+          width: startBoundExpr.size.width,
+          height: startBoundExpr.size.height,
+        } : undefined,
+        endBounds: endBoundExpr ? {
+          x: endBoundExpr.position.x,
+          y: endBoundExpr.position.y,
+          width: endBoundExpr.size.width,
+          height: endBoundExpr.size.height,
+        } : undefined,
       },
     );
 
@@ -415,11 +443,16 @@ export function hitTestStencil(
  *
  * Routes to the correct shape-specific hit test function based on
  * the expression's `kind` field. Returns false for unknown kinds.
+ *
+ * @param expressions - Optional expressions map for arrow hit testing.
+ *   When provided, shape bounds are passed to the router for accurate
+ *   path matching. [AC4]
  */
 export function hitTestExpression(
   point: WorldPoint,
   expression: VisualExpression,
   tolerance: number,
+  expressions?: Record<string, VisualExpression>,
 ): boolean {
   switch (expression.kind) {
     case 'rectangle':
@@ -431,7 +464,7 @@ export function hitTestExpression(
     case 'line':
       return hitTestLine(point, expression, tolerance);
     case 'arrow':
-      return hitTestArrow(point, expression, tolerance);
+      return hitTestArrow(point, expression, tolerance, expressions);
     case 'freehand':
       return hitTestFreehand(point, expression, tolerance);
     case 'text':

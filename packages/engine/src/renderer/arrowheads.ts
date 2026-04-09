@@ -598,8 +598,12 @@ export function renderArrowheadFromRegistry(
 ): void {
   if (type === 'none') return;
 
-  const renderer = ARROWHEAD_REGISTRY.get(type) ?? ARROWHEAD_REGISTRY.get('classic')!;
+  const renderer = ARROWHEAD_REGISTRY.get(type);
+  if (!renderer) {
+    console.warn(`[arrowheads] Unknown arrowhead type "${type}", falling back to "classic"`);
+  }
+  const resolvedRenderer = renderer ?? ARROWHEAD_REGISTRY.get('classic')!;
   ctx.save();
-  renderer(ctx, tipX, tipY, angle, size, filled, strokeColor, fillColor);
+  resolvedRenderer(ctx, tipX, tipY, angle, size, filled, strokeColor, fillColor);
   ctx.restore();
 }

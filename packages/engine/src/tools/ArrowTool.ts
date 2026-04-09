@@ -232,8 +232,9 @@ export class ArrowTool implements ToolHandler {
     worldY: number,
   ): { point: { x: number; y: number }; anchor: string; targetId: string; ratio: number; connectionPoints: ShapeConnectionPoint[] } | null {
     const { expressions, camera } = useCanvasStore.getState();
-    // Scale snap distance so it stays ~15 screen pixels at any zoom
-    const snapDist = Math.max(SNAP_DISTANCE, SNAP_DISTANCE / camera.zoom);
+    // Scale snap distance: at zoom > 1, shrink so snapping feels precise;
+    // at zoom ≤ 1, keep at constant ~15 screen pixels. [Bug #5]
+    const snapDist = SNAP_DISTANCE / Math.max(camera.zoom, 1);
     let best: { point: { x: number; y: number }; anchor: string; targetId: string; dist: number; ratio: number; connectionPoints: ShapeConnectionPoint[] } | null = null;
 
     for (const [id, expr] of Object.entries(expressions)) {

@@ -209,13 +209,13 @@ export function detectPointHandle(
 /** Default stub length when jettySize is not set. */
 const DEFAULT_JETTY_SIZE = 20;
 
-/** Routing modes that produce exit stubs where a jetty handle makes sense. */
+/** Routing modes that produce exit stubs where a jetty handle makes sense.
+ * 'curved' removed — curved routes have no stubs. [Bug #6]
+ * 'elbow' removed — now an alias for orthogonal (already in the set). */
 const JETTY_ROUTING_MODES = new Set([
   'orthogonal',
   'entityRelation',
   'isometric',
-  'elbow',
-  'curved',
   'orthogonalCurved',
 ]);
 
