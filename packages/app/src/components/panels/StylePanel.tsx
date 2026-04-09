@@ -171,6 +171,22 @@ const SELECT_STYLE: React.CSSProperties = {
   cursor: 'pointer',
 };
 
+/** Compact select for half-width arrowhead dropdowns. */
+const COMPACT_SELECT_STYLE: React.CSSProperties = {
+  ...SELECT_STYLE,
+  width: '100%',
+  padding: '3px 2px',
+  fontSize: 10,
+};
+
+/** Tiny inline label for compact connector controls. */
+const INLINE_LABEL_STYLE: React.CSSProperties = {
+  margin: 0,
+  fontSize: 10,
+  fontWeight: 500,
+  color: '#777',
+};
+
 /** Swatch button base style. */
 function swatchStyle(
   color: string,
@@ -500,92 +516,92 @@ export function StylePanel() {
         />
       </Section>
 
-      {/* ── Connector Controls (shown for arrows and arrow drawing mode) ── */}
+      {/* ── Connector Controls (compact layout) ── */}
       {showConnectorControls && (
-        <>
-          {/* ── Routing Mode (dropdown) ── */}
-          <Section label="Connector style">
-            <select
-              data-testid="routing-mode-select"
-              value={currentRouting}
-              onChange={(e) => handleRoutingChange(e.target.value as RoutingMode)}
-              style={SELECT_STYLE}
-              aria-label="Routing mode"
-            >
-              {ROUTING_MODES.map(({ value, label, icon }) => (
-                <option key={value} value={value}>
-                  {icon} {label}
-                </option>
-              ))}
-            </select>
-          </Section>
+        <div data-testid="connector-controls" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <p style={SECTION_LABEL_STYLE}>Connector</p>
 
-          {/* ── Start Arrowhead (dropdown) ── */}
-          <Section label="Start tip">
-            <select
-              data-testid="start-arrowhead-select"
-              value={startArrowheadType}
-              onChange={(e) => handleArrowheadChange('start', e.target.value)}
-              style={SELECT_STYLE}
-              aria-label="Start arrowhead"
-            >
-              {ARROWHEAD_GROUPS.map((group) => (
-                <optgroup key={group.label} label={group.label}>
-                  {group.types.map(({ value, label }) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </Section>
+          {/* Routing mode — full width */}
+          <select
+            data-testid="routing-mode-select"
+            value={currentRouting}
+            onChange={(e) => handleRoutingChange(e.target.value as RoutingMode)}
+            style={SELECT_STYLE}
+            aria-label="Routing mode"
+          >
+            {ROUTING_MODES.map(({ value, label, icon }) => (
+              <option key={value} value={value}>
+                {icon} {label}
+              </option>
+            ))}
+          </select>
 
-          {/* ── End Arrowhead (dropdown) ── */}
-          <Section label="End tip">
-            <select
-              data-testid="end-arrowhead-select"
-              value={endArrowheadType}
-              onChange={(e) => handleArrowheadChange('end', e.target.value)}
-              style={SELECT_STYLE}
-              aria-label="End arrowhead"
-            >
-              {ARROWHEAD_GROUPS.map((group) => (
-                <optgroup key={group.label} label={group.label}>
-                  {group.types.map(({ value, label }) => (
-                    <option key={value} value={value}>
-                      {label}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-          </Section>
+          {/* Arrowheads — two selects side by side */}
+          <div data-testid="arrowhead-row" style={{ display: 'flex', gap: 4 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={INLINE_LABEL_STYLE}>Start</p>
+              <select
+                data-testid="start-arrowhead-select"
+                value={startArrowheadType}
+                onChange={(e) => handleArrowheadChange('start', e.target.value)}
+                style={COMPACT_SELECT_STYLE}
+                aria-label="Start arrowhead"
+              >
+                {ARROWHEAD_GROUPS.map((group) => (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.types.map(({ value, label }) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <p style={INLINE_LABEL_STYLE}>End</p>
+              <select
+                data-testid="end-arrowhead-select"
+                value={endArrowheadType}
+                onChange={(e) => handleArrowheadChange('end', e.target.value)}
+                style={COMPACT_SELECT_STYLE}
+                aria-label="End arrowhead"
+              >
+                {ARROWHEAD_GROUPS.map((group) => (
+                  <optgroup key={group.label} label={group.label}>
+                    {group.types.map(({ value, label }) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </div>
+          </div>
 
-          {/* ── Edge Properties (only for selected arrows, not drawing mode) ── */}
+          {/* Edge Properties — compact horizontal checkboxes */}
           {isArrowSelected && (currentRouting === 'orthogonal' || currentRouting === 'orthogonalCurved') && (
-            <Section label="Edge properties">
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <label style={CHECKBOX_LABEL_STYLE}>
-                  <input
-                    type="checkbox"
-                    checked={currentCurved}
-                    onChange={(e) => handleEdgeToggle('curved', e.target.checked)}
-                  />
-                  Smooth corners
-                </label>
-                <label style={CHECKBOX_LABEL_STYLE}>
-                  <input
-                    type="checkbox"
-                    checked={currentRounded}
-                    onChange={(e) => handleEdgeToggle('rounded', e.target.checked)}
-                  />
-                  Rounded corners
-                </label>
-              </div>
-            </Section>
+            <div data-testid="edge-properties-row" style={{ display: 'flex', gap: 8 }}>
+              <label style={{ ...CHECKBOX_LABEL_STYLE, fontSize: 10 }}>
+                <input
+                  type="checkbox"
+                  checked={currentCurved}
+                  onChange={(e) => handleEdgeToggle('curved', e.target.checked)}
+                />
+                Smooth
+              </label>
+              <label style={{ ...CHECKBOX_LABEL_STYLE, fontSize: 10 }}>
+                <input
+                  type="checkbox"
+                  checked={currentRounded}
+                  onChange={(e) => handleEdgeToggle('rounded', e.target.checked)}
+                />
+                Rounded
+              </label>
+            </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );

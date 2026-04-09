@@ -439,4 +439,39 @@ describe('StylePanel — connector controls', () => {
     const routingSelect = container.querySelector('[data-testid="routing-mode-select"]');
     expect(routingSelect).toBeNull();
   });
+
+  // ── Compact layout tests ──
+
+  it('wraps all connector controls in a single container (not individual Sections)', () => {
+    setupWithArrow();
+    const { container } = render(<StylePanel />);
+    const wrapper = container.querySelector('[data-testid="connector-controls"]');
+    expect(wrapper).not.toBeNull();
+    // All 3 selects must be inside the single wrapper
+    const selects = wrapper!.querySelectorAll('select');
+    expect(selects.length).toBe(3);
+  });
+
+  it('arrowhead dropdowns are in a horizontal row (flex row container)', () => {
+    setupWithArrow();
+    const { container } = render(<StylePanel />);
+    const arrowheadRow = container.querySelector('[data-testid="arrowhead-row"]');
+    expect(arrowheadRow).not.toBeNull();
+    const style = (arrowheadRow as HTMLElement).style;
+    expect(style.display).toBe('flex');
+    // Both arrowhead selects live inside the row
+    const startSelect = arrowheadRow!.querySelector('[data-testid="start-arrowhead-select"]');
+    const endSelect = arrowheadRow!.querySelector('[data-testid="end-arrowhead-select"]');
+    expect(startSelect).not.toBeNull();
+    expect(endSelect).not.toBeNull();
+  });
+
+  it('edge property checkboxes are in a compact horizontal row', () => {
+    setupWithArrow({ routing: 'orthogonal' });
+    const { container } = render(<StylePanel />);
+    const edgeRow = container.querySelector('[data-testid="edge-properties-row"]');
+    expect(edgeRow).not.toBeNull();
+    const style = (edgeRow as HTMLElement).style;
+    expect(style.display).toBe('flex');
+  });
 });
