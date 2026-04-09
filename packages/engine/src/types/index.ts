@@ -286,4 +286,11 @@ export interface CanvasActions {
    * UI-only — does NOT emit operations. Applied to new arrows by ArrowTool.
    */
   setDefaultArrowStyle: (style: Partial<DefaultArrowStyle>) => void;
+
+  /**
+   * Apply a theme preset to expressions.
+   * @param themeId - ID of the theme preset to apply
+   * @param scope - 'all' applies to all expressions, 'selected' only to selected
+   */
+  applyTheme: (themeId: string, scope: 'all' | 'selected') => void;
 }

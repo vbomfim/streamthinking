@@ -148,6 +148,8 @@ export {
   hitTestImage,
   hitTestStencil,
   hitTestExpression,
+  distanceToBezier,
+  distanceToPathSegments,
 } from './interaction/hitTest.js';
 export type { WorldPoint } from './interaction/hitTest.js';
 export {
@@ -161,12 +163,16 @@ export {
   detectPointerTarget,
   getCursorForTarget,
   computeResize,
+  getJettyHandlePosition,
+  detectJettyHandle,
   MIN_SIZE,
 } from './interaction/manipulationHelpers.js';
 export type {
   HandleType,
   HandleHit,
   PointerTarget,
+  JettyHandleHit,
+  PointHandleHit,
 } from './interaction/manipulationHelpers.js';
 export { getCursorForToolState } from './interaction/cursorMapping.js';
 export type { HoverTarget } from './interaction/cursorMapping.js';

@@ -299,4 +299,31 @@ describe('StylePanel', () => {
     );
     expect(purpleSwatch?.getAttribute('aria-pressed')).toBe('true');
   });
+
+  it('does not show connector controls (moved to FloatingConnectorPanel)', () => {
+    // Arrow controls should no longer be in StylePanel
+    const arrowExpr = {
+      id: 'arrow-1',
+      kind: 'arrow' as const,
+      position: { x: 0, y: 0 },
+      size: { width: 100, height: 100 },
+      angle: 0,
+      style: { ...DEFAULT_EXPRESSION_STYLE },
+      meta: {
+        author: { type: 'human' as const, id: 'user-1', name: 'Test' },
+        createdAt: 0,
+        updatedAt: 0,
+        tags: [],
+        locked: false,
+      },
+      data: { kind: 'arrow' as const, points: [[0, 0], [100, 100]] as [number, number][] },
+    };
+    useCanvasStore.getState().addExpression(arrowExpr);
+    useCanvasStore.setState({ selectedIds: new Set(['arrow-1']) });
+    const { container } = render(<StylePanel />);
+    const routingSelect = container.querySelector('[data-testid="routing-mode-select"]');
+    const connectorControls = container.querySelector('[data-testid="connector-controls"]');
+    expect(routingSelect).toBeNull();
+    expect(connectorControls).toBeNull();
+  });
 });

@@ -9,7 +9,7 @@
  */
 
 import { nanoid } from 'nanoid';
-import type { VisualExpression, ArrowBinding } from '@infinicanvas/protocol';
+import type { VisualExpression, ArrowBinding, ArrowData } from '@infinicanvas/protocol';
 import type { ToolHandler, DrawPreview } from './BaseTool.js';
 import { useCanvasStore } from '../store/canvasStore.js';
 import { findSnapPoint } from '../interaction/connectorHelpers.js';
@@ -145,7 +145,7 @@ export class ArrowTool implements ToolHandler {
       },
       data: (() => {
         const { defaultArrowStyle } = useCanvasStore.getState();
-        const d: Record<string, unknown> = {
+        const d: ArrowData = {
           kind: 'arrow',
           points,
           startArrowhead: defaultArrowStyle.startArrowhead,

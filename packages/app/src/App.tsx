@@ -18,6 +18,7 @@ import { AgentActions } from './components/toolbar/AgentActions.js';
 import type { AgentActionType } from './components/toolbar/AgentActions.js';
 import { AgentSidebar } from './components/sidebar/AgentSidebar.js';
 import { StylePanel } from './components/panels/StylePanel.js';
+import { FloatingConnectorPanel } from './components/panels/FloatingConnectorPanel.js';
 import { ThemeToggle } from './components/panels/ThemeToggle.js';
 import { ThemePickerPanel } from './components/panels/ThemePickerPanel.js';
 import { ExportMenu } from './components/panels/ExportMenu.js';
@@ -100,6 +101,7 @@ export function App() {
         isWaypointPanelOpen={waypointPanelOpen}
       />
       <StylePanel />
+      <FloatingConnectorPanel />
       <StencilPalette onInsert={handleInsert} isOpen={showStencilPalette} />
       <AgentActions
         selectedExpressions={selectedExpressions}
