@@ -299,28 +299,10 @@ describe('StylePanel', () => {
     );
     expect(purpleSwatch?.getAttribute('aria-pressed')).toBe('true');
   });
-});
 
-// ── Arrow connector dropdown & jettySize tests ────────────
-
-describe('StylePanel — connector controls', () => {
-  function resetStoreConnector() {
-    useCanvasStore.setState({
-      expressions: {},
-      expressionOrder: [],
-      selectedIds: new Set<string>(),
-      activeTool: 'select',
-      camera: { x: 0, y: 0, zoom: 1 },
-      operationLog: [],
-      canUndo: false,
-      canRedo: false,
-      lastUsedStyle: { ...DEFAULT_EXPRESSION_STYLE },
-    });
-  }
-
-  /** Create an arrow expression directly (no builder needed). */
-  function makeArrowExpr(overrides: Record<string, unknown> = {}) {
-    return {
+  it('does not show connector controls (moved to FloatingConnectorPanel)', () => {
+    // Arrow controls should no longer be in StylePanel
+    const arrowExpr = {
       id: 'arrow-1',
       kind: 'arrow' as const,
       position: { x: 0, y: 0 },
@@ -334,144 +316,14 @@ describe('StylePanel — connector controls', () => {
         tags: [],
         locked: false,
       },
-      data: { kind: 'arrow' as const, points: [[0, 0], [100, 100]] as [number, number][], ...overrides },
+      data: { kind: 'arrow' as const, points: [[0, 0], [100, 100]] as [number, number][] },
     };
-  }
-
-  function setupWithArrow(overrides: Record<string, unknown> = {}) {
-    const arrowExpr = makeArrowExpr(overrides);
     useCanvasStore.getState().addExpression(arrowExpr);
     useCanvasStore.setState({ selectedIds: new Set(['arrow-1']) });
-  }
-
-  beforeEach(() => resetStoreConnector());
-  afterEach(() => cleanup());
-
-  // ── Routing mode dropdown ──
-
-  it('renders routing mode as a <select> dropdown, not radio buttons', () => {
-    setupWithArrow();
-    const { container } = render(<StylePanel />);
-    const select = container.querySelector('[data-testid="routing-mode-select"]');
-    expect(select).not.toBeNull();
-    expect(select?.tagName).toBe('SELECT');
-    // Should NOT have radio buttons for routing anymore
-    const radios = container.querySelectorAll('[name="routingMode"]');
-    expect(radios.length).toBe(0);
-  });
-
-  it('routing dropdown has all routing mode options', () => {
-    setupWithArrow();
-    const { container } = render(<StylePanel />);
-    const select = container.querySelector('[data-testid="routing-mode-select"]') as HTMLSelectElement;
-    const options = select?.querySelectorAll('option');
-    expect(options?.length).toBeGreaterThanOrEqual(7);
-  });
-
-  it('changing routing dropdown updates arrow data', () => {
-    setupWithArrow({ routing: 'straight' });
-    const { container } = render(<StylePanel />);
-    const select = container.querySelector('[data-testid="routing-mode-select"]') as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'orthogonal' } });
-    const data = useCanvasStore.getState().expressions['arrow-1']?.data as unknown as Record<string, unknown>;
-    expect(data?.routing).toBe('orthogonal');
-  });
-
-  // ── Arrowhead dropdowns ──
-
-  it('renders arrowhead pickers as <select> dropdowns, not radio buttons', () => {
-    setupWithArrow();
-    const { container } = render(<StylePanel />);
-    const startSelect = container.querySelector('[data-testid="start-arrowhead-select"]');
-    const endSelect = container.querySelector('[data-testid="end-arrowhead-select"]');
-    expect(startSelect).not.toBeNull();
-    expect(endSelect).not.toBeNull();
-    expect(startSelect?.tagName).toBe('SELECT');
-    expect(endSelect?.tagName).toBe('SELECT');
-    // No arrowhead radio buttons
-    const startRadios = container.querySelectorAll('[name="startArrowhead"]');
-    const endRadios = container.querySelectorAll('[name="endArrowhead"]');
-    expect(startRadios.length).toBe(0);
-    expect(endRadios.length).toBe(0);
-  });
-
-  it('arrowhead dropdowns use optgroups for categories', () => {
-    setupWithArrow();
-    const { container } = render(<StylePanel />);
-    const endSelect = container.querySelector('[data-testid="end-arrowhead-select"]');
-    const optgroups = endSelect?.querySelectorAll('optgroup');
-    expect(optgroups?.length).toBeGreaterThanOrEqual(2);
-  });
-
-  it('changing end arrowhead dropdown updates arrow data', () => {
-    setupWithArrow({ endArrowhead: 'none' });
-    const { container } = render(<StylePanel />);
-    const endSelect = container.querySelector('[data-testid="end-arrowhead-select"]') as HTMLSelectElement;
-    fireEvent.change(endSelect, { target: { value: 'classic' } });
-    const data = useCanvasStore.getState().expressions['arrow-1']?.data as unknown as Record<string, unknown>;
-    expect(data?.endArrowhead).toBe('classic');
-  });
-
-  it('changing start arrowhead dropdown updates arrow data', () => {
-    setupWithArrow({ startArrowhead: 'none' });
-    const { container } = render(<StylePanel />);
-    const startSelect = container.querySelector('[data-testid="start-arrowhead-select"]') as HTMLSelectElement;
-    fireEvent.change(startSelect, { target: { value: 'diamond' } });
-    const data = useCanvasStore.getState().expressions['arrow-1']?.data as unknown as Record<string, unknown>;
-    expect(data?.startArrowhead).toBe('diamond');
-  });
-
-  // ── Drawing mode (arrow tool) ──
-
-  it('shows connector controls when arrow tool is active (drawing mode)', () => {
-    resetStoreConnector();
-    useCanvasStore.setState({ activeTool: 'arrow' });
     const { container } = render(<StylePanel />);
     const routingSelect = container.querySelector('[data-testid="routing-mode-select"]');
-    expect(routingSelect).not.toBeNull();
-  });
-
-  it('does not show connector controls for non-arrow selections', () => {
-    const expr = makeRectangle('rect-2');
-    useCanvasStore.getState().addExpression(expr);
-    useCanvasStore.setState({ selectedIds: new Set(['rect-2']) });
-    const { container } = render(<StylePanel />);
-    const routingSelect = container.querySelector('[data-testid="routing-mode-select"]');
+    const connectorControls = container.querySelector('[data-testid="connector-controls"]');
     expect(routingSelect).toBeNull();
-  });
-
-  // ── Compact layout tests ──
-
-  it('wraps all connector controls in a single container (not individual Sections)', () => {
-    setupWithArrow();
-    const { container } = render(<StylePanel />);
-    const wrapper = container.querySelector('[data-testid="connector-controls"]');
-    expect(wrapper).not.toBeNull();
-    // All 3 selects must be inside the single wrapper
-    const selects = wrapper!.querySelectorAll('select');
-    expect(selects.length).toBe(3);
-  });
-
-  it('arrowhead dropdowns are in a horizontal row (flex row container)', () => {
-    setupWithArrow();
-    const { container } = render(<StylePanel />);
-    const arrowheadRow = container.querySelector('[data-testid="arrowhead-row"]');
-    expect(arrowheadRow).not.toBeNull();
-    const style = (arrowheadRow as HTMLElement).style;
-    expect(style.display).toBe('flex');
-    // Both arrowhead selects live inside the row
-    const startSelect = arrowheadRow!.querySelector('[data-testid="start-arrowhead-select"]');
-    const endSelect = arrowheadRow!.querySelector('[data-testid="end-arrowhead-select"]');
-    expect(startSelect).not.toBeNull();
-    expect(endSelect).not.toBeNull();
-  });
-
-  it('edge property checkboxes are in a compact horizontal row', () => {
-    setupWithArrow({ routing: 'orthogonal' });
-    const { container } = render(<StylePanel />);
-    const edgeRow = container.querySelector('[data-testid="edge-properties-row"]');
-    expect(edgeRow).not.toBeNull();
-    const style = (edgeRow as HTMLElement).style;
-    expect(style.display).toBe('flex');
+    expect(connectorControls).toBeNull();
   });
 });

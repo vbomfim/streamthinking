@@ -7,16 +7,15 @@
  * 2. **Drawing mode** — when a drawing tool is active and nothing is selected,
  *    shows/edits `lastUsedStyle` so users can pick styles before drawing.
  *
- * Connector controls (routing, arrowheads, edge properties) appear when:
- * - An arrow expression is selected (selection mode)
- * - The arrow tool is active (drawing mode — edits defaultArrowStyle)
+ * Connector controls (routing, arrowheads, edge properties) are handled by
+ * the FloatingConnectorPanel component, which positions near the selected arrow.
  *
  * @module
  */
 
 import { useCanvasStore } from '@infinicanvas/engine';
 import { DEFAULT_EXPRESSION_STYLE } from '@infinicanvas/protocol';
-import type { ExpressionStyle, ArrowData, RoutingMode } from '@infinicanvas/protocol';
+import type { ExpressionStyle } from '@infinicanvas/protocol';
 
 // ── Color palette ──────────────────────────────────────────
 
@@ -53,54 +52,6 @@ const STROKE_STYLES = [
   { value: 'solid', label: 'Solid' },
   { value: 'dashed', label: 'Dashed' },
   { value: 'dotted', label: 'Dotted' },
-] as const;
-
-// ── Connector style options ────────────────────────────────
-
-/** Routing mode options for arrows. */
-const ROUTING_MODES: { value: RoutingMode; label: string; icon: string }[] = [
-  { value: 'straight', label: 'Straight', icon: '─' },
-  { value: 'orthogonal', label: 'Orthogonal', icon: '┌' },
-  { value: 'curved', label: 'Curved', icon: '╭' },
-  { value: 'elbow', label: 'Elbow', icon: '└' },
-  { value: 'entityRelation', label: 'ER', icon: '╟' },
-  { value: 'isometric', label: 'Isometric', icon: '◇' },
-  { value: 'orthogonalCurved', label: 'Smooth', icon: '╮' },
-];
-
-/** Arrowhead types grouped by category. */
-const ARROWHEAD_GROUPS = [
-  {
-    label: 'Standard',
-    types: [
-      { value: 'none', label: 'None' },
-      { value: 'classic', label: '▶ Classic' },
-      { value: 'open', label: '▷ Open' },
-      { value: 'block', label: '■ Block' },
-      { value: 'oval', label: '● Oval' },
-      { value: 'diamond', label: '◆ Diamond' },
-    ],
-  },
-  {
-    label: 'ER Diagram',
-    types: [
-      { value: 'ERone', label: '│ One' },
-      { value: 'ERmany', label: '❯ Many' },
-      { value: 'ERmandOne', label: '║ Mand. One' },
-      { value: 'ERoneToMany', label: '│❯ One→Many' },
-      { value: 'ERzeroToOne', label: 'o│ Zero→One' },
-      { value: 'ERzeroToMany', label: 'o❯ Zero→Many' },
-    ],
-  },
-  {
-    label: 'Other',
-    types: [
-      { value: 'openAsync', label: '⟩ Async' },
-      { value: 'dash', label: '— Dash' },
-      { value: 'cross', label: '✕ Cross' },
-      { value: 'halfCircle', label: '◗ Half Circle' },
-    ],
-  },
 ] as const;
 
 // ── Inline style constants ─────────────────────────────────
@@ -151,42 +102,6 @@ const SLIDER_STYLE: React.CSSProperties = {
   cursor: 'pointer',
 };
 
-const CHECKBOX_LABEL_STYLE: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 6,
-  fontSize: 11,
-  cursor: 'pointer',
-};
-
-/** Dropdown select base style — matches Font <select> pattern. */
-const SELECT_STYLE: React.CSSProperties = {
-  width: '100%',
-  padding: '4px',
-  borderRadius: 4,
-  border: '1px solid var(--border, #ccc)',
-  backgroundColor: 'var(--bg-panel, #fff)',
-  color: 'var(--text-primary, #333)',
-  fontSize: 11,
-  cursor: 'pointer',
-};
-
-/** Compact select for half-width arrowhead dropdowns. */
-const COMPACT_SELECT_STYLE: React.CSSProperties = {
-  ...SELECT_STYLE,
-  width: '100%',
-  padding: '3px 2px',
-  fontSize: 10,
-};
-
-/** Tiny inline label for compact connector controls. */
-const INLINE_LABEL_STYLE: React.CSSProperties = {
-  margin: 0,
-  fontSize: 10,
-  fontWeight: 500,
-  color: '#777',
-};
-
 /** Swatch button base style. */
 function swatchStyle(
   color: string,
@@ -235,9 +150,6 @@ export function StylePanel() {
   const activeTool = useCanvasStore((s) => s.activeTool);
   const lastUsedStyle = useCanvasStore((s) => s.lastUsedStyle);
   const setLastUsedStyle = useCanvasStore((s) => s.setLastUsedStyle);
-  const updateArrowData = useCanvasStore((s) => s.updateArrowData);
-  const defaultArrowStyle = useCanvasStore((s) => s.defaultArrowStyle);
-  const setDefaultArrowStyle = useCanvasStore((s) => s.setDefaultArrowStyle);
 
   // Drawing mode: tool active + nothing selected → show lastUsedStyle
   const isDrawingMode = selectedIds.size === 0 && activeTool !== 'select';
@@ -265,69 +177,6 @@ export function StylePanel() {
       setLastUsedStyle(style);
     } else {
       styleExpressions([...selectedIds], style);
-    }
-  }
-
-  // Arrow controls — detect if selected expression is an arrow/line
-  const isArrowSelected = !isDrawingMode && firstExpr && (firstExpr.kind === 'arrow' || firstExpr.kind === 'line');
-  const isArrowDrawingMode = isDrawingMode && activeTool === 'arrow';
-  const showConnectorControls = isArrowSelected || isArrowDrawingMode;
-
-  // Read current arrow data from selected expression
-  const arrowData = isArrowSelected
-    ? (firstExpr.data as ArrowData)
-    : null;
-
-  function resolveType(val: string | boolean | undefined): string {
-    if (val === true) return 'triangle';
-    if (val === false || val === undefined) return 'none';
-    return val;
-  }
-
-  // Current arrowhead types (from expression or from defaults)
-  const startArrowheadType = isArrowSelected
-    ? resolveType(arrowData?.startArrowhead)
-    : resolveType(defaultArrowStyle.startArrowhead);
-  const endArrowheadType = isArrowSelected
-    ? resolveType(arrowData?.endArrowhead)
-    : resolveType(defaultArrowStyle.endArrowhead);
-
-  // Current routing mode
-  const currentRouting: RoutingMode = isArrowSelected
-    ? (arrowData?.routing ?? 'straight')
-    : defaultArrowStyle.routing;
-
-  // Current edge properties
-  const currentCurved = isArrowSelected ? (arrowData?.curved ?? false) : false;
-  const currentRounded = isArrowSelected ? (arrowData?.rounded ?? false) : false;
-
-  function handleArrowheadChange(end: 'start' | 'end', type: string) {
-    if (isArrowDrawingMode) {
-      // Drawing mode: update defaults
-      if (end === 'start') {
-        setDefaultArrowStyle({ startArrowhead: type as typeof defaultArrowStyle.startArrowhead });
-      } else {
-        setDefaultArrowStyle({ endArrowhead: type as typeof defaultArrowStyle.endArrowhead });
-      }
-    } else if (firstSelectedId) {
-      // Selection mode: update the expression
-      updateArrowData(firstSelectedId, {
-        [end === 'start' ? 'startArrowhead' : 'endArrowhead']: type,
-      });
-    }
-  }
-
-  function handleRoutingChange(mode: RoutingMode) {
-    if (isArrowDrawingMode) {
-      setDefaultArrowStyle({ routing: mode });
-    } else if (firstSelectedId) {
-      updateArrowData(firstSelectedId, { routing: mode });
-    }
-  }
-
-  function handleEdgeToggle(prop: 'curved' | 'rounded', value: boolean) {
-    if (firstSelectedId && isArrowSelected) {
-      updateArrowData(firstSelectedId, { [prop]: value });
     }
   }
 
@@ -515,94 +364,6 @@ export function StylePanel() {
           style={SLIDER_STYLE}
         />
       </Section>
-
-      {/* ── Connector Controls (compact layout) ── */}
-      {showConnectorControls && (
-        <div data-testid="connector-controls" style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <p style={SECTION_LABEL_STYLE}>Connector</p>
-
-          {/* Routing mode — full width */}
-          <select
-            data-testid="routing-mode-select"
-            value={currentRouting}
-            onChange={(e) => handleRoutingChange(e.target.value as RoutingMode)}
-            style={SELECT_STYLE}
-            aria-label="Routing mode"
-          >
-            {ROUTING_MODES.map(({ value, label, icon }) => (
-              <option key={value} value={value}>
-                {icon} {label}
-              </option>
-            ))}
-          </select>
-
-          {/* Arrowheads — two selects side by side */}
-          <div data-testid="arrowhead-row" style={{ display: 'flex', gap: 4 }}>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={INLINE_LABEL_STYLE}>Start</p>
-              <select
-                data-testid="start-arrowhead-select"
-                value={startArrowheadType}
-                onChange={(e) => handleArrowheadChange('start', e.target.value)}
-                style={COMPACT_SELECT_STYLE}
-                aria-label="Start arrowhead"
-              >
-                {ARROWHEAD_GROUPS.map((group) => (
-                  <optgroup key={group.label} label={group.label}>
-                    {group.types.map(({ value, label }) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <p style={INLINE_LABEL_STYLE}>End</p>
-              <select
-                data-testid="end-arrowhead-select"
-                value={endArrowheadType}
-                onChange={(e) => handleArrowheadChange('end', e.target.value)}
-                style={COMPACT_SELECT_STYLE}
-                aria-label="End arrowhead"
-              >
-                {ARROWHEAD_GROUPS.map((group) => (
-                  <optgroup key={group.label} label={group.label}>
-                    {group.types.map(({ value, label }) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Edge Properties — compact horizontal checkboxes */}
-          {isArrowSelected && (currentRouting === 'orthogonal' || currentRouting === 'orthogonalCurved') && (
-            <div data-testid="edge-properties-row" style={{ display: 'flex', gap: 8 }}>
-              <label style={{ ...CHECKBOX_LABEL_STYLE, fontSize: 10 }}>
-                <input
-                  type="checkbox"
-                  checked={currentCurved}
-                  onChange={(e) => handleEdgeToggle('curved', e.target.checked)}
-                />
-                Smooth
-              </label>
-              <label style={{ ...CHECKBOX_LABEL_STYLE, fontSize: 10 }}>
-                <input
-                  type="checkbox"
-                  checked={currentRounded}
-                  onChange={(e) => handleEdgeToggle('rounded', e.target.checked)}
-                />
-                Rounded
-              </label>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
