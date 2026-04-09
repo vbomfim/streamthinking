@@ -104,6 +104,7 @@ export function renderArrow(
         midpointOffset: typeof data.midpointOffset === 'number'
           ? data.midpointOffset
           : undefined,
+        waypoints: data.waypoints,
         startBounds: startBounds ? {
           x: startBounds.position.x,
           y: startBounds.position.y,
@@ -280,6 +281,9 @@ function renderPathSegments(
       case 'bezier':
         ctx.bezierCurveTo(seg.cp1x, seg.cp1y, seg.cp2x, seg.cp2y, seg.x, seg.y);
         break;
+      case 'quadratic':
+        ctx.quadraticCurveTo(seg.cpx, seg.cpy, seg.x, seg.y);
+        break;
       case 'arc': {
         ctx.arcTo(seg.x, seg.y, seg.x, seg.y, seg.rx);
         ctx.lineTo(seg.x, seg.y);
@@ -314,7 +318,7 @@ function renderPathSegments(
 
 /**
  * Compute the "previous point" for end arrowhead angle.
- * Uses bezier control point or the preceding segment endpoint.
+ * Uses bezier/quadratic control point or the preceding segment endpoint.
  */
 function computeEndPrevPoint(
   lastSeg: PathSegment,
@@ -323,6 +327,9 @@ function computeEndPrevPoint(
 ): { prevX: number; prevY: number } {
   if (lastSeg.type === 'bezier') {
     return { prevX: lastSeg.cp2x, prevY: lastSeg.cp2y };
+  }
+  if (lastSeg.type === 'quadratic') {
+    return { prevX: lastSeg.cpx, prevY: lastSeg.cpy };
   }
   if (segments.length >= 2) {
     const prevSeg = segments[segments.length - 2]!;
@@ -333,13 +340,16 @@ function computeEndPrevPoint(
 
 /**
  * Compute the "next point" for start arrowhead angle.
- * Uses bezier control point or the first segment endpoint.
+ * Uses bezier/quadratic control point or the first segment endpoint.
  */
 function computeStartNextPoint(
   firstSeg: PathSegment,
 ): { nextX: number; nextY: number } {
   if (firstSeg.type === 'bezier') {
     return { nextX: firstSeg.cp1x, nextY: firstSeg.cp1y };
+  }
+  if (firstSeg.type === 'quadratic') {
+    return { nextX: firstSeg.cpx, nextY: firstSeg.cpy };
   }
   return { nextX: firstSeg.x, nextY: firstSeg.y };
 }

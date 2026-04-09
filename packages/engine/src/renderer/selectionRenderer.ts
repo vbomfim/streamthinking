@@ -19,6 +19,7 @@ import {
   isPointBasedKind,
   getPointHandlePositions,
   getJettyHandlePosition,
+  getSegmentMidpointHandles,
 } from '../interaction/manipulationHelpers.js';
 import { isDraggingArrowEndpoint } from '../hooks/useManipulationInteraction.js';
 
@@ -82,6 +83,8 @@ export function renderSelection(
       renderPointHandles(ctx, expr, camera, halfHandle);
       // ── Jetty handle for routed arrows ──
       renderJettyHandle(ctx, expr, camera, halfHandle);
+      // ── Segment midpoint handles for routed arrows ──
+      renderSegmentMidpointHandles(ctx, expr, expressions, camera, halfHandle);
     } else {
       // ── Dashed bounding box + 8 resize handles ──────────────
       ctx.save();
@@ -173,6 +176,47 @@ function renderJettyHandle(
   ctx.strokeStyle = '#ffffff';
   ctx.lineWidth = 1.5 / camera.zoom;
   ctx.strokeRect(x - half, y - half, size, size);
+}
+
+/** Segment midpoint handle fill color — subtle gray to distinguish from endpoints. */
+const SEGMENT_HANDLE_COLOR = '#6B7280';
+
+/**
+ * Render square handles at the midpoint of each routed segment.
+ *
+ * For orthogonal arrows, these handles allow dragging segments to adjust
+ * the route. Horizontal segments show ns-resize style, vertical segments
+ * show ew-resize style.
+ *
+ * Only appears for routed arrows with more than 2 waypoints.
+ *
+ * [CLEAN-CODE] [SRP]
+ */
+function renderSegmentMidpointHandles(
+  ctx: CanvasRenderingContext2D,
+  expr: VisualExpression,
+  expressions: Record<string, VisualExpression>,
+  camera: Camera,
+  halfHandle: number,
+): void {
+  const handles = getSegmentMidpointHandles(expr, expressions);
+  if (handles.length === 0) return;
+
+  const size = halfHandle * 1.4;
+  const half = size / 2;
+
+  for (const handle of handles) {
+    const { x, y } = handle.position;
+
+    // Filled gray square
+    ctx.fillStyle = SEGMENT_HANDLE_COLOR;
+    ctx.fillRect(x - half, y - half, size, size);
+
+    // White border for contrast
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 1.5 / camera.zoom;
+    ctx.strokeRect(x - half, y - half, size, size);
+  }
 }
 
 /**

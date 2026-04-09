@@ -47,6 +47,7 @@ function orthogonalAdapter(
     options?.endBounds,
     options?.jettySize,
     options?.midpointOffset,
+    options?.waypoints,
   );
 
   // Convert [x,y][] to PathSegment[] — skip the first point (moveTo)
@@ -82,8 +83,8 @@ const CORNER_OFFSET_RATIO = 0.3;
 /** Max corner blend distance in world pixels. */
 const MAX_CORNER_OFFSET = 20;
 
-/** Default corner radius for arc-rounded corners. */
-const DEFAULT_CORNER_RADIUS = 8;
+/** Default corner radius for quadratic Bézier rounded corners. */
+const DEFAULT_CORNER_RADIUS = 12;
 
 /**
  * Check if three consecutive points form a corner (direction change).
@@ -164,9 +165,13 @@ function smoothCornersWithBezier(points: [number, number][]): PathSegment[] {
 }
 
 /**
- * Convert orthogonal waypoints to PathSegments with arc-rounded corners.
+ * Convert orthogonal waypoints to PathSegments with quadratic Bézier
+ * rounded corners (Excalidraw-style).
+ *
+ * At each 90° turn, replaces the corner with a smooth quadratic curve.
+ * Uses `quadraticCurveTo` with the corner point as the control point.
  */
-function roundCornersWithArcs(points: [number, number][]): PathSegment[] {
+function smoothCornersWithQuadratic(points: [number, number][]): PathSegment[] {
   if (points.length <= 1) {
     return points.length === 1
       ? [{ type: 'line', x: points[0]![0], y: points[0]![1] }]
@@ -194,8 +199,14 @@ function roundCornersWithArcs(points: [number, number][]): PathSegment[] {
       const afterX = curr[0] + (next[0] - curr[0]) * (r / segLen2);
       const afterY = curr[1] + (next[1] - curr[1]) * (r / segLen2);
 
+      // Line to just before the corner
       segments.push({ type: 'line', x: beforeX, y: beforeY });
-      segments.push({ type: 'arc', rx: r, ry: r, x: afterX, y: afterY });
+      // Quadratic curve through the corner point to just after
+      segments.push({
+        type: 'quadratic',
+        cpx: curr[0], cpy: curr[1],
+        x: afterX, y: afterY,
+      });
     } else if (i === points.length - 1) {
       segments.push({ type: 'line', x: curr[0], y: curr[1] });
     } else if (!next || !isCorner(prev, curr, next)) {
@@ -207,10 +218,12 @@ function roundCornersWithArcs(points: [number, number][]): PathSegment[] {
 }
 
 /**
- * Orthogonal with bezier-smoothed or arc-rounded corners.
+ * Orthogonal with smoothed or rounded corners.
  *
  * Delegates to the base orthogonal router, then post-processes corners.
- * If `options.rounded` is true, uses arc rounding; otherwise bezier smoothing.
+ * - `options.rounded` → quadratic Bézier rounding (Excalidraw-style)
+ * - `options.curved` → cubic Bézier smoothing (draw.io-style)
+ * - Neither → arc rounding (legacy fallback)
  */
 function orthogonalCurvedAdapter(
   start: { x: number; y: number },
@@ -223,10 +236,11 @@ function orthogonalCurvedAdapter(
     start, end, startAnchor, endAnchor,
     options?.startBounds, options?.endBounds,
     options?.jettySize, options?.midpointOffset,
+    options?.waypoints,
   );
 
   if (options?.rounded) {
-    return roundCornersWithArcs(basePoints);
+    return smoothCornersWithQuadratic(basePoints);
   }
   return smoothCornersWithBezier(basePoints);
 }

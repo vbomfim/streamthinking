@@ -13,6 +13,7 @@
  *
  * - `line` — straight segment to (x, y), rendered with `lineTo()`
  * - `bezier` — cubic bezier curve, rendered with `bezierCurveTo()`
+ * - `quadratic` — quadratic bezier curve, rendered with `quadraticCurveTo()`
  * - `arc` — arc corner, rendered with `arcTo()`
  */
 export type PathSegment =
@@ -26,6 +27,7 @@ export type PathSegment =
       x: number;
       y: number;
     }
+  | { type: 'quadratic'; cpx: number; cpy: number; x: number; y: number }
   | { type: 'arc'; rx: number; ry: number; x: number; y: number };
 
 /** Options passed to router functions. */
@@ -42,6 +44,13 @@ export interface RouterOptions {
   startBounds?: { x: number; y: number; width: number; height: number };
   /** Bounds of the target shape. */
   endBounds?: { x: number; y: number; width: number; height: number };
+  /**
+   * User-adjusted segment positions for orthogonal routes.
+   *
+   * Each entry is the absolute position of a draggable mid-segment.
+   * When present, overrides the auto-computed position.
+   */
+  waypoints?: number[];
 }
 
 /**

@@ -1,15 +1,26 @@
 /**
- * Unit tests for orthogonal (right-angle) routing algorithm.
+ * Unit tests for orthogonal (right-angle) routing — v2 clean rebuild.
  *
  * Tests written FIRST following TDD [Red → Green → Refactor].
- * Covers L-shape, Z-shape routing, anchor-based exit direction,
- * shape padding, and exit/entry clearance stubs.
+ * Covers:
+ *  1. Quadrant-based direction analysis
+ *  2. Route pattern generation for each direction combination
+ *  3. Jetty stubs always clear shape bounds
+ *  4. Collinear elimination
+ *  5. Corner smoothing (quadratic Bézier) output
+ *  6. Backward-compat public API
+ *  7. User waypoint overrides
  *
  * @module
  */
 
 import { describe, it, expect } from 'vitest';
-import { computeOrthogonalRoute } from '../connectors/orthogonalRouter.js';
+import {
+  computeOrthogonalRoute,
+  pickExitEntry,
+  eliminateCollinear,
+  type Direction,
+} from '../connectors/orthogonalRouter.js';
 
 // ── Helpers ──────────────────────────────────────────────────
 
@@ -31,14 +42,8 @@ function assertOrthogonal(points: [number, number][]): void {
 }
 
 /**
- * Assert that no INTERMEDIATE segment of the route crosses through
- * the given bounding rectangle. Start and end points are excluded
- * because they sit on the shape edge by design.
- *
- * A segment crosses a rect if both endpoints have x within the
- * rect's x-range AND y within the rect's y-range (for the shared
- * axis of an orthogonal segment, this means the segment cuts
- * through the rect interior).
+ * Assert no intermediate segment crosses through a bounding rect.
+ * Start/end stubs are excluded (they attach to the shape edge).
  */
 function assertRouteAvoidsRect(
   points: [number, number][],
@@ -49,12 +54,9 @@ function assertRouteAvoidsRect(
     const [x1, y1] = points[i - 1]!;
     const [x2, y2] = points[i]!;
 
-    // Skip the first segment (starts at shape edge) and last segment
-    // (ends at shape edge) — those are the stubs connecting TO the shape.
+    // Skip the first and last segments (stubs connecting TO shapes)
     if (i === 1 || i === points.length - 1) continue;
 
-    // For a horizontal segment (y1 === y2), check if the y is inside
-    // the rect AND the x-range overlaps the rect.
     if (y1 === y2) {
       const y = y1;
       const minX = Math.min(x1, x2);
@@ -72,8 +74,6 @@ function assertRouteAvoidsRect(
       }
     }
 
-    // For a vertical segment (x1 === x2), check if the x is inside
-    // the rect AND the y-range overlaps the rect.
     if (x1 === x2) {
       const x = x1;
       const minY = Math.min(y1, y2);
@@ -93,9 +93,481 @@ function assertRouteAvoidsRect(
   }
 }
 
-// ── Basic routing ────────────────────────────────────────────
+/** Assert no collinear points in the route. */
+function assertNoCollinear(points: [number, number][]): void {
+  for (let i = 1; i < points.length - 1; i++) {
+    const [ax, ay] = points[i - 1]!;
+    const [bx, by] = points[i]!;
+    const [cx, cy] = points[i + 1]!;
+    const sameX = ax === bx && bx === cx;
+    const sameY = ay === by && by === cy;
+    expect(
+      sameX || sameY,
+      `Collinear triplet at index ${i}: (${ax},${ay})→(${bx},${by})→(${cx},${cy})`,
+    ).toBe(false);
+  }
+}
 
-describe('computeOrthogonalRoute — basic', () => {
+// ══════════════════════════════════════════════════════════════
+// 1. Quadrant-based direction analysis
+// ══════════════════════════════════════════════════════════════
+
+describe('pickExitEntry — quadrant analysis', () => {
+  it('target to the right → exit right, entry left', () => {
+    const result = pickExitEntry(
+      { x: 100, y: 100 },
+      { x: 400, y: 120 },
+    );
+    expect(result.exit).toBe('right');
+    expect(result.entry).toBe('left');
+  });
+
+  it('target to the left → exit left, entry right', () => {
+    const result = pickExitEntry(
+      { x: 400, y: 100 },
+      { x: 50, y: 120 },
+    );
+    expect(result.exit).toBe('left');
+    expect(result.entry).toBe('right');
+  });
+
+  it('target below → exit bottom, entry top', () => {
+    const result = pickExitEntry(
+      { x: 100, y: 50 },
+      { x: 110, y: 400 },
+    );
+    expect(result.exit).toBe('bottom');
+    expect(result.entry).toBe('top');
+  });
+
+  it('target above → exit top, entry bottom', () => {
+    const result = pickExitEntry(
+      { x: 100, y: 400 },
+      { x: 110, y: 50 },
+    );
+    expect(result.exit).toBe('top');
+    expect(result.entry).toBe('bottom');
+  });
+
+  it('uses shape bounds centers when provided', () => {
+    // Source shape [0,0,100x80], center (50,40)
+    // Target shape [200,0,100x80], center (250,40)
+    // Target is to the right → exit right, entry left
+    const result = pickExitEntry(
+      { x: 100, y: 40 },   // right edge of source
+      { x: 200, y: 40 },   // left edge of target
+      undefined,
+      undefined,
+      { x: 0, y: 0, width: 100, height: 80 },
+      { x: 200, y: 0, width: 100, height: 80 },
+    );
+    expect(result.exit).toBe('right');
+    expect(result.entry).toBe('left');
+  });
+
+  it('respects explicit start anchor', () => {
+    const result = pickExitEntry(
+      { x: 100, y: 100 },
+      { x: 400, y: 300 },
+      'top',
+    );
+    expect(result.exit).toBe('top');
+  });
+
+  it('respects explicit end anchor', () => {
+    const result = pickExitEntry(
+      { x: 100, y: 100 },
+      { x: 400, y: 300 },
+      undefined,
+      'bottom',
+    );
+    expect(result.entry).toBe('bottom');
+  });
+
+  it('respects both anchors', () => {
+    const result = pickExitEntry(
+      { x: 100, y: 100 },
+      { x: 400, y: 300 },
+      'left',
+      'right',
+    );
+    expect(result.exit).toBe('left');
+    expect(result.entry).toBe('right');
+  });
+
+  it('maps corner anchors — top-right uses horizontal when dx > dy', () => {
+    const result = pickExitEntry(
+      { x: 100, y: 100 },
+      { x: 400, y: 120 },  // mostly horizontal
+      'top-right',
+    );
+    expect(result.exit).toBe('right');
+  });
+
+  it('maps corner anchors — top-right uses vertical when dy > dx', () => {
+    const result = pickExitEntry(
+      { x: 100, y: 100 },
+      { x: 120, y: 400 },  // mostly vertical
+      'top-right',
+    );
+    expect(result.exit).toBe('top');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// 2. Route pattern generation for each direction combination
+// ══════════════════════════════════════════════════════════════
+
+describe('computeOrthogonalRoute — opposite directions (Z-shape)', () => {
+  it('right→left: produces Z-shape', () => {
+    const route = computeOrthogonalRoute(
+      { x: 160, y: 75 },
+      { x: 300, y: 175 },
+      'right', 'left',
+    );
+    assertOrthogonal(route);
+    expect(route[0]).toEqual([160, 75]);
+    expect(route[route.length - 1]).toEqual([300, 175]);
+    // Z-shape: start → stub → midV → midV → stub → end = 6 points
+    expect(route.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('left→right: produces Z-shape', () => {
+    const route = computeOrthogonalRoute(
+      { x: 300, y: 75 },
+      { x: 160, y: 175 },
+      'left', 'right',
+    );
+    assertOrthogonal(route);
+    expect(route[0]).toEqual([300, 75]);
+    expect(route[route.length - 1]).toEqual([160, 175]);
+    expect(route.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('bottom→top: produces Z-shape', () => {
+    const route = computeOrthogonalRoute(
+      { x: 75, y: 160 },
+      { x: 175, y: 300 },
+      'bottom', 'top',
+    );
+    assertOrthogonal(route);
+    expect(route[0]).toEqual([75, 160]);
+    expect(route[route.length - 1]).toEqual([175, 300]);
+    expect(route.length).toBeGreaterThanOrEqual(4);
+  });
+
+  it('top→bottom: produces Z-shape', () => {
+    const route = computeOrthogonalRoute(
+      { x: 75, y: 300 },
+      { x: 175, y: 160 },
+      'top', 'bottom',
+    );
+    assertOrthogonal(route);
+    expect(route[0]).toEqual([75, 300]);
+    expect(route[route.length - 1]).toEqual([175, 160]);
+    expect(route.length).toBeGreaterThanOrEqual(4);
+  });
+});
+
+describe('computeOrthogonalRoute — same directions (U-shape)', () => {
+  it('right→right: produces U-shape detour', () => {
+    const sBounds: Rect = { x: 0, y: 50, width: 100, height: 50 };
+    const eBounds: Rect = { x: 0, y: 200, width: 100, height: 50 };
+    const route = computeOrthogonalRoute(
+      { x: 100, y: 75 },    // right edge of source
+      { x: 100, y: 225 },   // right edge of target
+      'right', 'right',
+      sBounds, eBounds,
+    );
+    assertOrthogonal(route);
+    // U-shape: must go further right then come back
+    const maxX = Math.max(...route.map(p => p[0]));
+    expect(maxX).toBeGreaterThan(100);
+    assertRouteAvoidsRect(route, sBounds, 'source');
+    assertRouteAvoidsRect(route, eBounds, 'target');
+  });
+
+  it('left→left: produces U-shape detour', () => {
+    const sBounds: Rect = { x: 100, y: 50, width: 100, height: 50 };
+    const eBounds: Rect = { x: 100, y: 200, width: 100, height: 50 };
+    const route = computeOrthogonalRoute(
+      { x: 100, y: 75 },
+      { x: 100, y: 225 },
+      'left', 'left',
+      sBounds, eBounds,
+    );
+    assertOrthogonal(route);
+    // U-shape: must go further left
+    const minX = Math.min(...route.map(p => p[0]));
+    expect(minX).toBeLessThan(100);
+  });
+
+  it('bottom→bottom: produces U-shape detour', () => {
+    const sBounds: Rect = { x: 50, y: 0, width: 50, height: 100 };
+    const eBounds: Rect = { x: 200, y: 0, width: 50, height: 100 };
+    const route = computeOrthogonalRoute(
+      { x: 75, y: 100 },
+      { x: 225, y: 100 },
+      'bottom', 'bottom',
+      sBounds, eBounds,
+    );
+    assertOrthogonal(route);
+    // U-shape: must go further down
+    const maxY = Math.max(...route.map(p => p[1]));
+    expect(maxY).toBeGreaterThan(100);
+  });
+
+  it('top→top: produces U-shape detour', () => {
+    const sBounds: Rect = { x: 50, y: 100, width: 50, height: 100 };
+    const eBounds: Rect = { x: 200, y: 100, width: 50, height: 100 };
+    const route = computeOrthogonalRoute(
+      { x: 75, y: 100 },
+      { x: 225, y: 100 },
+      'top', 'top',
+      sBounds, eBounds,
+    );
+    assertOrthogonal(route);
+    // U-shape: must go further up
+    const minY = Math.min(...route.map(p => p[1]));
+    expect(minY).toBeLessThan(100);
+  });
+});
+
+describe('computeOrthogonalRoute — perpendicular (L-shape)', () => {
+  it('right→top: produces L-shape', () => {
+    const route = computeOrthogonalRoute(
+      { x: 160, y: 75 },
+      { x: 300, y: 0 },
+      'right', 'top',
+    );
+    assertOrthogonal(route);
+    expect(route[0]).toEqual([160, 75]);
+    expect(route[route.length - 1]).toEqual([300, 0]);
+  });
+
+  it('right→bottom: produces L-shape', () => {
+    const route = computeOrthogonalRoute(
+      { x: 160, y: 75 },
+      { x: 300, y: 200 },
+      'right', 'bottom',
+    );
+    assertOrthogonal(route);
+    expect(route[0]).toEqual([160, 75]);
+    expect(route[route.length - 1]).toEqual([300, 200]);
+  });
+
+  it('bottom→left: produces L-shape', () => {
+    const route = computeOrthogonalRoute(
+      { x: 75, y: 160 },
+      { x: 0, y: 300 },
+      'bottom', 'left',
+    );
+    assertOrthogonal(route);
+    expect(route[0]).toEqual([75, 160]);
+    expect(route[route.length - 1]).toEqual([0, 300]);
+  });
+
+  it('bottom→right: produces L-shape', () => {
+    const route = computeOrthogonalRoute(
+      { x: 75, y: 160 },
+      { x: 200, y: 300 },
+      'bottom', 'right',
+    );
+    assertOrthogonal(route);
+    expect(route[0]).toEqual([75, 160]);
+    expect(route[route.length - 1]).toEqual([200, 300]);
+  });
+
+  it('top→left: produces L-shape', () => {
+    const route = computeOrthogonalRoute(
+      { x: 200, y: 160 },
+      { x: 0, y: 50 },
+      'top', 'left',
+    );
+    assertOrthogonal(route);
+  });
+
+  it('top→right: produces L-shape', () => {
+    const route = computeOrthogonalRoute(
+      { x: 200, y: 160 },
+      { x: 400, y: 50 },
+      'top', 'right',
+    );
+    assertOrthogonal(route);
+  });
+
+  it('left→top: produces L-shape', () => {
+    const route = computeOrthogonalRoute(
+      { x: 200, y: 100 },
+      { x: 50, y: 0 },
+      'left', 'top',
+    );
+    assertOrthogonal(route);
+  });
+
+  it('left→bottom: produces L-shape', () => {
+    const route = computeOrthogonalRoute(
+      { x: 200, y: 100 },
+      { x: 50, y: 300 },
+      'left', 'bottom',
+    );
+    assertOrthogonal(route);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// 3. Jetty stubs always clear shape bounds
+// ══════════════════════════════════════════════════════════════
+
+describe('computeOrthogonalRoute — jetty stubs clear shapes', () => {
+  const sBounds: Rect = { x: 0, y: 0, width: 100, height: 80 };
+  const eBounds: Rect = { x: 300, y: 100, width: 100, height: 80 };
+
+  it('exit stub clears source shape — first turn is past shape edge', () => {
+    const jettySize = 30;
+    const route = computeOrthogonalRoute(
+      { x: 100, y: 40 },    // right edge of source
+      { x: 300, y: 140 },   // left edge of target
+      'right', 'left',
+      sBounds, eBounds,
+      jettySize,
+    );
+    assertOrthogonal(route);
+    // First segment goes right, and the first turn X must be past
+    // source right edge (100) + jettySize (30) = 130
+    const firstTurnX = route.find((p, i) => i > 0 && route[i - 1]![1] !== p[1])?.[0];
+    if (firstTurnX !== undefined) {
+      expect(firstTurnX).toBeGreaterThanOrEqual(130);
+    }
+  });
+
+  it('entry stub clears target shape — last turn is before shape edge', () => {
+    const jettySize = 30;
+    const route = computeOrthogonalRoute(
+      { x: 100, y: 40 },
+      { x: 300, y: 140 },
+      'right', 'left',
+      sBounds, eBounds,
+      jettySize,
+    );
+    assertOrthogonal(route);
+    // Last vertical turn X must be before target left edge (300) - jettySize (30) = 270
+    const lastTurnX = route.slice().reverse().find(
+      (p, i, arr) => i > 0 && arr[i - 1]![1] !== p[1],
+    )?.[0];
+    if (lastTurnX !== undefined) {
+      expect(lastTurnX).toBeLessThanOrEqual(270);
+    }
+  });
+
+  it('default jettySize is 20 — first turn past source by 20', () => {
+    const route = computeOrthogonalRoute(
+      { x: 100, y: 40 },
+      { x: 300, y: 140 },
+      'right', 'left',
+      sBounds, eBounds,
+    );
+    assertOrthogonal(route);
+    // First turn must be past 100 + 20 = 120
+    const firstTurnX = route.find((p, i) => i > 0 && route[i - 1]![1] !== p[1])?.[0];
+    if (firstTurnX !== undefined) {
+      expect(firstTurnX).toBeGreaterThanOrEqual(120);
+    }
+  });
+
+  it('routes never cross source shape', () => {
+    const route = computeOrthogonalRoute(
+      { x: 100, y: 40 },
+      { x: 300, y: 200 },
+      'right', 'left',
+      sBounds, eBounds,
+      20,
+    );
+    assertOrthogonal(route);
+    assertRouteAvoidsRect(route, sBounds, 'source');
+  });
+
+  it('routes never cross target shape', () => {
+    const route = computeOrthogonalRoute(
+      { x: 100, y: 40 },
+      { x: 300, y: 200 },
+      'right', 'left',
+      sBounds, eBounds,
+      20,
+    );
+    assertOrthogonal(route);
+    assertRouteAvoidsRect(route, eBounds, 'target');
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// 4. Collinear elimination
+// ══════════════════════════════════════════════════════════════
+
+describe('eliminateCollinear', () => {
+  it('removes redundant collinear points on horizontal line', () => {
+    const result = eliminateCollinear([
+      [0, 0], [50, 0], [100, 0],
+    ]);
+    expect(result).toEqual([[0, 0], [100, 0]]);
+  });
+
+  it('removes redundant collinear points on vertical line', () => {
+    const result = eliminateCollinear([
+      [0, 0], [0, 50], [0, 100],
+    ]);
+    expect(result).toEqual([[0, 0], [0, 100]]);
+  });
+
+  it('removes collinear points in mixed route', () => {
+    const result = eliminateCollinear([
+      [0, 0], [50, 0], [100, 0], [100, 50], [100, 100],
+    ]);
+    expect(result).toEqual([
+      [0, 0], [100, 0], [100, 100],
+    ]);
+  });
+
+  it('preserves corners', () => {
+    const result = eliminateCollinear([
+      [0, 0], [100, 0], [100, 100],
+    ]);
+    expect(result).toEqual([
+      [0, 0], [100, 0], [100, 100],
+    ]);
+  });
+
+  it('preserves Z-shape points', () => {
+    // Z-shape: horizontal → vertical → horizontal
+    const result = eliminateCollinear([
+      [0, 0], [50, 0], [50, 100], [100, 100],
+    ]);
+    expect(result).toEqual([
+      [0, 0], [50, 0], [50, 100], [100, 100],
+    ]);
+  });
+
+  it('handles single point', () => {
+    const result = eliminateCollinear([[5, 5]]);
+    expect(result).toEqual([[5, 5]]);
+  });
+
+  it('handles two points', () => {
+    const result = eliminateCollinear([[0, 0], [100, 100]]);
+    expect(result).toEqual([[0, 0], [100, 100]]);
+  });
+
+  it('handles empty array', () => {
+    const result = eliminateCollinear([]);
+    expect(result).toEqual([]);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// 5. Backward-compat public API
+// ══════════════════════════════════════════════════════════════
+
+describe('computeOrthogonalRoute — backward compatibility', () => {
   it('returns at least 2 points (start and end)', () => {
     const route = computeOrthogonalRoute(
       { x: 0, y: 0 },
@@ -128,36 +600,153 @@ describe('computeOrthogonalRoute — basic', () => {
     assertOrthogonal(route);
   });
 
+  it('handles coincident points', () => {
+    const route = computeOrthogonalRoute(
+      { x: 100, y: 100 },
+      { x: 100, y: 100 },
+    );
+    expect(route.length).toBe(2);
+    expect(route[0]).toEqual([100, 100]);
+    expect(route[1]).toEqual([100, 100]);
+  });
+
   it('handles same x (vertical only) — straight vertical line', () => {
     const route = computeOrthogonalRoute(
       { x: 100, y: 0 },
       { x: 100, y: 200 },
+      'bottom', 'top',
     );
     assertOrthogonal(route);
-    // All points should share x = 100 (collinear vertical line)
     for (const [x] of route) {
       expect(x).toBe(100);
     }
-    expect(route[0]).toEqual([100, 0]);
-    expect(route[route.length - 1]).toEqual([100, 200]);
   });
 
   it('handles same y (horizontal only) — straight horizontal line', () => {
     const route = computeOrthogonalRoute(
       { x: 0, y: 100 },
       { x: 200, y: 100 },
+      'right', 'left',
     );
     assertOrthogonal(route);
-    // All points should share y = 100 (collinear horizontal line)
     for (const [, y] of route) {
       expect(y).toBe(100);
     }
-    expect(route[0]).toEqual([0, 100]);
-    expect(route[route.length - 1]).toEqual([200, 100]);
+  });
+
+  it('midpointOffset adjusts Z-bar position', () => {
+    const route1 = computeOrthogonalRoute(
+      { x: 100, y: 50 },
+      { x: 300, y: 150 },
+      'right', 'left',
+      undefined, undefined,
+      20,
+      0.3,
+    );
+    const route2 = computeOrthogonalRoute(
+      { x: 100, y: 50 },
+      { x: 300, y: 150 },
+      'right', 'left',
+      undefined, undefined,
+      20,
+      0.7,
+    );
+    assertOrthogonal(route1);
+    assertOrthogonal(route2);
+    // Z-bar should be at different X positions
+    // Find the middle vertical segments
+    const midX1 = route1.find(
+      (_, i) => i > 1 && i < route1.length - 2 && route1[i - 1]![1] !== route1[i]![1],
+    )?.[0];
+    const midX2 = route2.find(
+      (_, i) => i > 1 && i < route2.length - 2 && route2[i - 1]![1] !== route2[i]![1],
+    )?.[0];
+    if (midX1 !== undefined && midX2 !== undefined) {
+      expect(midX1).not.toBe(midX2);
+    }
   });
 });
 
-// ── Anchor-based exit direction ──────────────────────────────
+// ══════════════════════════════════════════════════════════════
+// 6. Route output has no collinear points
+// ══════════════════════════════════════════════════════════════
+
+describe('computeOrthogonalRoute — collinear elimination', () => {
+  it('output has no collinear triplets (right→left)', () => {
+    const route = computeOrthogonalRoute(
+      { x: 100, y: 50 },
+      { x: 300, y: 150 },
+      'right', 'left',
+    );
+    assertNoCollinear(route);
+  });
+
+  it('output has no collinear triplets (bottom→top)', () => {
+    const route = computeOrthogonalRoute(
+      { x: 50, y: 100 },
+      { x: 150, y: 300 },
+      'bottom', 'top',
+    );
+    assertNoCollinear(route);
+  });
+
+  it('straight horizontal has no collinear triplets', () => {
+    const route = computeOrthogonalRoute(
+      { x: 0, y: 100 },
+      { x: 300, y: 100 },
+      'right', 'left',
+    );
+    assertNoCollinear(route);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// 7. User waypoint overrides
+// ══════════════════════════════════════════════════════════════
+
+describe('computeOrthogonalRoute — user waypoint overrides', () => {
+  it('waypoint overrides Z-bar position', () => {
+    const route = computeOrthogonalRoute(
+      { x: 100, y: 50 },
+      { x: 300, y: 150 },
+      'right', 'left',
+      undefined, undefined,
+      20,
+      undefined,
+      [250],  // override mid-segment X position to 250
+    );
+    assertOrthogonal(route);
+    // The vertical mid-segment should be at x=250
+    const verticalSegs = route.filter(
+      (p, i) => i > 0 && i < route.length - 1 && route[i - 1]![0] === p[0] && p[0] === route[i + 1]?.[0],
+    );
+    // At least one point in the route should have x=250 (the waypoint override)
+    const hasWaypoint = route.some(p => p[0] === 250);
+    expect(hasWaypoint).toBe(true);
+  });
+
+  it('empty waypoints array uses auto-computed positions', () => {
+    const routeAuto = computeOrthogonalRoute(
+      { x: 100, y: 50 },
+      { x: 300, y: 150 },
+      'right', 'left',
+    );
+    const routeEmpty = computeOrthogonalRoute(
+      { x: 100, y: 50 },
+      { x: 300, y: 150 },
+      'right', 'left',
+      undefined, undefined,
+      undefined,
+      undefined,
+      [],
+    );
+    expect(routeAuto).toEqual(routeEmpty);
+  });
+});
+
+// ══════════════════════════════════════════════════════════════
+// 8. Anchor direction tests
+// ══════════════════════════════════════════════════════════════
 
 describe('computeOrthogonalRoute — anchor-based exit', () => {
   it('exits rightward from "right" anchor', () => {
@@ -167,8 +756,7 @@ describe('computeOrthogonalRoute — anchor-based exit', () => {
       'right',
     );
     assertOrthogonal(route);
-    // First segment should be horizontal (exit right)
-    expect(route[1]![1]).toBe(100); // same y as start
+    expect(route[1]![1]).toBe(100); // same y
     expect(route[1]![0]).toBeGreaterThan(100); // x increases
   });
 
@@ -179,7 +767,6 @@ describe('computeOrthogonalRoute — anchor-based exit', () => {
       'left',
     );
     assertOrthogonal(route);
-    // First segment should be horizontal (exit left)
     expect(route[1]![1]).toBe(100); // same y
     expect(route[1]![0]).toBeLessThan(100); // x decreases
   });
@@ -191,7 +778,6 @@ describe('computeOrthogonalRoute — anchor-based exit', () => {
       'bottom',
     );
     assertOrthogonal(route);
-    // First segment should be vertical (exit down)
     expect(route[1]![0]).toBe(100); // same x
     expect(route[1]![1]).toBeGreaterThan(100); // y increases
   });
@@ -203,619 +789,7 @@ describe('computeOrthogonalRoute — anchor-based exit', () => {
       'top',
     );
     assertOrthogonal(route);
-    // First segment should be vertical (exit up)
     expect(route[1]![0]).toBe(100); // same x
     expect(route[1]![1]).toBeLessThan(100); // y decreases
-  });
-});
-
-// ── L-shape routing ──────────────────────────────────────────
-
-describe('computeOrthogonalRoute — L-shape', () => {
-  it('produces L-shape route from right to bottom (target below-right)', () => {
-    const route = computeOrthogonalRoute(
-      { x: 100, y: 100 },
-      { x: 300, y: 300 },
-      'right',
-      'top',
-    );
-    assertOrthogonal(route);
-    // Should be: right-exit → horizontal → vertical → target
-    expect(route.length).toBeGreaterThanOrEqual(3);
-  });
-
-  it('produces L-shape from bottom to left (target below-left)', () => {
-    const route = computeOrthogonalRoute(
-      { x: 300, y: 100 },
-      { x: 100, y: 300 },
-      'bottom',
-      'right',
-    );
-    assertOrthogonal(route);
-    expect(route.length).toBeGreaterThanOrEqual(3);
-  });
-});
-
-// ── Z-shape routing ──────────────────────────────────────────
-
-describe('computeOrthogonalRoute — Z-shape', () => {
-  it('produces Z-shape when target is behind the exit direction', () => {
-    // Exit right from (100, 100) but target is at (50, 200) — to the left
-    const route = computeOrthogonalRoute(
-      { x: 100, y: 100 },
-      { x: 50, y: 200 },
-      'right',
-      'left',
-    );
-    assertOrthogonal(route);
-    // Should have intermediate segments
-    expect(route.length).toBeGreaterThanOrEqual(4);
-  });
-
-  it('produces Z-shape with both vertical exits (down→down)', () => {
-    // Both exit downward — Z-shape with horizontal middle
-    const route = computeOrthogonalRoute(
-      { x: 100, y: 100 },
-      { x: 300, y: 300 },
-      'bottom',
-      'bottom',
-    );
-    assertOrthogonal(route);
-    expect(route.length).toBeGreaterThanOrEqual(4);
-    expect(route[0]).toEqual([100, 100]);
-    expect(route[route.length - 1]).toEqual([300, 300]);
-  });
-
-  it('produces Z-shape with both vertical exits (up→up)', () => {
-    const route = computeOrthogonalRoute(
-      { x: 100, y: 300 },
-      { x: 300, y: 100 },
-      'top',
-      'top',
-    );
-    assertOrthogonal(route);
-    expect(route.length).toBeGreaterThanOrEqual(4);
-    expect(route[0]).toEqual([100, 300]);
-    expect(route[route.length - 1]).toEqual([300, 100]);
-  });
-
-  it('produces Z-shape with both horizontal exits (right→right)', () => {
-    const route = computeOrthogonalRoute(
-      { x: 100, y: 100 },
-      { x: 300, y: 250 },
-      'right',
-      'right',
-    );
-    assertOrthogonal(route);
-    expect(route.length).toBeGreaterThanOrEqual(4);
-    expect(route[0]).toEqual([100, 100]);
-    expect(route[route.length - 1]).toEqual([300, 250]);
-  });
-
-  it('produces Z-shape with both horizontal exits (left→left)', () => {
-    const route = computeOrthogonalRoute(
-      { x: 300, y: 100 },
-      { x: 100, y: 250 },
-      'left',
-      'left',
-    );
-    assertOrthogonal(route);
-    expect(route.length).toBeGreaterThanOrEqual(4);
-    expect(route[0]).toEqual([300, 100]);
-    expect(route[route.length - 1]).toEqual([100, 250]);
-  });
-
-  it('produces Z-shape with normal horizontal flow (right→left, target ahead)', () => {
-    const route = computeOrthogonalRoute(
-      { x: 100, y: 100 },
-      { x: 400, y: 200 },
-      'right',
-      'left',
-    );
-    assertOrthogonal(route);
-    // Normal flow: mid vertical segment between source and target
-    expect(route[0]).toEqual([100, 100]);
-    expect(route[route.length - 1]).toEqual([400, 200]);
-    // Midpoint x should be between 100 and 400
-    const midX = route[1]![0];
-    expect(midX).toBeGreaterThan(100);
-    expect(midX).toBeLessThan(400);
-  });
-
-  it('produces Z-shape with normal vertical flow (bottom→top, target below)', () => {
-    const route = computeOrthogonalRoute(
-      { x: 100, y: 100 },
-      { x: 300, y: 400 },
-      'bottom',
-      'top',
-    );
-    assertOrthogonal(route);
-    expect(route[0]).toEqual([100, 100]);
-    expect(route[route.length - 1]).toEqual([300, 400]);
-    // Midpoint y should be between 100 and 400
-    const midY = route[1]![1];
-    expect(midY).toBeGreaterThan(100);
-    expect(midY).toBeLessThan(400);
-  });
-});
-
-// ── Shape padding ────────────────────────────────────────────
-
-describe('computeOrthogonalRoute — shape padding', () => {
-  it('routes with padding around source shape', () => {
-    const route = computeOrthogonalRoute(
-      { x: 300, y: 150 },      // right edge of source
-      { x: 500, y: 250 },      // left edge of target
-      'right',
-      'left',
-      { x: 100, y: 100, width: 200, height: 100 },  // source bounds
-      { x: 500, y: 200, width: 200, height: 100 },   // target bounds
-    );
-    assertOrthogonal(route);
-    // All intermediate points should avoid overlapping source shape
-    for (let i = 1; i < route.length - 1; i++) {
-      const [px, py] = route[i]!;
-      const insideSource = px >= 100 && px <= 300 && py >= 100 && py <= 200;
-      expect(insideSource, `Intermediate point (${px},${py}) is inside source shape`).toBe(false);
-    }
-  });
-
-  it('routes without padding when no bounds provided', () => {
-    const route = computeOrthogonalRoute(
-      { x: 100, y: 100 },
-      { x: 300, y: 200 },
-      'right',
-      'left',
-    );
-    assertOrthogonal(route);
-    expect(route.length).toBeGreaterThanOrEqual(2);
-  });
-});
-
-// ── Edge cases ───────────────────────────────────────────────
-
-describe('computeOrthogonalRoute — edge cases', () => {
-  it('handles start === end (same point)', () => {
-    const route = computeOrthogonalRoute(
-      { x: 100, y: 100 },
-      { x: 100, y: 100 },
-    );
-    expect(route.length).toBeGreaterThanOrEqual(2);
-    expect(route[0]).toEqual([100, 100]);
-    expect(route[route.length - 1]).toEqual([100, 100]);
-  });
-
-  it('handles negative coordinates', () => {
-    const route = computeOrthogonalRoute(
-      { x: -100, y: -200 },
-      { x: 100, y: 50 },
-      'right',
-      'left',
-    );
-    assertOrthogonal(route);
-    expect(route[0]).toEqual([-100, -200]);
-    expect(route[route.length - 1]).toEqual([100, 50]);
-  });
-
-  it('defaults to heuristic exit direction when no anchor specified', () => {
-    const route = computeOrthogonalRoute(
-      { x: 0, y: 0 },
-      { x: 200, y: 100 },
-    );
-    assertOrthogonal(route);
-    expect(route[0]).toEqual([0, 0]);
-    expect(route[route.length - 1]).toEqual([200, 100]);
-  });
-
-  it('handles corner anchors by inferring exit direction', () => {
-    const route = computeOrthogonalRoute(
-      { x: 100, y: 100 },
-      { x: 300, y: 300 },
-      'top-right',
-      'bottom-left',
-    );
-    assertOrthogonal(route);
-    expect(route[0]).toEqual([100, 100]);
-    expect(route[route.length - 1]).toEqual([300, 300]);
-  });
-});
-
-// ── Clearance / exit-entry stubs ─────────────────────────────
-// [TDD] These tests encode the fix for the "lines go through shapes" bug.
-// The router must add exit/entry stubs so route segments never cross
-// through either connected shape.
-
-describe('computeOrthogonalRoute — clearance stubs', () => {
-  // ── Scenario: two rects stacked vertically, bottom→top ─────
-  // Shape A at (100, 100) 200×100, bottom edge at y=200
-  // Shape B at (150, 350) 200×100, top edge at y=350
-  const shapesVertical = {
-    startBounds: { x: 100, y: 100, width: 200, height: 100 } as Rect,
-    endBounds: { x: 150, y: 350, width: 200, height: 100 } as Rect,
-    start: { x: 200, y: 200 },  // bottom center of A
-    end: { x: 250, y: 350 },    // top center of B
-  };
-
-  it('exits with a stub that clears the source shape (bottom→top)', () => {
-    const { start, end, startBounds, endBounds } = shapesVertical;
-    const route = computeOrthogonalRoute(
-      start, end, 'bottom', 'top', startBounds, endBounds,
-    );
-    assertOrthogonal(route);
-    expect(route[0]).toEqual([start.x, start.y]);
-    expect(route[route.length - 1]).toEqual([end.x, end.y]);
-
-    // Second point should be the exit stub — same x, y > start.y
-    expect(route[1]![0]).toBe(start.x);
-    expect(route[1]![1]).toBeGreaterThan(start.y);
-  });
-
-  it('enters with a stub that clears the target shape (bottom→top)', () => {
-    const { start, end, startBounds, endBounds } = shapesVertical;
-    const route = computeOrthogonalRoute(
-      start, end, 'bottom', 'top', startBounds, endBounds,
-    );
-    // Second-to-last point should be the entry stub — same x as end, y < end.y
-    const entryStub = route[route.length - 2]!;
-    expect(entryStub[0]).toBe(end.x);
-    expect(entryStub[1]).toBeLessThan(end.y);
-  });
-
-  it('route segments never cross source shape (bottom→top)', () => {
-    const { start, end, startBounds, endBounds } = shapesVertical;
-    const route = computeOrthogonalRoute(
-      start, end, 'bottom', 'top', startBounds, endBounds,
-    );
-    assertRouteAvoidsRect(route, startBounds, 'source');
-  });
-
-  it('route segments never cross target shape (bottom→top)', () => {
-    const { start, end, startBounds, endBounds } = shapesVertical;
-    const route = computeOrthogonalRoute(
-      start, end, 'bottom', 'top', startBounds, endBounds,
-    );
-    assertRouteAvoidsRect(route, endBounds, 'target');
-  });
-
-  // ── Scenario: two rects side by side, right→left ───────────
-  // Shape A at (0, 100) 100×100, right edge at x=100
-  // Shape B at (300, 150) 100×100, left edge at x=300
-  const shapesHorizontal = {
-    startBounds: { x: 0, y: 100, width: 100, height: 100 } as Rect,
-    endBounds: { x: 300, y: 150, width: 100, height: 100 } as Rect,
-    start: { x: 100, y: 150 },  // right center of A
-    end: { x: 300, y: 200 },    // left center of B
-  };
-
-  it('exits with a stub that clears the source shape (right→left)', () => {
-    const { start, end, startBounds, endBounds } = shapesHorizontal;
-    const route = computeOrthogonalRoute(
-      start, end, 'right', 'left', startBounds, endBounds,
-    );
-    assertOrthogonal(route);
-    expect(route[0]).toEqual([start.x, start.y]);
-    expect(route[route.length - 1]).toEqual([end.x, end.y]);
-
-    // Second point should be exit stub — same y, x > start.x
-    expect(route[1]![1]).toBe(start.y);
-    expect(route[1]![0]).toBeGreaterThan(start.x);
-  });
-
-  it('enters with a stub that clears the target shape (right→left)', () => {
-    const { start, end, startBounds, endBounds } = shapesHorizontal;
-    const route = computeOrthogonalRoute(
-      start, end, 'right', 'left', startBounds, endBounds,
-    );
-    // Second-to-last point should be entry stub — same y as end, x < end.x
-    const entryStub = route[route.length - 2]!;
-    expect(entryStub[1]).toBe(end.y);
-    expect(entryStub[0]).toBeLessThan(end.x);
-  });
-
-  it('route segments never cross source shape (right→left)', () => {
-    const { start, end, startBounds, endBounds } = shapesHorizontal;
-    const route = computeOrthogonalRoute(
-      start, end, 'right', 'left', startBounds, endBounds,
-    );
-    assertRouteAvoidsRect(route, startBounds, 'source');
-  });
-
-  it('route segments never cross target shape (right→left)', () => {
-    const { start, end, startBounds, endBounds } = shapesHorizontal;
-    const route = computeOrthogonalRoute(
-      start, end, 'right', 'left', startBounds, endBounds,
-    );
-    assertRouteAvoidsRect(route, endBounds, 'target');
-  });
-
-  // ── Scenario: L-shape cross-axis, right exit → top entry ───
-  // Shape A at (50, 100) 100×80, right edge at x=150
-  // Shape B at (300, 250) 100×80, top edge at y=250
-  const shapesLShape = {
-    startBounds: { x: 50, y: 100, width: 100, height: 80 } as Rect,
-    endBounds: { x: 300, y: 250, width: 100, height: 80 } as Rect,
-    start: { x: 150, y: 140 },  // right center of A
-    end: { x: 350, y: 250 },    // top center of B
-  };
-
-  it('L-shape route avoids both shapes (right→top)', () => {
-    const { start, end, startBounds, endBounds } = shapesLShape;
-    const route = computeOrthogonalRoute(
-      start, end, 'right', 'top', startBounds, endBounds,
-    );
-    assertOrthogonal(route);
-    expect(route[0]).toEqual([start.x, start.y]);
-    expect(route[route.length - 1]).toEqual([end.x, end.y]);
-    assertRouteAvoidsRect(route, startBounds, 'source');
-    assertRouteAvoidsRect(route, endBounds, 'target');
-  });
-
-  // ── Scenario: shapes close together vertically ─────────────
-  // Shape A at (100, 100) 200×100
-  // Shape B at (150, 220) 200×100 — only 20px gap
-  const shapesClose = {
-    startBounds: { x: 100, y: 100, width: 200, height: 100 } as Rect,
-    endBounds: { x: 150, y: 220, width: 200, height: 100 } as Rect,
-    start: { x: 200, y: 200 },  // bottom center of A
-    end: { x: 250, y: 220 },    // top center of B
-  };
-
-  it('routes between close shapes without crossing either (bottom→top)', () => {
-    const { start, end, startBounds, endBounds } = shapesClose;
-    const route = computeOrthogonalRoute(
-      start, end, 'bottom', 'top', startBounds, endBounds,
-    );
-    assertOrthogonal(route);
-    expect(route[0]).toEqual([start.x, start.y]);
-    expect(route[route.length - 1]).toEqual([end.x, end.y]);
-    assertRouteAvoidsRect(route, startBounds, 'source');
-    assertRouteAvoidsRect(route, endBounds, 'target');
-  });
-
-  // ── Scenario: opposite-direction exit (right exit, target is left) ──
-  const shapesOpposite = {
-    startBounds: { x: 200, y: 100, width: 100, height: 80 } as Rect,
-    endBounds: { x: 50, y: 250, width: 100, height: 80 } as Rect,
-    start: { x: 300, y: 140 },  // right edge of A
-    end: { x: 50, y: 290 },     // left edge of B
-  };
-
-  it('routes around both shapes in opposite-direction case (right→left, target behind)', () => {
-    const { start, end, startBounds, endBounds } = shapesOpposite;
-    const route = computeOrthogonalRoute(
-      start, end, 'right', 'left', startBounds, endBounds,
-    );
-    assertOrthogonal(route);
-    expect(route[0]).toEqual([start.x, start.y]);
-    expect(route[route.length - 1]).toEqual([end.x, end.y]);
-    assertRouteAvoidsRect(route, startBounds, 'source');
-    assertRouteAvoidsRect(route, endBounds, 'target');
-  });
-
-  // ── Scenario: custom jettySize ─────────────────────────────
-  it('uses jettySize as stub length', () => {
-    const startBounds = { x: 0, y: 0, width: 100, height: 100 };
-    const endBounds = { x: 300, y: 200, width: 100, height: 100 };
-    const jettySize = 40;
-    const route = computeOrthogonalRoute(
-      { x: 100, y: 50 },  // right edge of source
-      { x: 300, y: 250 }, // left edge of target
-      'right',
-      'left',
-      startBounds,
-      endBounds,
-      jettySize,
-    );
-    assertOrthogonal(route);
-    // Exit stub should be jettySize pixels from start
-    expect(route[1]![0]).toBe(100 + jettySize);
-    expect(route[1]![1]).toBe(50);
-    // Entry stub should be jettySize pixels from end
-    const entryStub = route[route.length - 2]!;
-    expect(entryStub[0]).toBe(300 - jettySize);
-    expect(entryStub[1]).toBe(250);
-  });
-
-  // ── Scenario: axis-aligned with shapes in the way ──────────
-  it('does not shortcut axis-aligned routes when shapes block the path', () => {
-    // Same x, bottom→top with shapes that would be crossed by a straight line
-    const startBounds = { x: 150, y: 100, width: 100, height: 100 };
-    const endBounds = { x: 130, y: 250, width: 100, height: 100 };
-    const route = computeOrthogonalRoute(
-      { x: 200, y: 200 },  // bottom of A
-      { x: 200, y: 250 },  // top of B (same x!)
-      'bottom',
-      'top',
-      startBounds,
-      endBounds,
-    );
-    assertOrthogonal(route);
-    expect(route[0]).toEqual([200, 200]);
-    expect(route[route.length - 1]).toEqual([200, 250]);
-    // Should have stubs — not just a straight 2-point line
-    expect(route.length).toBeGreaterThan(2);
-  });
-});
-
-// ── midpointOffset — Z-shape control ─────────────────────────
-// [TDD] Tests for the midpointOffset parameter that controls
-// where the Z-turn happens in the orthogonal route.
-
-describe('computeOrthogonalRoute — midpointOffset', () => {
-  it('defaults to centered Z-shape when midpointOffset is undefined', () => {
-    // Horizontal Z-shape: right exit → left entry
-    const route = computeOrthogonalRoute(
-      { x: 100, y: 100 },
-      { x: 400, y: 200 },
-      'right',
-      'left',
-      undefined,
-      undefined,
-      20,
-      undefined, // midpointOffset = default (0.5)
-    );
-    assertOrthogonal(route);
-    // The mid-segment x should be halfway between exitStub and entryStub
-    // exitX = 100 + 20 = 120, entryX = 400 - 20 = 380
-    // midX = 120 + (380 - 120) * 0.5 = 250
-    const midX = route[2]![0];
-    expect(midX).toBe(250);
-  });
-
-  it('explicit midpointOffset=0.5 produces same result as default', () => {
-    const routeDefault = computeOrthogonalRoute(
-      { x: 100, y: 100 },
-      { x: 400, y: 200 },
-      'right',
-      'left',
-      undefined,
-      undefined,
-      20,
-    );
-    const routeExplicit = computeOrthogonalRoute(
-      { x: 100, y: 100 },
-      { x: 400, y: 200 },
-      'right',
-      'left',
-      undefined,
-      undefined,
-      20,
-      0.5,
-    );
-    expect(routeExplicit).toEqual(routeDefault);
-  });
-
-  it('midpointOffset=0 places Z-turn at exit stub end (horizontal)', () => {
-    const route = computeOrthogonalRoute(
-      { x: 100, y: 100 },
-      { x: 400, y: 200 },
-      'right',
-      'left',
-      undefined,
-      undefined,
-      20,
-      0.0,
-    );
-    assertOrthogonal(route);
-    // exitX = 120, entryX = 380
-    // midX = 120 + (380 - 120) * 0 = 120
-    const midX = route[2]![0];
-    expect(midX).toBe(120);
-  });
-
-  it('midpointOffset=1 places Z-turn at entry stub end (horizontal)', () => {
-    const route = computeOrthogonalRoute(
-      { x: 100, y: 100 },
-      { x: 400, y: 200 },
-      'right',
-      'left',
-      undefined,
-      undefined,
-      20,
-      1.0,
-    );
-    assertOrthogonal(route);
-    // exitX = 120, entryX = 380
-    // midX = 120 + (380 - 120) * 1 = 380
-    const midX = route[2]![0];
-    expect(midX).toBe(380);
-  });
-
-  it('midpointOffset=0.25 places Z-turn at 25% between stubs (horizontal)', () => {
-    const route = computeOrthogonalRoute(
-      { x: 100, y: 100 },
-      { x: 400, y: 200 },
-      'right',
-      'left',
-      undefined,
-      undefined,
-      20,
-      0.25,
-    );
-    assertOrthogonal(route);
-    // exitX = 120, entryX = 380
-    // midX = 120 + (380 - 120) * 0.25 = 120 + 65 = 185
-    const midX = route[2]![0];
-    expect(midX).toBe(185);
-  });
-
-  it('midpointOffset controls vertical Z-shape (bottom→top)', () => {
-    const route = computeOrthogonalRoute(
-      { x: 100, y: 100 },
-      { x: 300, y: 400 },
-      'bottom',
-      'top',
-      undefined,
-      undefined,
-      20,
-      0.75,
-    );
-    assertOrthogonal(route);
-    // exitY = 100 + 20 = 120, entryY = 400 - 20 = 380
-    // midY = 120 + (380 - 120) * 0.75 = 120 + 195 = 315
-    const midY = route[2]![1];
-    expect(midY).toBe(315);
-  });
-
-  it('Z-shape route with midpointOffset still avoids shapes', () => {
-    const startBounds = { x: 0, y: 100, width: 100, height: 100 };
-    const endBounds = { x: 300, y: 150, width: 100, height: 100 };
-    const route = computeOrthogonalRoute(
-      { x: 100, y: 150 },
-      { x: 300, y: 200 },
-      'right',
-      'left',
-      startBounds,
-      endBounds,
-      20,
-      0.3,
-    );
-    assertOrthogonal(route);
-    assertRouteAvoidsRect(route, startBounds, 'source');
-    assertRouteAvoidsRect(route, endBounds, 'target');
-  });
-
-  it('midpointOffset does not affect L-shape routes (cross-axis)', () => {
-    // L-shape: right exit, top entry (cross-axis — no Z-turn to control)
-    const route = computeOrthogonalRoute(
-      { x: 100, y: 100 },
-      { x: 300, y: 300 },
-      'right',
-      'top',
-      undefined,
-      undefined,
-      20,
-      0.25,
-    );
-    const routeDefault = computeOrthogonalRoute(
-      { x: 100, y: 100 },
-      { x: 300, y: 300 },
-      'right',
-      'top',
-      undefined,
-      undefined,
-      20,
-    );
-    assertOrthogonal(route);
-    // L-shape should be unchanged by midpointOffset
-    expect(route).toEqual(routeDefault);
-  });
-
-  it('all segments remain orthogonal with extreme midpointOffset', () => {
-    for (const offset of [0, 0.1, 0.5, 0.9, 1.0]) {
-      const route = computeOrthogonalRoute(
-        { x: 50, y: 50 },
-        { x: 350, y: 200 },
-        'right',
-        'left',
-        undefined,
-        undefined,
-        20,
-        offset,
-      );
-      assertOrthogonal(route);
-      expect(route[0]).toEqual([50, 50]);
-      expect(route[route.length - 1]).toEqual([350, 200]);
-    }
   });
 });

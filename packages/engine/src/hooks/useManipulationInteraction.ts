@@ -32,7 +32,7 @@ import {
   getCursorForTarget,
   isPointBasedKind,
 } from '../interaction/manipulationHelpers.js';
-import type { HandleHit, PointHandleHit, JettyHandleHit } from '../interaction/manipulationHelpers.js';
+import type { HandleHit, PointHandleHit, JettyHandleHit, SegmentHandleHit } from '../interaction/manipulationHelpers.js';
 import { computeSnappedDelta } from '../utils/snapToGrid.js';
 
 export interface ManipulationInteraction {
@@ -82,6 +82,15 @@ type DragMode =
       originalJettySize: number;
       /** Whether this is a Z-shape drag (midpointOffset) vs exit-stub drag. */
       isZShape: boolean;
+      /** World position where drag started. */
+      startWorld: { x: number; y: number };
+    }
+  | {
+      kind: 'segment-drag';
+      /** Segment handle being dragged. */
+      handle: SegmentHandleHit;
+      /** Original waypoints array before drag started. */
+      originalWaypoints: number[];
       /** World position where drag started. */
       startWorld: { x: number; y: number };
     };
@@ -156,6 +165,19 @@ export function useManipulationInteraction(
         originalMidpointOffset,
         originalJettySize,
         isZShape,
+        startWorld: worldPoint,
+      };
+    } else if (target.kind === 'segment-handle') {
+      const expr = expressions[target.handle.expressionId];
+      if (!expr || expr.meta.locked) return;
+
+      const data = expr.data as ArrowData;
+      const originalWaypoints = data.waypoints ? [...data.waypoints] : [];
+
+      dragModeRef.current = {
+        kind: 'segment-drag',
+        handle: target.handle,
+        originalWaypoints,
         startWorld: worldPoint,
       };
     } else if (target.kind === 'handle') {
@@ -418,6 +440,35 @@ export function useManipulationInteraction(
           }
         });
       }
+    } else if (drag.kind === 'segment-drag') {
+      // ── Transient segment waypoint drag preview ─────────
+      const dx = worldPoint.x - drag.startWorld.x;
+      const dy = worldPoint.y - drag.startWorld.y;
+
+      // Determine drag delta based on segment orientation
+      const delta = drag.handle.segmentOrientation === 'horizontal'
+        ? dy  // Horizontal segment → drag moves Y
+        : dx; // Vertical segment → drag moves X
+
+      // Compute the new waypoint position
+      const basePosition = drag.handle.segmentOrientation === 'horizontal'
+        ? drag.handle.position.y
+        : drag.handle.position.x;
+      const newPosition = Math.round(basePosition + delta);
+
+      // Build updated waypoints array
+      const newWaypoints = [...drag.originalWaypoints];
+      while (newWaypoints.length <= drag.handle.segmentIndex) {
+        newWaypoints.push(0); // Pad if needed
+      }
+      newWaypoints[drag.handle.segmentIndex] = newPosition;
+
+      useCanvasStore.setState((draft) => {
+        const expr = draft.expressions[drag.handle.expressionId];
+        if (expr && expr.data.kind === 'arrow') {
+          (expr.data as ArrowData & { waypoints?: number[] }).waypoints = newWaypoints;
+        }
+      });
     } else {
       // ── Hover cursor feedback (AC10) ────────────────────
       const target = detectPointerTarget(worldPoint, expressions, selectedIds, camera);
@@ -599,6 +650,29 @@ export function useManipulationInteraction(
             });
           }
         }
+      }
+    } else if (drag.kind === 'segment-drag') {
+      // ── Commit segment waypoint change ──────────────────
+      const dx = worldPoint.x - drag.startWorld.x;
+      const dy = worldPoint.y - drag.startWorld.y;
+
+      const delta = drag.handle.segmentOrientation === 'horizontal' ? dy : dx;
+      const basePosition = drag.handle.segmentOrientation === 'horizontal'
+        ? drag.handle.position.y
+        : drag.handle.position.x;
+      const newPosition = Math.round(basePosition + delta);
+
+      const newWaypoints = [...drag.originalWaypoints];
+      while (newWaypoints.length <= drag.handle.segmentIndex) {
+        newWaypoints.push(0);
+      }
+      newWaypoints[drag.handle.segmentIndex] = newPosition;
+
+      const expr = state.expressions[drag.handle.expressionId];
+      if (expr && expr.data.kind === 'arrow') {
+        state.updateExpression(drag.handle.expressionId, {
+          data: { ...expr.data, waypoints: newWaypoints } as unknown as VisualExpression['data'],
+        });
       }
     }
 

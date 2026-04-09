@@ -48,7 +48,7 @@ function assertEndsAt(
 /** Assert all segments are one of the valid types. */
 function assertValidSegments(segments: PathSegment[]): void {
   for (const seg of segments) {
-    expect(['line', 'bezier', 'arc']).toContain(seg.type);
+    expect(['line', 'bezier', 'arc', 'quadratic']).toContain(seg.type);
     expect(typeof seg.x).toBe('number');
     expect(typeof seg.y).toBe('number');
     expect(Number.isFinite(seg.x)).toBe(true);
@@ -420,7 +420,7 @@ describe('orthogonalCurved routing (via getRouter)', () => {
 describe('orthogonalRounded routing (via getRouter with rounded option)', () => {
   const orthogonalCurvedRouter = getRouter('orthogonalCurved')!;
 
-  it('produces arc segments at corners when rounded=true', () => {
+  it('produces quadratic segments at corners when rounded=true', () => {
     const result = orthogonalCurvedRouter(
       { x: 0, y: 0 },
       { x: 200, y: 100 },
@@ -429,7 +429,7 @@ describe('orthogonalRounded routing (via getRouter with rounded option)', () => 
       { rounded: true },
     );
     assertValidSegments(result);
-    expect(countType(result, 'arc')).toBeGreaterThanOrEqual(1);
+    expect(countType(result, 'quadratic')).toBeGreaterThanOrEqual(1);
   });
 
   it('ends at the target point', () => {
@@ -453,7 +453,7 @@ describe('orthogonalRounded routing (via getRouter with rounded option)', () => 
     );
     assertValidSegments(result);
     assertEndsAt(result, 200, 0);
-    expect(countType(result, 'arc')).toBe(0);
+    expect(countType(result, 'quadratic')).toBe(0);
   });
 
   it('handles same point', () => {

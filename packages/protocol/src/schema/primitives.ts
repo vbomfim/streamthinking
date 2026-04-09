@@ -116,6 +116,16 @@ export interface ArrowData {
   jettySize?: number | 'auto';
   /** Z-shape midpoint offset as 0–1 ratio (0.5 = centered, default). */
   midpointOffset?: number;
+  /**
+   * User-adjusted segment positions for orthogonal routes.
+   *
+   * Each entry is the absolute X (for vertical segments) or Y (for
+   * horizontal segments) of a draggable mid-segment. When present,
+   * overrides the auto-computed position for that segment. Indices
+   * correspond to the internal segments of the route (excluding the
+   * first and last jetty stubs).
+   */
+  waypoints?: number[];
 }
 
 /** Data for a freehand drawing expression. */

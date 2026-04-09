@@ -175,6 +175,45 @@ export function distanceToBezier(
 }
 
 /**
+ * Compute the minimum distance from a point to a quadratic bezier curve.
+ *
+ * Approximates the curve by sampling it into line segments,
+ * then finds the minimum distance to any segment.
+ */
+const QUADRATIC_SAMPLES = 16;
+
+export function distanceToQuadraticBezier(
+  px: number,
+  py: number,
+  sx: number,
+  sy: number,
+  cpx: number,
+  cpy: number,
+  ex: number,
+  ey: number,
+): number {
+  let minDist = Infinity;
+  let prevX = sx;
+  let prevY = sy;
+
+  for (let i = 1; i <= QUADRATIC_SAMPLES; i++) {
+    const t = i / QUADRATIC_SAMPLES;
+    const u = 1 - t;
+
+    const x = u * u * sx + 2 * u * t * cpx + t * t * ex;
+    const y = u * u * sy + 2 * u * t * cpy + t * t * ey;
+
+    const d = distanceToSegment(px, py, prevX, prevY, x, y);
+    if (d < minDist) minDist = d;
+
+    prevX = x;
+    prevY = y;
+  }
+
+  return minDist;
+}
+
+/**
  * Compute the minimum distance from a point to a path described by
  * PathSegment[].
  *
@@ -206,6 +245,13 @@ export function distanceToPathSegments(
         curX, curY,
         seg.cp1x, seg.cp1y,
         seg.cp2x, seg.cp2y,
+        seg.x, seg.y,
+      );
+    } else if (seg.type === 'quadratic') {
+      d = distanceToQuadraticBezier(
+        px, py,
+        curX, curY,
+        seg.cpx, seg.cpy,
         seg.x, seg.y,
       );
     } else {
@@ -305,6 +351,7 @@ export function hitTestArrow(
         midpointOffset: typeof data.midpointOffset === 'number'
           ? data.midpointOffset
           : undefined,
+        waypoints: data.waypoints,
         startBounds: startBoundExpr ? {
           x: startBoundExpr.position.x,
           y: startBoundExpr.position.y,

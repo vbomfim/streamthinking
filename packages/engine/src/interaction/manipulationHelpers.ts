@@ -8,8 +8,10 @@
  * @module
  */
 
-import type { VisualExpression } from '@infinicanvas/protocol';
+import type { VisualExpression, ArrowData } from '@infinicanvas/protocol';
 import type { Camera } from '../types/index.js';
+import { computeOrthogonalRoute } from '../connectors/orthogonalRouter.js';
+import { resolveBindings } from './connectorHelpers.js';
 
 // ── Point-based kind guard ─────────────────────────────────────
 
@@ -68,11 +70,29 @@ export interface JettyHandleHit {
   segmentOrientation: 'horizontal' | 'vertical';
 }
 
+/**
+ * Result of detecting a segment midpoint handle on a routed arrow.
+ *
+ * The handle appears at the midpoint of each internal segment.
+ * Horizontal segments drag vertically (ns-resize), vertical segments
+ * drag horizontally (ew-resize).
+ */
+export interface SegmentHandleHit {
+  expressionId: string;
+  /** Index of the segment in the route's internal segments. */
+  segmentIndex: number;
+  /** World position of the handle. */
+  position: { x: number; y: number };
+  /** Orientation of the segment. */
+  segmentOrientation: 'horizontal' | 'vertical';
+}
+
 /** Result of detecting what the pointer is hovering over. */
 export type PointerTarget =
   | { kind: 'handle'; handle: HandleHit }
   | { kind: 'point-handle'; handle: PointHandleHit }
   | { kind: 'jetty-handle'; handle: JettyHandleHit }
+  | { kind: 'segment-handle'; handle: SegmentHandleHit }
   | { kind: 'body'; expressionId: string }
   | { kind: 'none' };
 
@@ -423,6 +443,137 @@ export function detectJettyHandle(
   return null;
 }
 
+// ── Segment midpoint handles ─────────────────────────────────
+
+/** Routing modes that produce orthogonal segments with draggable midpoints. */
+const SEGMENT_HANDLE_ROUTING_MODES = new Set([
+  'orthogonal',
+  'orthogonalCurved',
+]);
+
+/**
+ * Compute segment midpoint handle positions for a routed arrow.
+ *
+ * For each internal segment of the orthogonal route (excluding the
+ * first and last segments which are jetty stubs), computes a handle
+ * at the segment midpoint.
+ *
+ * @param expr - The arrow expression
+ * @param expressions - All expressions (for resolving bindings and bounds)
+ * @returns Array of segment handle descriptors
+ *
+ * [CLEAN-CODE] [SRP]
+ */
+export function getSegmentMidpointHandles(
+  expr: VisualExpression,
+  expressions: Record<string, VisualExpression>,
+): SegmentHandleHit[] {
+  if (expr.data.kind !== 'arrow') return [];
+
+  const data = expr.data as ArrowData;
+  if (!data.routing || !SEGMENT_HANDLE_ROUTING_MODES.has(data.routing)) return [];
+  if (data.points.length < 2) return [];
+
+  // Resolve binding positions to get absolute world coordinates
+  const points = resolveBindings(expr, expressions);
+  if (points.length < 2) return [];
+
+  const startPt = { x: points[0]![0], y: points[0]![1] };
+  const endPt = { x: points[points.length - 1]![0], y: points[points.length - 1]![1] };
+
+  // Resolve shape bounds for the router
+  const startBoundExpr = data.startBinding
+    ? expressions[data.startBinding.expressionId]
+    : undefined;
+  const endBoundExpr = data.endBinding
+    ? expressions[data.endBinding.expressionId]
+    : undefined;
+
+  // Compute the actual route waypoints
+  const routeWaypoints = computeOrthogonalRoute(
+    startPt,
+    endPt,
+    data.startBinding?.anchor,
+    data.endBinding?.anchor,
+    startBoundExpr ? {
+      x: startBoundExpr.position.x,
+      y: startBoundExpr.position.y,
+      width: startBoundExpr.size.width,
+      height: startBoundExpr.size.height,
+    } : undefined,
+    endBoundExpr ? {
+      x: endBoundExpr.position.x,
+      y: endBoundExpr.position.y,
+      width: endBoundExpr.size.width,
+      height: endBoundExpr.size.height,
+    } : undefined,
+    typeof data.jettySize === 'number' ? data.jettySize : undefined,
+    typeof data.midpointOffset === 'number' ? data.midpointOffset : undefined,
+    data.waypoints,
+  );
+
+  if (routeWaypoints.length < 4) return []; // Need at least start, stub, stub, end
+
+  const handles: SegmentHandleHit[] = [];
+
+  // Skip first segment (start→first turn) and last segment (last turn→end)
+  // as those are the jetty stubs. Handle internal segments only.
+  for (let i = 1; i < routeWaypoints.length - 2; i++) {
+    const [x1, y1] = routeWaypoints[i]!;
+    const [x2, y2] = routeWaypoints[i + 1]!;
+
+    const midX = (x1 + x2) / 2;
+    const midY = (y1 + y2) / 2;
+
+    const isHoriz = Math.abs(y1 - y2) < 0.01;
+    const isVert = Math.abs(x1 - x2) < 0.01;
+
+    if (isHoriz || isVert) {
+      handles.push({
+        expressionId: expr.id,
+        segmentIndex: i - 1, // Internal segment index (for waypoints array)
+        position: { x: midX, y: midY },
+        segmentOrientation: isHoriz ? 'horizontal' : 'vertical',
+      });
+    }
+  }
+
+  return handles;
+}
+
+/**
+ * Detect whether the pointer is near a segment midpoint handle.
+ *
+ * Only checks selected, routed arrows. Returns the first hit within
+ * HANDLE_TOLERANCE_PX screen pixels.
+ *
+ * [CLEAN-CODE] [SRP]
+ */
+export function detectSegmentHandle(
+  worldPoint: { x: number; y: number },
+  expressions: Record<string, VisualExpression>,
+  selectedIds: Set<string>,
+  camera: Camera,
+): SegmentHandleHit | null {
+  const tolerance = HANDLE_TOLERANCE_PX / camera.zoom;
+
+  for (const id of selectedIds) {
+    const expr = expressions[id];
+    if (!expr) continue;
+
+    const handles = getSegmentMidpointHandles(expr, expressions);
+    for (const handle of handles) {
+      const dx = worldPoint.x - handle.position.x;
+      const dy = worldPoint.y - handle.position.y;
+      if (Math.abs(dx) <= tolerance && Math.abs(dy) <= tolerance) {
+        return handle;
+      }
+    }
+  }
+
+  return null;
+}
+
 /**
  * Detect what the pointer is targeting: a handle, a shape body, or nothing.
  *
@@ -446,6 +597,12 @@ export function detectPointerTarget(
   const jettyHandle = detectJettyHandle(worldPoint, expressions, selectedIds, camera);
   if (jettyHandle) {
     return { kind: 'jetty-handle', handle: jettyHandle };
+  }
+
+  // Check segment midpoint handles (for routed arrows)
+  const segHandle = detectSegmentHandle(worldPoint, expressions, selectedIds, camera);
+  if (segHandle) {
+    return { kind: 'segment-handle', handle: segHandle };
   }
 
   // Check bbox handles (only for non-point-based shapes)
@@ -501,6 +658,11 @@ export function getCursorForTarget(target: PointerTarget): string {
       // vertical segment → ew-resize
       const { segmentOrientation } = target.handle;
       return segmentOrientation === 'horizontal' ? 'ns-resize' : 'ew-resize';
+    }
+    case 'segment-handle': {
+      // Same cursor logic as jetty-handle: perpendicular to segment
+      const { segmentOrientation: so } = target.handle;
+      return so === 'horizontal' ? 'ns-resize' : 'ew-resize';
     }
     case 'body':
       return 'move';
