@@ -143,14 +143,21 @@ export class ArrowTool implements ToolHandler {
         tags: [],
         locked: false,
       },
-      data: {
-        kind: 'arrow',
-        points,
-        startArrowhead: 'none',
-        endArrowhead: 'triangle',
-        ...(this.startBinding && { startBinding: this.startBinding }),
-        ...(endBinding && { endBinding }),
-      },
+      data: (() => {
+        const { defaultArrowStyle } = useCanvasStore.getState();
+        const d: Record<string, unknown> = {
+          kind: 'arrow',
+          points,
+          startArrowhead: defaultArrowStyle.startArrowhead,
+          endArrowhead: defaultArrowStyle.endArrowhead,
+        };
+        if (defaultArrowStyle.routing && defaultArrowStyle.routing !== 'straight') {
+          d.routing = defaultArrowStyle.routing;
+        }
+        if (this.startBinding) d.startBinding = this.startBinding;
+        if (endBinding) d.endBinding = endBinding;
+        return d;
+      })(),
     };
 
     const store = useCanvasStore.getState();

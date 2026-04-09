@@ -275,6 +275,7 @@ export type {
   GridType,
   CanvasState,
   CanvasActions,
+  DefaultArrowStyle,
 } from './types/index.js';
 
 export type { Layer } from '@infinicanvas/protocol';
