@@ -138,8 +138,15 @@ export function renderArrow(
     data.startBinding.expressionId === data.endBinding.expressionId;
 
   if (isSelfLoop) {
-    renderSelfLoop(ctx, points, data, expr, expressions, arrowSize,
-      startType, endType, startFilled, endFilled, strokeColor, fillColor);
+    // For orthogonal/elbow self-loops, use right-angle segments instead of curves
+    const routing = data.routing;
+    if (routing === 'orthogonal' || routing === 'elbow') {
+      renderOrthogonalSelfLoop(ctx, points, data, expr, expressions, arrowSize,
+        startType, endType, startFilled, endFilled, strokeColor, fillColor);
+    } else {
+      renderSelfLoop(ctx, points, data, expr, expressions, arrowSize,
+        startType, endType, startFilled, endFilled, strokeColor, fillColor);
+    }
   } else if (pathSegments && pathSegments.length > 0) {
     // ── Routed arrows: Canvas2D rendering for ALL routed types ──
     // [AC5] No drawable cache — always render the actual computed path.
@@ -230,6 +237,94 @@ function renderSelfLoop(
   if (startType !== 'none') {
     const angle = Math.atan2(start[1] - cp1y, start[0] - cp1x);
     renderArrowheadFromRegistry(ctx, start[0], start[1], angle, arrowSize,
+      startType, startFilled, strokeColor, fillColor);
+  }
+}
+
+/**
+ * Render an orthogonal self-loop — right-angle segments looping out from the shape.
+ */
+function renderOrthogonalSelfLoop(
+  ctx: CanvasRenderingContext2D,
+  points: [number, number][],
+  data: ArrowData,
+  expr: VisualExpression,
+  expressions: Record<string, VisualExpression>,
+  arrowSize: number,
+  startType: string,
+  endType: string,
+  startFilled: boolean,
+  endFilled: boolean,
+  strokeColor: string,
+  fillColor: string,
+): void {
+  const start = points[0]!;
+  const end = points[points.length - 1]!;
+  const target = expressions[data.startBinding!.expressionId];
+  const jetty = typeof data.jettySize === 'number' ? data.jettySize : 30;
+
+  // Determine loop direction — go outward from shape center
+  const cx = target ? target.position.x + target.size.width / 2 : (start[0] + end[0]) / 2;
+  const cy = target ? target.position.y + target.size.height / 2 : (start[1] + end[1]) / 2;
+  const midX = (start[0] + end[0]) / 2;
+  const midY = (start[1] + end[1]) / 2;
+  const dx = midX - cx;
+  const dy = midY - cy;
+
+  // Build orthogonal loop points
+  let loopPoints: [number, number][];
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    // Loop outward horizontally
+    const outX = dx >= 0
+      ? Math.max(start[0], end[0]) + jetty
+      : Math.min(start[0], end[0]) - jetty;
+    loopPoints = [
+      start,
+      [outX, start[1]],
+      [outX, end[1]],
+      end,
+    ];
+  } else {
+    // Loop outward vertically
+    const outY = dy >= 0
+      ? Math.max(start[1], end[1]) + jetty
+      : Math.min(start[1], end[1]) - jetty;
+    loopPoints = [
+      start,
+      [start[0], outY],
+      [end[0], outY],
+      end,
+    ];
+  }
+
+  ctx.save();
+  ctx.strokeStyle = strokeColor;
+  ctx.lineWidth = expr.style.strokeWidth;
+  ctx.globalAlpha = expr.style.opacity;
+  const ss = expr.style.strokeStyle ?? 'solid';
+  if (ss === 'dashed') ctx.setLineDash([expr.style.strokeWidth * 4, expr.style.strokeWidth * 3]);
+  else if (ss === 'dotted') ctx.setLineDash([expr.style.strokeWidth, expr.style.strokeWidth * 2]);
+  ctx.beginPath();
+  ctx.moveTo(loopPoints[0]![0], loopPoints[0]![1]);
+  for (let i = 1; i < loopPoints.length; i++) {
+    ctx.lineTo(loopPoints[i]![0], loopPoints[i]![1]);
+  }
+  ctx.stroke();
+  ctx.restore();
+
+  // Arrowheads
+  if (endType !== 'none' && loopPoints.length >= 2) {
+    const last = loopPoints[loopPoints.length - 1]!;
+    const prev = loopPoints[loopPoints.length - 2]!;
+    const angle = Math.atan2(last[1] - prev[1], last[0] - prev[0]);
+    renderArrowheadFromRegistry(ctx, last[0], last[1], angle, arrowSize,
+      endType, endFilled, strokeColor, fillColor);
+  }
+  if (startType !== 'none' && loopPoints.length >= 2) {
+    const first = loopPoints[0]!;
+    const second = loopPoints[1]!;
+    const angle = Math.atan2(first[1] - second[1], first[0] - second[0]);
+    renderArrowheadFromRegistry(ctx, first[0], first[1], angle, arrowSize,
       startType, startFilled, strokeColor, fillColor);
   }
 }
