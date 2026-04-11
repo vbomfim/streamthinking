@@ -22,6 +22,7 @@ import { mapStyleToRoughOptions, idToSeed } from './styleMapper.js';
 import { resolveBindings } from '../interaction/connectorHelpers.js';
 import { getRouter } from '../connectors/routerRegistry.js';
 import { renderArrowheadFromRegistry } from './arrowheads.js';
+import { computeSelfLoopPath } from '../connectors/orthogonalRouter.js';
 
 // ── Constants ────────────────────────────────────────────────
 
@@ -167,7 +168,12 @@ export function renderArrow(
 /**
  * Render a self-referencing arrow (both ends bound to the same shape).
  *
- * Draws a curved bezier loop outward from the shape center.
+ * Routing-aware:
+ * - Curved/straight/undefined → bezier curve (existing behavior)
+ * - Orthogonal/elbow/orthogonalCurved → right-angle loop segments
+ *
+ * Uses `computeSelfLoopPath` to share path computation with hit testing.
+ * [CLEAN-CODE] [SRP]
  */
 function renderSelfLoop(
   ctx: CanvasRenderingContext2D,
@@ -186,27 +192,9 @@ function renderSelfLoop(
   const start = points[0]!;
   const end = points[points.length - 1]!;
   const target = expressions[data.startBinding!.expressionId];
-  const loopSize = target
-    ? Math.max(target.size.width, target.size.height) * 0.6
-    : 60;
+  const jetty = typeof data.jettySize === 'number' ? data.jettySize : 30;
 
-  // Compute control points — curve outward from the shape
-  const midX = (start[0] + end[0]) / 2;
-  const midY = (start[1] + end[1]) / 2;
-  const cx = target ? target.position.x + target.size.width / 2 : midX;
-  const cy = target ? target.position.y + target.size.height / 2 : midY;
-
-  // Direction away from shape center
-  const dx = midX - cx;
-  const dy = midY - cy;
-  const dist = Math.hypot(dx, dy) || 1;
-  const nx = dx / dist;
-  const ny = dy / dist;
-
-  const cp1x = start[0] + nx * loopSize;
-  const cp1y = start[1] + ny * loopSize;
-  const cp2x = end[0] + nx * loopSize;
-  const cp2y = end[1] + ny * loopSize;
+  const path = computeSelfLoopPath(start, end, data.routing, target, jetty);
 
   ctx.save();
   ctx.strokeStyle = expr.style.strokeColor;
@@ -215,22 +203,71 @@ function renderSelfLoop(
   const ss = expr.style.strokeStyle ?? 'solid';
   if (ss === 'dashed') ctx.setLineDash([expr.style.strokeWidth * 4, expr.style.strokeWidth * 3]);
   else if (ss === 'dotted') ctx.setLineDash([expr.style.strokeWidth, expr.style.strokeWidth * 2]);
-  ctx.beginPath();
-  ctx.moveTo(start[0], start[1]);
-  ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, end[0], end[1]);
-  ctx.stroke();
-  ctx.restore();
 
-  // Arrowheads for self-loop
-  if (endType !== 'none') {
-    const angle = Math.atan2(end[1] - cp2y, end[0] - cp2x);
-    renderArrowheadFromRegistry(ctx, end[0], end[1], angle, arrowSize,
-      endType, endFilled, strokeColor, fillColor);
-  }
-  if (startType !== 'none') {
-    const angle = Math.atan2(start[1] - cp1y, start[0] - cp1x);
-    renderArrowheadFromRegistry(ctx, start[0], start[1], angle, arrowSize,
-      startType, startFilled, strokeColor, fillColor);
+  if (path.isCurved) {
+    // ── Bezier self-loop (curved/straight/undefined) ──
+    const loopSize = target
+      ? Math.max(target.size.width, target.size.height) * 0.6
+      : 60;
+
+    const midX = (start[0] + end[0]) / 2;
+    const midY = (start[1] + end[1]) / 2;
+    const cx = target ? target.position.x + target.size.width / 2 : midX;
+    const cy = target ? target.position.y + target.size.height / 2 : midY;
+
+    const dx = midX - cx;
+    const dy = midY - cy;
+    const dist = Math.hypot(dx, dy) || 1;
+    const nx = dx / dist;
+    const ny = dy / dist;
+
+    const cp1x = start[0] + nx * loopSize;
+    const cp1y = start[1] + ny * loopSize;
+    const cp2x = end[0] + nx * loopSize;
+    const cp2y = end[1] + ny * loopSize;
+
+    ctx.beginPath();
+    ctx.moveTo(start[0], start[1]);
+    ctx.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, end[0], end[1]);
+    ctx.stroke();
+    ctx.restore();
+
+    // Arrowheads for bezier self-loop
+    if (endType !== 'none') {
+      const angle = Math.atan2(end[1] - cp2y, end[0] - cp2x);
+      renderArrowheadFromRegistry(ctx, end[0], end[1], angle, arrowSize,
+        endType, endFilled, strokeColor, fillColor);
+    }
+    if (startType !== 'none') {
+      const angle = Math.atan2(start[1] - cp1y, start[0] - cp1x);
+      renderArrowheadFromRegistry(ctx, start[0], start[1], angle, arrowSize,
+        startType, startFilled, strokeColor, fillColor);
+    }
+  } else {
+    // ── Orthogonal self-loop (right-angle segments) ──
+    ctx.beginPath();
+    ctx.moveTo(path.points[0]![0], path.points[0]![1]);
+    for (let i = 1; i < path.points.length; i++) {
+      ctx.lineTo(path.points[i]![0], path.points[i]![1]);
+    }
+    ctx.stroke();
+    ctx.restore();
+
+    // Arrowheads for orthogonal self-loop
+    if (endType !== 'none' && path.points.length >= 2) {
+      const last = path.points[path.points.length - 1]!;
+      const prev = path.points[path.points.length - 2]!;
+      const angle = Math.atan2(last[1] - prev[1], last[0] - prev[0]);
+      renderArrowheadFromRegistry(ctx, last[0], last[1], angle, arrowSize,
+        endType, endFilled, strokeColor, fillColor);
+    }
+    if (startType !== 'none' && path.points.length >= 2) {
+      const first = path.points[0]!;
+      const second = path.points[1]!;
+      const angle = Math.atan2(first[1] - second[1], first[0] - second[0]);
+      renderArrowheadFromRegistry(ctx, first[0], first[1], angle, arrowSize,
+        startType, startFilled, strokeColor, fillColor);
+    }
   }
 }
 

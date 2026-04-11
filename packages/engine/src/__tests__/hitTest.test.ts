@@ -807,3 +807,85 @@ describe('hitTestArrow with routed paths', () => {
     expect(hitTestArrow({ x: 50, y: 20 }, arrow, 5)).toBe(false);
   });
 });
+
+// ── hitTestArrow with self-loops ─────────────────────────────
+
+describe('hitTestArrow with self-loops', () => {
+  /** Create a self-loop arrow bound to a shape. */
+  function makeSelfLoopArrow(
+    points: [number, number][],
+    routing: string | undefined,
+    jettySize?: number,
+  ): VisualExpression {
+    const xs = points.map(([px]) => px);
+    const ys = points.map(([, py]) => py);
+    const minX = Math.min(...xs);
+    const minY = Math.min(...ys);
+    const maxX = Math.max(...xs);
+    const maxY = Math.max(...ys);
+    return {
+      id: 'selfloop-arrow-1',
+      kind: 'arrow',
+      position: { x: minX, y: minY },
+      size: { width: maxX - minX || 1, height: maxY - minY || 1 },
+      angle: 0,
+      style: DEFAULT_STYLE,
+      meta: DEFAULT_META,
+      data: {
+        kind: 'arrow',
+        points,
+        routing,
+        jettySize,
+        startBinding: { expressionId: 'shape-1', anchor: 'right' as const },
+        endBinding: { expressionId: 'shape-1', anchor: 'right' as const },
+      },
+    };
+  }
+
+  /** Target shape for self-loop — 100x80 at (200, 100). */
+  const targetShape: VisualExpression = {
+    id: 'shape-1',
+    kind: 'rectangle',
+    position: { x: 200, y: 100 },
+    size: { width: 100, height: 80 },
+    angle: 0,
+    style: DEFAULT_STYLE,
+    meta: DEFAULT_META,
+    data: { kind: 'rectangle' },
+  };
+
+  const expressions: Record<string, VisualExpression> = {
+    'shape-1': targetShape,
+  };
+
+  it('orthogonal self-loop — point on outward segment hits', () => {
+    // Start and end on right edge (x=300), loop extends rightward
+    const arrow = makeSelfLoopArrow([[300, 120], [300, 160]], 'orthogonal', 30);
+    // Point on the outward vertical segment at x=330 (300+30)
+    expect(hitTestArrow({ x: 330, y: 140 }, arrow, 8, expressions)).toBe(true);
+  });
+
+  it('orthogonal self-loop — point on horizontal segment hits', () => {
+    const arrow = makeSelfLoopArrow([[300, 120], [300, 160]], 'orthogonal', 30);
+    // Point on the top horizontal segment (y=120, between x=300 and x=330)
+    expect(hitTestArrow({ x: 315, y: 120 }, arrow, 8, expressions)).toBe(true);
+  });
+
+  it('orthogonal self-loop — point far from loop misses', () => {
+    const arrow = makeSelfLoopArrow([[300, 120], [300, 160]], 'orthogonal', 30);
+    // Point well outside the loop path
+    expect(hitTestArrow({ x: 200, y: 140 }, arrow, 8, expressions)).toBe(false);
+  });
+
+  it('elbow self-loop — hits on the loop path', () => {
+    const arrow = makeSelfLoopArrow([[300, 120], [300, 160]], 'elbow', 30);
+    // Point on the outward segment
+    expect(hitTestArrow({ x: 330, y: 140 }, arrow, 8, expressions)).toBe(true);
+  });
+
+  it('curved self-loop — point on start/end segment hits', () => {
+    const arrow = makeSelfLoopArrow([[300, 120], [300, 160]], 'curved', 30);
+    // Point near start should still hit (fallback to segment test)
+    expect(hitTestArrow({ x: 300, y: 120 }, arrow, 8, expressions)).toBe(true);
+  });
+});

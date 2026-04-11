@@ -20,6 +20,7 @@ import {
   getPointHandlePositions,
   getJettyHandlePosition,
   getSegmentMidpointHandles,
+  getSelfLoopHandlePosition,
 } from '../interaction/manipulationHelpers.js';
 import { isDraggingArrowEndpoint } from '../hooks/useManipulationInteraction.js';
 
@@ -83,6 +84,8 @@ export function renderSelection(
       renderPointHandles(ctx, expr, camera, halfHandle);
       // ── Jetty handle for routed arrows ──
       renderJettyHandle(ctx, expr, camera, halfHandle);
+      // ── Self-loop handle (on the outer segment) ──
+      renderSelfLoopHandle(ctx, expr, expressions, camera, halfHandle);
       // ── Segment midpoint handles for routed arrows ──
       renderSegmentMidpointHandles(ctx, expr, expressions, camera, halfHandle);
     } else {
@@ -105,6 +108,9 @@ export function renderSelection(
  *
  * Handles are white circles with selection-colored borders, sized
  * to match the standard handle size in screen pixels.
+ *
+ * For arrows with both endpoints bound to shapes, endpoint circles are
+ * hidden — bindings control position, making the handles misleading.
  */
 function renderPointHandles(
   ctx: CanvasRenderingContext2D,
@@ -112,6 +118,15 @@ function renderPointHandles(
   camera: Camera,
   radius: number,
 ): void {
+  // Skip endpoint handles for fully-bound arrows — bindings control position,
+  // so dragging these handles has no meaningful effect.
+  if (expr.data.kind === 'arrow') {
+    const arrowData = expr.data as { startBinding?: unknown; endBinding?: unknown };
+    if (arrowData.startBinding && arrowData.endBinding) {
+      return;
+    }
+  }
+
   const pointHandles = getPointHandlePositions(expr);
 
   // Check for drag offset: during transient drag, position changes
@@ -173,6 +188,37 @@ function renderJettyHandle(
   ctx.fillRect(x - half, y - half, size, size);
 
   // White border for contrast
+  ctx.strokeStyle = '#ffffff';
+  ctx.lineWidth = 1.5 / camera.zoom;
+  ctx.strokeRect(x - half, y - half, size, size);
+}
+
+/**
+ * Render a drag handle on the outer segment of a self-loop arrow.
+ *
+ * Uses the same visual style as the jetty handle (blue square) since
+ * it adjusts jettySize via the same drag interaction.
+ *
+ * [CLEAN-CODE] [SRP]
+ */
+function renderSelfLoopHandle(
+  ctx: CanvasRenderingContext2D,
+  expr: VisualExpression,
+  expressions: Record<string, VisualExpression>,
+  camera: Camera,
+  halfHandle: number,
+): void {
+  const handle = getSelfLoopHandlePosition(expr, expressions);
+  if (!handle) return;
+
+  const { x, y } = handle.position;
+  const size = halfHandle * 1.5;
+  const half = size / 2;
+
+  // Same style as jetty handle — blue accent
+  ctx.fillStyle = JETTY_HANDLE_COLOR;
+  ctx.fillRect(x - half, y - half, size, size);
+
   ctx.strokeStyle = '#ffffff';
   ctx.lineWidth = 1.5 / camera.zoom;
   ctx.strokeRect(x - half, y - half, size, size);

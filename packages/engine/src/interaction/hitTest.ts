@@ -14,6 +14,7 @@
 import type { VisualExpression, ArrowData } from '@infinicanvas/protocol';
 import type { PathSegment } from '../connectors/routerTypes.js';
 import { getRouter } from '../connectors/routerRegistry.js';
+import { computeSelfLoopPath } from '../connectors/orthogonalRouter.js';
 
 /** A 2D point in world coordinates. */
 export interface WorldPoint {
@@ -321,6 +322,40 @@ export function hitTestArrow(
 
   // Use wider tolerance for thin lines (minimum 8 world px for easier clicking)
   const effectiveTolerance = Math.max(tolerance, 8);
+
+  // ── Self-loop detection: both ends bound to the same shape ──
+  // Must be checked BEFORE the router — self-loops use computeSelfLoopPath
+  // instead of the general-purpose router for path computation.
+  const isSelfLoop = data.startBinding && data.endBinding &&
+    data.startBinding.expressionId === data.endBinding.expressionId;
+
+  if (isSelfLoop) {
+    const target = expressions?.[data.startBinding!.expressionId];
+    const jetty = typeof data.jettySize === 'number' ? data.jettySize : 30;
+    const path = computeSelfLoopPath(
+      points[0]!, points[points.length - 1]!, data.routing, target, jetty,
+    );
+
+    if (path.isCurved) {
+      // For bezier self-loops: test against the straight line start→end
+      // (approximate — matches existing fallback behavior)
+      return distanceToSegment(point.x, point.y,
+        points[0]![0], points[0]![1],
+        points[points.length - 1]![0], points[points.length - 1]![1],
+      ) <= effectiveTolerance;
+    }
+
+    // For orthogonal self-loops: test against each segment in the path
+    for (let i = 0; i < path.points.length - 1; i++) {
+      if (distanceToSegment(point.x, point.y,
+        path.points[i]![0], path.points[i]![1],
+        path.points[i + 1]![0], path.points[i + 1]![1],
+      ) <= effectiveTolerance) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   // Try routing-aware hit testing for non-straight arrows
   const routingMode = data.routing === 'orthogonal' && data.curved

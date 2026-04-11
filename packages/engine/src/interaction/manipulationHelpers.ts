@@ -10,7 +10,7 @@
 
 import type { VisualExpression, ArrowData } from '@infinicanvas/protocol';
 import type { Camera } from '../types/index.js';
-import { computeOrthogonalRoute } from '../connectors/orthogonalRouter.js';
+import { computeOrthogonalRoute, computeSelfLoopPath } from '../connectors/orthogonalRouter.js';
 import { resolveBindings } from './connectorHelpers.js';
 
 // ── Point-based kind guard ─────────────────────────────────────
@@ -68,6 +68,14 @@ export interface JettyHandleHit {
    * [CLEAN-CODE] Explicit orientation avoids inferring it from direction.
    */
   segmentOrientation: 'horizontal' | 'vertical';
+  /**
+   * Whether dragging this handle adjusts `midpointOffset` (Z-shape)
+   * or `jettySize` (self-loop / non-Z-shape).
+   *
+   * - `true` (default) → drag updates `midpointOffset` ratio
+   * - `false` → drag updates `jettySize` distance
+   */
+  adjustsMidpoint?: boolean;
 }
 
 /**
@@ -375,6 +383,7 @@ export function getJettyHandlePosition(
           direction: { x: 1, y: 0 },
           // Middle segment runs vertically
           segmentOrientation: 'vertical',
+          adjustsMidpoint: true,
         };
       }
 
@@ -391,6 +400,7 @@ export function getJettyHandlePosition(
         direction: { x: 0, y: 1 },
         // Middle segment runs horizontally
         segmentOrientation: 'horizontal',
+        adjustsMidpoint: true,
       };
     }
   }
@@ -407,6 +417,7 @@ export function getJettyHandlePosition(
     },
     direction: exitDir,
     segmentOrientation: stubOrientation,
+    adjustsMidpoint: false,
   };
 }
 
@@ -440,7 +451,103 @@ export function detectJettyHandle(
     }
   }
 
+  // ── Self-loop handle check (reuses JettyHandleHit) ──
+  for (const id of selectedIds) {
+    const expr = expressions[id];
+    if (!expr) continue;
+
+    const handle = getSelfLoopHandlePosition(expr, expressions);
+    if (!handle) continue;
+
+    const dx = worldPoint.x - handle.position.x;
+    const dy = worldPoint.y - handle.position.y;
+    if (Math.abs(dx) <= tolerance && Math.abs(dy) <= tolerance) {
+      return handle;
+    }
+  }
+
   return null;
+}
+
+// ── Self-loop handle ─────────────────────────────────────────
+
+/** Routing modes that produce orthogonal self-loops with a drag handle. */
+const SELF_LOOP_HANDLE_ROUTING = new Set([
+  'orthogonal',
+  'elbow',
+  'orthogonalCurved',
+  'entityRelation',
+  'isometric',
+]);
+
+/**
+ * Compute the handle position for a self-loop arrow's outer segment.
+ *
+ * For orthogonal self-loops (4 points: start → corner1 → corner2 → end),
+ * places ONE handle at the midpoint of the outer segment (corner1 → corner2).
+ * This is the segment farthest from the shape. Dragging it adjusts `jettySize`.
+ *
+ * Returns null for:
+ * - Non-self-loop arrows
+ * - Curved/straight self-loops (no orthogonal path to place handle on)
+ * - Missing target shape
+ *
+ * [CLEAN-CODE] [SRP]
+ */
+export function getSelfLoopHandlePosition(
+  expr: VisualExpression,
+  expressions: Record<string, VisualExpression>,
+): JettyHandleHit | null {
+  if (expr.data.kind !== 'arrow') return null;
+
+  const data = expr.data as ArrowData;
+
+  // Must be a self-loop (both ends bound to the same shape)
+  if (!data.startBinding || !data.endBinding) return null;
+  if (data.startBinding.expressionId !== data.endBinding.expressionId) return null;
+
+  // Only orthogonal-family routing produces a right-angle loop
+  if (!data.routing || !SELF_LOOP_HANDLE_ROUTING.has(data.routing)) return null;
+  if (data.points.length < 2) return null;
+
+  const target = expressions[data.startBinding.expressionId];
+  if (!target) return null;
+
+  const start = data.points[0]!;
+  const end = data.points[data.points.length - 1]!;
+  const jetty = typeof data.jettySize === 'number' ? data.jettySize : 30;
+
+  const path = computeSelfLoopPath(start, end, data.routing, target, jetty);
+  if (path.isCurved || path.points.length < 4) return null;
+
+  // Outer segment is points[1] → points[2] (the segment farthest from shape)
+  const corner1 = path.points[1]!;
+  const corner2 = path.points[2]!;
+  const midX = (corner1[0] + corner2[0]) / 2;
+  const midY = (corner1[1] + corner2[1]) / 2;
+
+  // Determine segment orientation and outward direction
+  const isHoriz = Math.abs(corner1[1] - corner2[1]) < 0.01;
+  const shapeCx = target.position.x + target.size.width / 2;
+  const shapeCy = target.position.y + target.size.height / 2;
+
+  let direction: { x: number; y: number };
+  if (isHoriz) {
+    // Horizontal outer segment → drag vertically (away from shape)
+    direction = midY < shapeCy ? { x: 0, y: -1 } : { x: 0, y: 1 };
+  } else {
+    // Vertical outer segment → drag horizontally (away from shape)
+    direction = midX < shapeCx ? { x: -1, y: 0 } : { x: 1, y: 0 };
+  }
+
+  return {
+    expressionId: expr.id,
+    end: 'start',
+    position: { x: midX, y: midY },
+    direction,
+    segmentOrientation: isHoriz ? 'horizontal' : 'vertical',
+    adjustsMidpoint: false,
+  };
 }
 
 // ── Segment midpoint handles ─────────────────────────────────
@@ -473,6 +580,13 @@ export function getSegmentMidpointHandles(
   const data = expr.data as ArrowData;
   if (!data.routing || !SEGMENT_HANDLE_ROUTING_MODES.has(data.routing)) return [];
   if (data.points.length < 2) return [];
+
+  // Self-loops use computeSelfLoopPath, not computeOrthogonalRoute —
+  // skip segment handles (the self-loop gets ONE handle via getSelfLoopHandlePosition)
+  if (data.startBinding && data.endBinding &&
+      data.startBinding.expressionId === data.endBinding.expressionId) {
+    return [];
+  }
 
   // Resolve binding positions to get absolute world coordinates
   const points = resolveBindings(expr, expressions);
@@ -518,6 +632,9 @@ export function getSegmentMidpointHandles(
 
   // Skip first segment (start→first turn) and last segment (last turn→end)
   // as those are the jetty stubs. Handle internal segments only.
+  // Limit to ONE handle (segmentIndex=0) because the orthogonal router
+  // only reads waypoints[0]. Handles for segmentIndex > 0 would write
+  // to unused waypoint slots and silently do nothing.
   for (let i = 1; i < routeWaypoints.length - 2; i++) {
     const [x1, y1] = routeWaypoints[i]!;
     const [x2, y2] = routeWaypoints[i + 1]!;
@@ -535,6 +652,8 @@ export function getSegmentMidpointHandles(
         position: { x: midX, y: midY },
         segmentOrientation: isHoriz ? 'horizontal' : 'vertical',
       });
+      // Only show first matching handle — router reads waypoints[0] only
+      break;
     }
   }
 

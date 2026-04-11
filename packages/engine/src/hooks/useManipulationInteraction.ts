@@ -157,7 +157,7 @@ export function useManipulationInteraction(
           : 0.5;
 
       // Z-shape handle always has a direction — use it for drag computation
-      const isZShape = true;
+      const isZShape = target.handle.adjustsMidpoint !== false;
 
       dragModeRef.current = {
         kind: 'jetty-drag',

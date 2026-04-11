@@ -488,7 +488,76 @@ export function eliminateCollinear(points: Point[]): Point[] {
 }
 
 // ══════════════════════════════════════════════════════════════
-// 5. Geometry helpers
+// 5. Self-loop path computation
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * Compute the path for a self-referencing arrow (both ends on the same shape).
+ *
+ * For curved/straight/undefined routing, returns the original start→end pair
+ * (renderer draws a bezier curve). For orthogonal/elbow/orthogonalCurved,
+ * computes a right-angle loop that extends outward from the shape.
+ *
+ * Shared between the arrow renderer and hit testing to ensure the rendered
+ * path matches the hit-test path exactly.
+ *
+ * @param start   Connection point on shape edge (start)
+ * @param end     Connection point on shape edge (end)
+ * @param routing Arrow routing mode
+ * @param target  Shape that the self-loop is bound to (position + size)
+ * @param jettySize How far the loop extends outward from the shape
+ *
+ * [CLEAN-CODE] [SRP] — one function computes the path; callers decide how to use it.
+ */
+export function computeSelfLoopPath(
+  start: [number, number],
+  end: [number, number],
+  routing: string | undefined,
+  target: { position: { x: number; y: number }; size: { width: number; height: number } } | undefined,
+  jettySize: number,
+): { points: [number, number][]; isCurved: boolean } {
+  // For curved/straight/undefined: renderer draws bezier
+  if (!routing || routing === 'straight' || routing === 'curved') {
+    return { points: [start, end], isCurved: true };
+  }
+
+  // For orthogonal/elbow/orthogonalCurved: compute right-angle loop
+  if (!target) {
+    return { points: [start, end], isCurved: true }; // fallback
+  }
+
+  const shapeCx = target.position.x + target.size.width / 2;
+  const shapeCy = target.position.y + target.size.height / 2;
+  const midX = (start[0] + end[0]) / 2;
+  const midY = (start[1] + end[1]) / 2;
+
+  // Direction outward from shape center
+  const dx = midX - shapeCx;
+  const dy = midY - shapeCy;
+
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    // Start and end are on left or right side — loop outward horizontally
+    const outX = dx >= 0
+      ? Math.max(start[0], end[0]) + jettySize
+      : Math.min(start[0], end[0]) - jettySize;
+    return {
+      points: [start, [outX, start[1]], [outX, end[1]], end],
+      isCurved: false,
+    };
+  } else {
+    // Start and end are on top or bottom — loop outward vertically
+    const outY = dy >= 0
+      ? Math.max(start[1], end[1]) + jettySize
+      : Math.min(start[1], end[1]) - jettySize;
+    return {
+      points: [start, [start[0], outY], [end[0], outY], end],
+      isCurved: false,
+    };
+  }
+}
+
+// ══════════════════════════════════════════════════════════════
+// 6. Geometry helpers
 // ══════════════════════════════════════════════════════════════
 
 /** Check if a direction is horizontal (left or right). */
