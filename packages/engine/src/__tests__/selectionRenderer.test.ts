@@ -73,7 +73,12 @@ function makeRect(id: string, x: number, y: number, w: number, h: number): Visua
 function makeArrow(
   id: string,
   points: [number, number][],
-  opts?: { routing?: string; jettySize?: number; startBinding?: { expressionId: string; anchor: string } },
+  opts?: {
+    routing?: string;
+    jettySize?: number;
+    startBinding?: { expressionId: string; anchor: string };
+    endBinding?: { expressionId: string; anchor: string };
+  },
 ): VisualExpression {
   const p0 = points[0] ?? [0, 0];
   const pN = points[points.length - 1] ?? p0;
@@ -97,6 +102,9 @@ function makeArrow(
       jettySize: opts?.jettySize,
       startBinding: opts?.startBinding
         ? { expressionId: opts.startBinding.expressionId, anchor: opts.startBinding.anchor }
+        : undefined,
+      endBinding: opts?.endBinding
+        ? { expressionId: opts.endBinding.expressionId, anchor: opts.endBinding.anchor }
         : undefined,
     },
   };
@@ -304,6 +312,40 @@ describe('renderSelection', () => {
     // Track fillStyle assignments — the jetty handle should use accent color (#4A90D9)
     expect(ctx.fillStyle).toBe('#4A90D9');
     // Jetty handle uses fillRect, not arc+fill
+    const fillRectCalls = ctx._calls.filter((c) => c.method === 'fillRect');
+    expect(fillRectCalls.length).toBeGreaterThanOrEqual(1);
+  });
+
+  // ── Self-loop arrow rendering ─────────────────────────────────
+
+  it('does NOT render point handles (arc) for self-loop arrows', () => {
+    const ctx = createMockCtx();
+    const arrow = makeArrow('a1', [[200, 100], [150, 60]], {
+      routing: 'orthogonal',
+      startBinding: { expressionId: 'shape1', anchor: 'right' },
+      endBinding: { expressionId: 'shape1', anchor: 'top' },
+    });
+    const expressions: Record<string, VisualExpression> = { a1: arrow };
+
+    renderSelection(ctx, new Set(['a1']), expressions, identityCamera);
+
+    // Self-loop arrows should NOT have arc calls (no point handles)
+    const arcCalls = ctx._calls.filter((c) => c.method === 'arc');
+    expect(arcCalls.length).toBe(0);
+  });
+
+  it('renders jetty handle for self-loop arrow with routing', () => {
+    const ctx = createMockCtx();
+    const arrow = makeArrow('a1', [[200, 100], [150, 60]], {
+      routing: 'orthogonal',
+      startBinding: { expressionId: 'shape1', anchor: 'right' },
+      endBinding: { expressionId: 'shape1', anchor: 'top' },
+    });
+    const expressions: Record<string, VisualExpression> = { a1: arrow };
+
+    renderSelection(ctx, new Set(['a1']), expressions, identityCamera);
+
+    // Should have fillRect calls for the jetty handle
     const fillRectCalls = ctx._calls.filter((c) => c.method === 'fillRect');
     expect(fillRectCalls.length).toBeGreaterThanOrEqual(1);
   });

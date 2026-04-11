@@ -18,7 +18,9 @@ import {
   getCursorForTarget,
   computeResize,
   getJettyHandlePosition,
+  getPointHandlePositions,
   detectJettyHandle,
+  isSelfLoopArrow,
   MIN_SIZE,
 } from '../interaction/manipulationHelpers.js';
 import type { HandleType, PointerTarget, JettyHandleHit } from '../interaction/manipulationHelpers.js';
@@ -853,6 +855,164 @@ describe('computeResize [AC3, AC4, AC5]', () => {
       // Exit stub midpoint: (100 + 20/2, 200) = (110, 200)
       expect(result!.position.x).toBeCloseTo(110, 0);
       expect(result!.position.y).toBeCloseTo(200, 0);
+    });
+  });
+
+  // ── isSelfLoopArrow helper ──────────────────────────────────
+
+  describe('isSelfLoopArrow', () => {
+    it('returns true when both bindings reference the same shape', () => {
+      const arrow = makeArrow('a1', [[100, 100], [120, 80]], {
+        routing: 'orthogonal',
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+        endBinding: { expressionId: 'shape1', anchor: 'top' },
+      });
+      expect(isSelfLoopArrow(arrow.data as { startBinding?: { expressionId: string }; endBinding?: { expressionId: string } })).toBe(true);
+    });
+
+    it('returns false when bindings reference different shapes', () => {
+      const arrow = makeArrow('a1', [[100, 100], [400, 300]], {
+        routing: 'orthogonal',
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+        endBinding: { expressionId: 'shape2', anchor: 'left' },
+      });
+      expect(isSelfLoopArrow(arrow.data as { startBinding?: { expressionId: string }; endBinding?: { expressionId: string } })).toBe(false);
+    });
+
+    it('returns false when no bindings exist', () => {
+      const arrow = makeArrow('a1', [[100, 100], [400, 300]], {
+        routing: 'orthogonal',
+      });
+      expect(isSelfLoopArrow(arrow.data as { startBinding?: { expressionId: string }; endBinding?: { expressionId: string } })).toBe(false);
+    });
+
+    it('returns false when only start binding exists', () => {
+      const arrow = makeArrow('a1', [[100, 100], [400, 300]], {
+        routing: 'orthogonal',
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+      });
+      expect(isSelfLoopArrow(arrow.data as { startBinding?: { expressionId: string }; endBinding?: { expressionId: string } })).toBe(false);
+    });
+  });
+
+  // ── Self-loop jetty handle ──────────────────────────────────
+
+  describe('getJettyHandlePosition — self-loop', () => {
+    it('returns a handle for a self-loop arrow with orthogonal routing', () => {
+      // Self-loop: both bindings reference the same shape
+      // Start at (200, 100) right edge, end at (150, 60) top edge of a shape at (100, 60, 100, 80)
+      const arrow = makeArrow('a1', [[200, 100], [150, 60]], {
+        routing: 'orthogonal',
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+        endBinding: { expressionId: 'shape1', anchor: 'top' },
+      });
+      const result = getJettyHandlePosition(arrow);
+      expect(result).not.toBeNull();
+      expect(result!.expressionId).toBe('a1');
+    });
+
+    it('returns a handle for a self-loop arrow with elbow routing', () => {
+      const arrow = makeArrow('a1', [[200, 100], [150, 60]], {
+        routing: 'elbow',
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+        endBinding: { expressionId: 'shape1', anchor: 'top' },
+      });
+      const result = getJettyHandlePosition(arrow);
+      expect(result).not.toBeNull();
+      expect(result!.expressionId).toBe('a1');
+    });
+
+    it('places handle at midpoint of outer segment for horizontal self-loop', () => {
+      // start right edge (200, 100), end top (150, 60) — midpoint of anchor
+      // midX of points = (200+150)/2 = 175
+      // shape center approx (150, 100) → dx = 175-150 = 25, dy = 80-100 = -20
+      // |dx| >= |dy| → horizontal loop, extends right
+      // outX = max(200, 150) + jetty (default 30 for self-loop in computeOrthogonalSelfLoopPoints)
+      // loopPoints = [start, [outX, start.y], [outX, end.y], end]
+      // Outer segment: from [outX, start.y] to [outX, end.y] — vertical segment
+      // Handle midpoint: (outX, (start.y + end.y)/2)
+      const arrow = makeArrow('a1', [[200, 100], [150, 60]], {
+        routing: 'orthogonal',
+        jettySize: 30,
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+        endBinding: { expressionId: 'shape1', anchor: 'top' },
+      });
+      const result = getJettyHandlePosition(arrow);
+      expect(result).not.toBeNull();
+      // Outer segment is vertical → orientation is vertical
+      expect(result!.segmentOrientation).toBe('vertical');
+    });
+
+    it('uses jettySize from arrow data for self-loop handle position', () => {
+      const arrow = makeArrow('a1', [[200, 100], [150, 60]], {
+        routing: 'orthogonal',
+        jettySize: 50,
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+        endBinding: { expressionId: 'shape1', anchor: 'top' },
+      });
+      const result = getJettyHandlePosition(arrow);
+      expect(result).not.toBeNull();
+      // With larger jetty, handle should be farther from shape
+    });
+
+    it('sets direction for dragging perpendicular to outer segment', () => {
+      const arrow = makeArrow('a1', [[200, 100], [150, 60]], {
+        routing: 'orthogonal',
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+        endBinding: { expressionId: 'shape1', anchor: 'top' },
+      });
+      const result = getJettyHandlePosition(arrow);
+      expect(result).not.toBeNull();
+      // Direction should be non-zero (usable for drag)
+      const dirLen = Math.hypot(result!.direction.x, result!.direction.y);
+      expect(dirLen).toBeCloseTo(1, 5);
+    });
+  });
+
+  // ── Elbow routing in JETTY_ROUTING_MODES ──────────────────────
+
+  describe('getJettyHandlePosition — elbow routing', () => {
+    it('returns a handle for non-self-loop elbow arrows', () => {
+      const arrow = makeArrow('a1', [[100, 200], [400, 200]], {
+        routing: 'elbow',
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+        endBinding: { expressionId: 'shape2', anchor: 'left' },
+      });
+      const result = getJettyHandlePosition(arrow);
+      expect(result).not.toBeNull();
+      expect(result!.expressionId).toBe('a1');
+    });
+  });
+
+  // ── getPointHandlePositions — self-loop suppression ──────────
+
+  describe('getPointHandlePositions — self-loop', () => {
+    it('returns empty array for self-loop arrows', () => {
+      const arrow = makeArrow('a1', [[200, 100], [150, 60]], {
+        routing: 'orthogonal',
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+        endBinding: { expressionId: 'shape1', anchor: 'top' },
+      });
+      const result = getPointHandlePositions(arrow);
+      expect(result).toEqual([]);
+    });
+
+    it('returns handles for non-self-loop arrows', () => {
+      const arrow = makeArrow('a1', [[100, 200], [400, 200]], {
+        routing: 'orthogonal',
+        startBinding: { expressionId: 'shape1', anchor: 'right' },
+        endBinding: { expressionId: 'shape2', anchor: 'left' },
+      });
+      const result = getPointHandlePositions(arrow);
+      expect(result.length).toBe(2);
+    });
+
+    it('returns handles for unbound arrows', () => {
+      const arrow = makeArrow('a1', [[100, 200], [400, 200]], {
+        routing: 'orthogonal',
+      });
+      const result = getPointHandlePositions(arrow);
+      expect(result.length).toBe(2);
     });
   });
 });

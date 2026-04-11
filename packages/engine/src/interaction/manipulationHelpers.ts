@@ -11,6 +11,7 @@
 import type { VisualExpression, ArrowData } from '@infinicanvas/protocol';
 import type { Camera } from '../types/index.js';
 import { computeOrthogonalRoute } from '../connectors/orthogonalRouter.js';
+import { computeOrthogonalSelfLoopPoints } from '../connectors/orthogonalRouter.js';
 import { resolveBindings } from './connectorHelpers.js';
 
 // ── Point-based kind guard ─────────────────────────────────────
@@ -26,6 +27,23 @@ export type PointBasedKind = 'line' | 'arrow' | 'freehand';
  */
 export function isPointBasedKind(kind: string): kind is PointBasedKind {
   return kind === 'line' || kind === 'arrow' || kind === 'freehand';
+}
+
+// ── Self-loop detection ───────────────────────────────────────
+
+/**
+ * Check if arrow data represents a self-loop (both ends bound to the same shape).
+ *
+ * Self-loops need special handling: endpoint handles are suppressed (both
+ * are on the same shape), and the jetty handle uses the computed loop
+ * geometry instead of the normal Z-shape/L-shape computation. [CLEAN-CODE]
+ */
+export function isSelfLoopArrow(data: {
+  startBinding?: { expressionId: string };
+  endBinding?: { expressionId: string };
+}): boolean {
+  return !!data.startBinding && !!data.endBinding &&
+    data.startBinding.expressionId === data.endBinding.expressionId;
 }
 
 // ── Handle types ──────────────────────────────────────────────
@@ -180,6 +198,12 @@ export function getPointHandlePositions(
 ): Array<{ x: number; y: number; pointIndex: number }> {
   if (!isPointBasedKind(expr.data.kind)) return [];
 
+  // Self-loop arrows: suppress endpoint handles — both are on the same
+  // shape, so dragging them individually is not meaningful. [CLEAN-CODE]
+  if (expr.data.kind === 'arrow' && isSelfLoopArrow(expr.data as ArrowData)) {
+    return [];
+  }
+
   const data = expr.data as { points: [number, number][] | [number, number, number][] };
   const { points } = data;
 
@@ -239,10 +263,10 @@ export function detectPointHandle(
 const DEFAULT_JETTY_SIZE = 20;
 
 /** Routing modes that produce exit stubs where a jetty handle makes sense.
- * 'curved' removed — curved routes have no stubs. [Bug #6]
- * 'elbow' removed — now an alias for orthogonal (already in the set). */
+ * 'curved' removed — curved routes have no stubs. [Bug #6] */
 const JETTY_ROUTING_MODES = new Set([
   'orthogonal',
+  'elbow',
   'entityRelation',
   'isometric',
   'orthogonalCurved',
@@ -291,6 +315,58 @@ function resolveExitDirection(
 }
 
 /**
+ * Compute the jetty handle position for a self-loop arrow.
+ *
+ * Uses `computeOrthogonalSelfLoopPoints` to get the loop geometry,
+ * then places the handle at the midpoint of the OUTER segment
+ * (the segment farthest from the shape). Dragging the handle
+ * adjusts `jettySize` — how far the loop extends from the shape.
+ *
+ * For a horizontal loop extending right:
+ *   loopPts = [start, [outX, startY], [outX, endY], end]
+ *   Outer segment: pts[1]→pts[2] (vertical), handle at midpoint
+ *
+ * For a vertical loop extending down:
+ *   loopPts = [start, [startX, outY], [endX, outY], end]
+ *   Outer segment: pts[1]→pts[2] (horizontal), handle at midpoint
+ *
+ * [CLEAN-CODE] [SRP]
+ */
+function computeSelfLoopJettyHandle(
+  expressionId: string,
+  startPt: { x: number; y: number },
+  endPt: { x: number; y: number },
+  jettySize: number,
+): JettyHandleHit {
+  const loopPts = computeOrthogonalSelfLoopPoints(
+    [startPt.x, startPt.y],
+    [endPt.x, endPt.y],
+    undefined, // No target shape needed — points already resolved
+    jettySize,
+  );
+
+  // Outer segment is pts[1]→pts[2] (the one extending away from shape)
+  const outerStart = loopPts[1]!;
+  const outerEnd = loopPts[2]!;
+
+  const midX = (outerStart[0] + outerEnd[0]) / 2;
+  const midY = (outerStart[1] + outerEnd[1]) / 2;
+
+  // Determine if the outer segment is horizontal or vertical
+  const isHorizontal = Math.abs(outerStart[1] - outerEnd[1]) < 0.01;
+
+  return {
+    expressionId,
+    end: 'start',
+    position: { x: midX, y: midY },
+    // Drag direction is perpendicular to the outer segment
+    // to move the loop in/out (adjusting jettySize)
+    direction: isHorizontal ? { x: 0, y: 1 } : { x: 1, y: 0 },
+    segmentOrientation: isHorizontal ? 'horizontal' : 'vertical',
+  };
+}
+
+/**
  * Compute the jetty handle position for a routed arrow.
  *
  * For Z-shape routes (same-axis exits, normal flow), the handle sits
@@ -332,6 +408,11 @@ export function getJettyHandlePosition(
 
   const jettySize =
     typeof data.jettySize === 'number' ? data.jettySize : DEFAULT_JETTY_SIZE;
+
+  // ── Self-loop: compute handle on the outer segment of the loop ──
+  if (isSelfLoopArrow(data)) {
+    return computeSelfLoopJettyHandle(expr.id, startPt, endPt, jettySize);
+  }
 
   const startAnchor = data.startBinding?.anchor;
   const endAnchor = data.endBinding?.anchor;
@@ -473,6 +554,10 @@ export function getSegmentMidpointHandles(
   const data = expr.data as ArrowData;
   if (!data.routing || !SEGMENT_HANDLE_ROUTING_MODES.has(data.routing)) return [];
   if (data.points.length < 2) return [];
+
+  // Self-loop arrows use the jetty handle on the outer segment instead
+  // of individual segment midpoint handles. [CLEAN-CODE]
+  if (isSelfLoopArrow(data)) return [];
 
   // Resolve binding positions to get absolute world coordinates
   const points = resolveBindings(expr, expressions);

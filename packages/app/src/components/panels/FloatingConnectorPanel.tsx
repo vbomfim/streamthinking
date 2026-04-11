@@ -417,46 +417,48 @@ export function FloatingConnectorPanel() {
         </div>
       </div>
 
-      {/* Edge Properties — only for orthogonal routing */}
+      {/* Edge Properties — smooth/rounded for orthogonal routing only */}
       {isArrowSelected && (currentRouting === 'orthogonal' || currentRouting === 'orthogonalCurved') && (
-        <>
-          <div data-testid="edge-properties-row" style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-            <label style={CHECKBOX_LABEL_STYLE}>
-              <input
-                type="checkbox"
-                checked={currentCurved}
-                onChange={(e) => handleEdgeToggle('curved', e.target.checked)}
-              />
-              Smooth
-            </label>
-            <label style={CHECKBOX_LABEL_STYLE}>
-              <input
-                type="checkbox"
-                checked={currentRounded}
-                onChange={(e) => handleEdgeToggle('rounded', e.target.checked)}
-              />
-              Rounded
-            </label>
-          </div>
-          <div data-testid="spacing-row" style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
-            <label style={CHECKBOX_LABEL_STYLE}>
-              Spacing
-              <input
-                type="number"
-                min={0}
-                max={9999}
-                value={isArrowSelected ? (typeof arrowData?.jettySize === 'number' ? arrowData.jettySize : 20) : 20}
-                onChange={(e) => {
-                  const val = parseInt(e.target.value, 10);
-                  if (!isNaN(val) && isArrowSelected && firstExpr) {
-                    updateArrowData(firstExpr.id, { jettySize: Math.max(0, val) });
-                  }
-                }}
-                style={{ width: 50, marginLeft: 4, padding: '2px 4px', fontSize: 12 }}
-              />
-            </label>
-          </div>
-        </>
+        <div data-testid="edge-properties-row" style={{ display: 'flex', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+          <label style={CHECKBOX_LABEL_STYLE}>
+            <input
+              type="checkbox"
+              checked={currentCurved}
+              onChange={(e) => handleEdgeToggle('curved', e.target.checked)}
+            />
+            Smooth
+          </label>
+          <label style={CHECKBOX_LABEL_STYLE}>
+            <input
+              type="checkbox"
+              checked={currentRounded}
+              onChange={(e) => handleEdgeToggle('rounded', e.target.checked)}
+            />
+            Rounded
+          </label>
+        </div>
+      )}
+
+      {/* Spacing — for ALL non-straight routing modes */}
+      {isArrowSelected && currentRouting !== 'straight' && (
+        <div data-testid="spacing-row" style={{ display: 'flex', alignItems: 'center', gap: 4, marginTop: 4 }}>
+          <label style={CHECKBOX_LABEL_STYLE}>
+            Spacing
+            <input
+              type="number"
+              min={0}
+              max={9999}
+              value={isArrowSelected ? (typeof arrowData?.jettySize === 'number' ? arrowData.jettySize : 20) : 20}
+              onChange={(e) => {
+                const val = parseInt(e.target.value, 10);
+                if (!isNaN(val) && isArrowSelected && firstExpr) {
+                  updateArrowData(firstExpr.id, { jettySize: Math.max(0, val) });
+                }
+              }}
+              style={{ width: 50, marginLeft: 4, padding: '2px 4px', fontSize: 12 }}
+            />
+          </label>
+        </div>
       )}
     </div>
   );
