@@ -19,6 +19,7 @@ import type { RoughCanvas } from 'roughjs/bin/canvas.js';
 import type { Camera } from '../types/index.js';
 import type { PathSegment } from '../connectors/routerTypes.js';
 import { mapStyleToRoughOptions, idToSeed } from './styleMapper.js';
+import { computeOrthogonalSelfLoopPoints } from '../connectors/orthogonalRouter.js';
 import { resolveBindings } from '../interaction/connectorHelpers.js';
 import { getRouter } from '../connectors/routerRegistry.js';
 import { renderArrowheadFromRegistry } from './arrowheads.js';
@@ -263,39 +264,7 @@ function renderOrthogonalSelfLoop(
   const target = expressions[data.startBinding!.expressionId];
   const jetty = typeof data.jettySize === 'number' ? data.jettySize : 30;
 
-  // Determine loop direction — go outward from shape center
-  const cx = target ? target.position.x + target.size.width / 2 : (start[0] + end[0]) / 2;
-  const cy = target ? target.position.y + target.size.height / 2 : (start[1] + end[1]) / 2;
-  const midX = (start[0] + end[0]) / 2;
-  const midY = (start[1] + end[1]) / 2;
-  const dx = midX - cx;
-  const dy = midY - cy;
-
-  // Build orthogonal loop points
-  let loopPoints: [number, number][];
-  if (Math.abs(dx) >= Math.abs(dy)) {
-    // Loop outward horizontally
-    const outX = dx >= 0
-      ? Math.max(start[0], end[0]) + jetty
-      : Math.min(start[0], end[0]) - jetty;
-    loopPoints = [
-      start,
-      [outX, start[1]],
-      [outX, end[1]],
-      end,
-    ];
-  } else {
-    // Loop outward vertically
-    const outY = dy >= 0
-      ? Math.max(start[1], end[1]) + jetty
-      : Math.min(start[1], end[1]) - jetty;
-    loopPoints = [
-      start,
-      [start[0], outY],
-      [end[0], outY],
-      end,
-    ];
-  }
+  const loopPoints = computeOrthogonalSelfLoopPoints(start, end, target, jetty);
 
   ctx.save();
   ctx.strokeStyle = strokeColor;

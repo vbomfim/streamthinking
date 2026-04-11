@@ -11,6 +11,7 @@
  * @module
  */
 
+import { computeOrthogonalSelfLoopPoints } from '../connectors/orthogonalRouter.js';
 import type { VisualExpression, ArrowData } from '@infinicanvas/protocol';
 import type { PathSegment } from '../connectors/routerTypes.js';
 import { getRouter } from '../connectors/routerRegistry.js';
@@ -321,6 +322,26 @@ export function hitTestArrow(
 
   // Use wider tolerance for thin lines (minimum 8 world px for easier clicking)
   const effectiveTolerance = Math.max(tolerance, 8);
+
+  // Self-loop: both ends bound to same shape
+  const isSelfLoop = data.startBinding && data.endBinding &&
+    data.startBinding.expressionId === data.endBinding.expressionId;
+  
+  if (isSelfLoop && (data.routing === 'orthogonal' || data.routing === 'elbow')) {
+    const target = expressions?.[data.startBinding!.expressionId];
+    const loopPts = computeOrthogonalSelfLoopPoints(
+      points[0]!, points[points.length - 1]!, target,
+      typeof data.jettySize === 'number' ? data.jettySize : 30,
+    );
+    for (let i = 0; i < loopPts.length - 1; i++) {
+      if (distanceToSegment(point.x, point.y,
+        loopPts[i]![0], loopPts[i]![1],
+        loopPts[i + 1]![0], loopPts[i + 1]![1]) <= effectiveTolerance) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   // Try routing-aware hit testing for non-straight arrows
   const routingMode = data.routing === 'orthogonal' && data.curved

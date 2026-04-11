@@ -611,3 +611,32 @@ function computeCShapeClearance(
   const avg = (exit[1] + entry[1]) / 2;
   return Math.abs(avg - lo) < Math.abs(avg - hi) ? lo : hi;
 }
+
+/**
+ * Compute orthogonal self-loop waypoints (shared by renderer + hit test).
+ */
+export function computeOrthogonalSelfLoopPoints(
+  start: [number, number],
+  end: [number, number],
+  target: { position: { x: number; y: number }; size: { width: number; height: number } } | undefined,
+  jetty: number,
+): [number, number][] {
+  const cx = target ? target.position.x + target.size.width / 2 : (start[0] + end[0]) / 2;
+  const cy = target ? target.position.y + target.size.height / 2 : (start[1] + end[1]) / 2;
+  const midX = (start[0] + end[0]) / 2;
+  const midY = (start[1] + end[1]) / 2;
+  const dx = midX - cx;
+  const dy = midY - cy;
+
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    const outX = dx >= 0
+      ? Math.max(start[0], end[0]) + jetty
+      : Math.min(start[0], end[0]) - jetty;
+    return [start, [outX, start[1]], [outX, end[1]], end];
+  } else {
+    const outY = dy >= 0
+      ? Math.max(start[1], end[1]) + jetty
+      : Math.min(start[1], end[1]) - jetty;
+    return [start, [start[0], outY], [end[0], outY], end];
+  }
+}
