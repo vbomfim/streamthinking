@@ -118,13 +118,10 @@ function renderPointHandles(
   camera: Camera,
   radius: number,
 ): void {
-  // Skip endpoint handles for fully-bound arrows — bindings control position,
-  // so dragging these handles has no meaningful effect.
+  // Show endpoint handles for all arrows — even when fully bound.
+  // Users need them to disconnect/rebind endpoints.
   if (expr.data.kind === 'arrow') {
-    const arrowData = expr.data as { startBinding?: unknown; endBinding?: unknown };
-    if (arrowData.startBinding && arrowData.endBinding) {
-      return;
-    }
+    // handled below
   }
 
   const pointHandles = getPointHandlePositions(expr);
