@@ -434,6 +434,63 @@ function looksLikeHtml(value: string): boolean {
   return /<\/?[a-zA-Z][^>]*>/.test(value);
 }
 
+/** Decode common HTML entities inside a cell value. */
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+/**
+ * Parse an HTML fragment containing a `<table>` into structured headers + rows.
+ * Returns null if no table is found or the table has no rows.
+ * Uses a tolerant regex-based parser — draw.io tables are simple (tr/td, sometimes
+ * wrapped in <b>/<font>) and don't need a full HTML parser.
+ */
+function parseHtmlTable(html: string): { headers: string[]; rows: string[][] } | null {
+  const tableMatch = html.match(/<table\b[^>]*>([\s\S]*?)<\/table>/i);
+  if (!tableMatch || !tableMatch[1]) return null;
+  const body = tableMatch[1];
+
+  const cellText = (cellHtml: string): string =>
+    decodeEntities(cellHtml.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
+
+  const rowMatches = [...body.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)];
+  if (rowMatches.length === 0) return null;
+
+  const allRows: string[][] = rowMatches.map((m) =>
+    [...(m[1] ?? '').matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map((c) => cellText(c[1] ?? '')),
+  );
+  if (allRows.length === 0) return null;
+
+  // Tables in draw.io network diagrams typically use the first row as a title
+  // (single cell with colspan=N) and the second row as the actual header.
+  // Detect this pattern: if row 0 has only 1 cell but row 1 has more, promote
+  // row 1 to headers and drop row 0 (or prepend it as a title row? We keep it
+  // simple by treating the first multi-cell row as headers).
+  let headerIdx = 0;
+  if (allRows.length > 1 && (allRows[0]?.length ?? 0) === 1 && (allRows[1]?.length ?? 0) > 1) {
+    headerIdx = 1;
+  }
+  const headers = allRows[headerIdx] ?? [];
+  const rows = allRows.slice(headerIdx + 1);
+
+  // Pad short rows and truncate long rows to match header width.
+  const width = headers.length;
+  const normalized = rows.map((r) => {
+    const copy = r.slice(0, width);
+    while (copy.length < width) copy.push('');
+    return copy;
+  });
+
+  if (headers.length === 0 || normalized.length === 0) return null;
+  return { headers, rows: normalized };
+}
+
 /** Apply HTML stripping only if the style marks this label as HTML content AND it actually contains tags. */
 function normalizeLabel(value: string, styleMap: Map<string, string>): string {
   if (styleMap.get('html') !== '1') return value;
@@ -961,8 +1018,26 @@ export function drawioToExpressions(xml: string): VisualExpression[] {
       ? { position: { x: 0, y: 0 }, size: { width: 0, height: 0 } }
       : extractGeometry(geo);
 
-    const expressionStyle = styleMapToExpressionStyle(styleMap, kind);
-    const data = buildExpressionData(kind, value, styleMap, cell, geo);
+    let expressionStyle = styleMapToExpressionStyle(styleMap, kind);
+    let data = buildExpressionData(kind, value, styleMap, cell, geo);
+    let effectiveKind: VisualExpression['kind'] = kind;
+
+    // ── HTML tables: detect and promote to a proper `table` expression ──
+    //    draw.io stores tabular data inside text cells as `<table><tr><td>…`.
+    //    Reduce these to TableData so they render as structured grids instead
+    //    of a blob of stripped text.
+    if (
+      !isEdge &&
+      (kind === 'text' || kind === 'rectangle') &&
+      /<table\b/i.test(value)
+    ) {
+      const parsed = parseHtmlTable(value);
+      if (parsed) {
+        effectiveKind = 'table';
+        data = { kind: 'table', headers: parsed.headers, rows: parsed.rows };
+        expressionStyle = styleMapToExpressionStyle(styleMap, 'table');
+      }
+    }
 
     // ── For edges: resolve source/target endpoints to shape centers when no
     //    explicit sourcePoint/targetPoint was given. Without this, edges
@@ -1025,7 +1100,7 @@ export function drawioToExpressions(xml: string): VisualExpression[] {
 
     const expr: VisualExpression = {
       id,
-      kind,
+      kind: effectiveKind,
       position,
       size,
       angle,
