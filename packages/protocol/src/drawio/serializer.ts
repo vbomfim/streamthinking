@@ -363,6 +363,141 @@ export function expressionsToDrawio(expressions: VisualExpression[]): string {
 /** Infrastructure cell IDs that should be skipped during import. */
 const INFRASTRUCTURE_IDS = new Set(['0', '1']);
 
+/**
+ * Map draw.io Cisco (and related) stencil IDs to our catalog IDs.
+ * draw.io ships `mxgraph.cisco.routers.router`, `mxgraph.cisco.switches.workgroup_switch`, …
+ * Our catalog ships `cisco-pro-router`, `cisco-pro-switch`, …
+ */
+const STENCIL_ID_ALIASES: Record<string, string> = {
+  'cisco.routers.router': 'cisco-pro-router',
+  'cisco.routers.router_firewall': 'cisco-pro-firewall',
+  'cisco.switches.workgroup_switch': 'cisco-pro-switch',
+  'cisco.switches.layer_3_switch': 'cisco-pro-l3-switch',
+  'cisco.switches.multilayer_switch': 'cisco-pro-l3-switch',
+  'cisco.switches.atm_switch': 'cisco-pro-switch',
+  'cisco.switches.nexus_7000': 'cisco-pro-nexus',
+  'cisco.switches.nexus_5000': 'cisco-pro-nexus',
+  'cisco.switches.nexus_2000': 'cisco-pro-nexus',
+  'cisco.switches.nexus_1000': 'cisco-pro-nexus',
+  'cisco.security.firewall': 'cisco-pro-firewall',
+  'cisco.security.asa_5500': 'cisco-pro-asa',
+  'cisco.wireless.wireless_router': 'cisco-pro-wireless-ap',
+  'cisco.wireless.access_point': 'cisco-pro-wireless-ap',
+  'cisco.wireless.wlan_controller': 'cisco-pro-wlc',
+  'cisco.wireless.wi-fi_tag': 'cisco-pro-wireless-ap',
+  'cisco.wireless.wifi_tag': 'cisco-pro-wireless-ap',
+  'cisco.servers.standard_host': 'cisco-pro-ucs',
+  'cisco.servers.ucs': 'cisco-pro-ucs',
+  'cisco.computers_and_peripherals.pc': 'desktop-computer',
+  'cisco.computers_and_peripherals.laptop': 'laptop',
+  'cisco.computers_and_peripherals.workstation': 'desktop-computer',
+  'cisco.storage.disk_array': 'storage-array',
+  'cisco.storage.storage_server': 'server',
+  'cisco.voip.ip_phone': 'cisco-pro-ip-phone',
+  'cisco.modems_and_phones.ip_phone': 'cisco-pro-ip-phone',
+};
+
+/** Resolve a draw.io stencil ID (without the `mxgraph.` prefix) to our catalog ID. */
+function resolveStencilId(rawId: string): string {
+  return STENCIL_ID_ALIASES[rawId] ?? rawId;
+}
+
+/**
+ * Strip HTML tags and decode common entities from a label value.
+ * draw.io stores rich-text labels with `html=1` and embedded HTML (tables, fonts, …).
+ * We can't render arbitrary HTML, so reduce to readable plain text with line breaks.
+ *
+ * Only call this when the cell's style has `html=1`. For plain-text labels,
+ * angle brackets are literal characters and must be preserved.
+ */
+function stripHtmlLabel(html: string): string {
+  if (!html || !html.includes('<')) return html;
+  return html
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|tr|h[1-6])>/gi, '\n')
+    .replace(/<\/td>\s*<td[^>]*>/gi, '  ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/** Check if a string contains actual HTML tags (not just stray `<` characters). */
+function looksLikeHtml(value: string): boolean {
+  // Match either `<tagname...>` or `</tagname>` — real HTML starts with a letter
+  // after the opening angle bracket. Plain expressions like `x < y` fail this.
+  return /<\/?[a-zA-Z][^>]*>/.test(value);
+}
+
+/** Decode common HTML entities inside a cell value. */
+function decodeEntities(s: string): string {
+  return s
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+}
+
+/**
+ * Parse an HTML fragment containing a `<table>` into structured headers + rows.
+ * Returns null if no table is found or the table has no rows.
+ * Uses a tolerant regex-based parser — draw.io tables are simple (tr/td, sometimes
+ * wrapped in <b>/<font>) and don't need a full HTML parser.
+ */
+function parseHtmlTable(html: string): { headers: string[]; rows: string[][] } | null {
+  const tableMatch = html.match(/<table\b[^>]*>([\s\S]*?)<\/table>/i);
+  if (!tableMatch || !tableMatch[1]) return null;
+  const body = tableMatch[1];
+
+  const cellText = (cellHtml: string): string =>
+    decodeEntities(cellHtml.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim());
+
+  const rowMatches = [...body.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)];
+  if (rowMatches.length === 0) return null;
+
+  const allRows: string[][] = rowMatches.map((m) =>
+    [...(m[1] ?? '').matchAll(/<t[dh]\b[^>]*>([\s\S]*?)<\/t[dh]>/gi)].map((c) => cellText(c[1] ?? '')),
+  );
+  if (allRows.length === 0) return null;
+
+  // Tables in draw.io network diagrams typically use the first row as a title
+  // (single cell with colspan=N) and the second row as the actual header.
+  // Detect this pattern: if row 0 has only 1 cell but row 1 has more, promote
+  // row 1 to headers and drop row 0 (or prepend it as a title row? We keep it
+  // simple by treating the first multi-cell row as headers).
+  let headerIdx = 0;
+  if (allRows.length > 1 && (allRows[0]?.length ?? 0) === 1 && (allRows[1]?.length ?? 0) > 1) {
+    headerIdx = 1;
+  }
+  const headers = allRows[headerIdx] ?? [];
+  const rows = allRows.slice(headerIdx + 1);
+
+  // Pad short rows and truncate long rows to match header width.
+  const width = headers.length;
+  const normalized = rows.map((r) => {
+    const copy = r.slice(0, width);
+    while (copy.length < width) copy.push('');
+    return copy;
+  });
+
+  if (headers.length === 0 || normalized.length === 0) return null;
+  return { headers, rows: normalized };
+}
+
+/** Apply HTML stripping only if the style marks this label as HTML content AND it actually contains tags. */
+function normalizeLabel(value: string, styleMap: Map<string, string>): string {
+  if (styleMap.get('html') !== '1') return value;
+  if (!looksLikeHtml(value)) return value;
+  return stripHtmlLabel(value);
+}
+
 /** Parse a draw.io semicolon-delimited style string into a map. */
 function parseStyleString(style: string): Map<string, string> {
   const map = new Map<string, string>();
@@ -385,8 +520,12 @@ function parseStyleString(style: string): Map<string, string> {
 function resolveKindFromStyle(
   styleMap: Map<string, string>,
   isEdge: boolean,
+  hasBinding = false,
 ): VisualExpression['kind'] {
   if (isEdge) {
+    // Edges with source/target bindings are always arrows so bindings persist;
+    // a plain `line` primitive has no notion of source/target references.
+    if (hasBinding) return 'arrow';
     const endArrow = styleMap.get('endArrow');
     if (endArrow === 'none') {
       // Check for other arrow-specific properties that distinguish from a plain line
@@ -415,8 +554,15 @@ function resolveKindFromStyle(
 }
 
 /** Convert a draw.io style map to an ExpressionStyle. */
-function styleMapToExpressionStyle(styleMap: Map<string, string>): ExpressionStyle {
+function styleMapToExpressionStyle(
+  styleMap: Map<string, string>,
+  kind: VisualExpression['kind'],
+): ExpressionStyle {
   const style: ExpressionStyle = { ...DEFAULT_EXPRESSION_STYLE };
+  // draw.io files never use sketchy/hachure rendering — default to solid so
+  // imported diagrams look like they do in draw.io (clean strokes, solid fills).
+  style.fillStyle = 'solid';
+  style.roughness = 0;
 
   const fillColor = styleMap.get('fillColor');
   if (fillColor !== undefined) {
@@ -424,8 +570,20 @@ function styleMapToExpressionStyle(styleMap: Map<string, string>): ExpressionSty
   }
 
   const strokeColor = styleMap.get('strokeColor');
-  if (strokeColor !== undefined) {
+  if (strokeColor !== undefined && strokeColor !== 'none') {
     style.strokeColor = strokeColor;
+  }
+
+  // Stencils: draw.io's fillColor is the icon's body color (what the user
+  // actually sees in draw.io). Our renderer uses strokeColor to color the
+  // SVG via currentColor replacement. When fillColor is a non-trivial color,
+  // use it as the icon's primary color so icons render with their intended
+  // color instead of being invisible (e.g. strokeColor=#ffffff on white bg).
+  if (kind === 'stencil' && fillColor && fillColor !== 'none' && fillColor !== '#ffffff') {
+    style.strokeColor = fillColor;
+    // The hachure/solid background behind the icon is distracting for real
+    // diagrams — disable it so just the colored icon shows.
+    style.backgroundColor = 'transparent';
   }
 
   const strokeWidth = styleMap.get('strokeWidth');
@@ -569,29 +727,30 @@ function buildExpressionData(
 ): VisualExpression['data'] {
   switch (kind) {
     case 'rectangle':
-      return { kind: 'rectangle', label: value || undefined } as RectangleData;
+      return { kind: 'rectangle', label: normalizeLabel(value, styleMap) || undefined } as RectangleData;
     case 'ellipse':
-      return { kind: 'ellipse', label: value || undefined } as EllipseData;
+      return { kind: 'ellipse', label: normalizeLabel(value, styleMap) || undefined } as EllipseData;
     case 'diamond':
-      return { kind: 'diamond', label: value || undefined } as DiamondData;
+      return { kind: 'diamond', label: normalizeLabel(value, styleMap) || undefined } as DiamondData;
     case 'text': {
       const fontSize = Number(styleMap.get('fontSize') ?? 16);
       const fontFamily = styleMap.get('fontFamily') ?? 'sans-serif';
       const textAlign = (styleMap.get('align') ?? 'left') as 'left' | 'center' | 'right';
-      return { kind: 'text', text: value, fontSize, fontFamily, textAlign } as TextData;
+      return { kind: 'text', text: normalizeLabel(value, styleMap), fontSize, fontFamily, textAlign } as TextData;
     }
     case 'sticky-note': {
       const fillColor = styleMap.get('fillColor') ?? '#FFEB3B';
-      return { kind: 'sticky-note', text: value, color: fillColor } as StickyNoteData;
+      return { kind: 'sticky-note', text: normalizeLabel(value, styleMap), color: fillColor } as StickyNoteData;
     }
     case 'stencil': {
       const shapeValue = styleMap.get('shape') ?? '';
-      const stencilId = shapeValue.startsWith('mxgraph.') ? shapeValue.slice('mxgraph.'.length) : shapeValue;
+      const rawId = shapeValue.startsWith('mxgraph.') ? shapeValue.slice('mxgraph.'.length) : shapeValue;
+      const stencilId = resolveStencilId(rawId);
       return {
         kind: 'stencil',
         stencilId,
         category: 'imported',
-        label: value || undefined,
+        label: normalizeLabel(value, styleMap) || undefined,
       } as StencilData;
     }
     case 'arrow': {
@@ -612,7 +771,11 @@ function buildExpressionData(
         }
       }
 
-      const arrowData: ArrowData = { kind: 'arrow', points: allPoints, label: value || undefined };
+      const arrowData: ArrowData = {
+        kind: 'arrow',
+        points: allPoints,
+        label: normalizeLabel(value, styleMap) || undefined,
+      };
 
       // ── Routing mode from edgeStyle ──
       const edgeStyle = styleMap.get('edgeStyle');
@@ -800,24 +963,136 @@ export function drawioToExpressions(xml: string): VisualExpression[] {
   const expressions: VisualExpression[] = [];
   const now = Date.now();
 
+  // ── Pass 1: index cells by id (for source/target lookup & parent/child relations) ──
+  const cellById = new Map<string, ParsedMxCell>();
+  for (const cell of cells) {
+    const id = cell['@_id'];
+    if (id) cellById.set(id, cell);
+  }
+
+  // ── Pass 1b: collect edge-label children — mxCells with style "edgeLabel" whose
+  //    parent is an edge. These are floating labels on the edge (interface names,
+  //    port identifiers). We merge them into the edge's label and skip emitting
+  //    them as standalone rectangles.
+  //    Note: child cells may not have an @_id attribute at all, so we track them
+  //    by object identity in a WeakSet rather than id string.
+  const edgeLabelsByParent = new Map<string, string[]>();
+  const skipCells = new WeakSet<ParsedMxCell>();
+  for (const cell of cells) {
+    const parentId = cell['@_parent'];
+    const style = cell['@_style'] ?? '';
+    if (
+      parentId &&
+      cell['@_vertex'] === '1' &&
+      /(^|;)\s*edgeLabel\s*(;|$)/.test(style) &&
+      cellById.get(parentId)?.['@_edge'] === '1'
+    ) {
+      const childStyleMap = parseStyleString(style);
+      const raw = unescapeXml(cell['@_value'] ?? '');
+      const labelText = normalizeLabel(raw, childStyleMap);
+      if (labelText) {
+        const existing = edgeLabelsByParent.get(parentId) ?? [];
+        existing.push(labelText);
+        edgeLabelsByParent.set(parentId, existing);
+      }
+      skipCells.add(cell);
+    }
+  }
+
+  // ── Pass 2: build expressions ──
   for (const cell of cells) {
     const id = cell['@_id'] ?? '';
     if (INFRASTRUCTURE_IDS.has(id)) continue;
+    if (skipCells.has(cell)) continue;
     if (!cell['@_vertex'] && !cell['@_edge']) continue;
 
     const styleStr = cell['@_style'] ?? '';
     const styleMap = parseStyleString(styleStr);
     const isEdge = cell['@_edge'] === '1';
-    const kind = resolveKindFromStyle(styleMap, isEdge);
+    const hasBinding = Boolean(cell['@_source'] || cell['@_target']);
+    const kind = resolveKindFromStyle(styleMap, isEdge, hasBinding);
     const value = unescapeXml(cell['@_value'] ?? '');
 
     const geo = cell.mxGeometry;
-    const { position, size } = isEdge
+    let { position, size } = isEdge
       ? { position: { x: 0, y: 0 }, size: { width: 0, height: 0 } }
       : extractGeometry(geo);
 
-    const expressionStyle = styleMapToExpressionStyle(styleMap);
-    const data = buildExpressionData(kind, value, styleMap, cell, geo);
+    let expressionStyle = styleMapToExpressionStyle(styleMap, kind);
+    let data = buildExpressionData(kind, value, styleMap, cell, geo);
+    let effectiveKind: VisualExpression['kind'] = kind;
+
+    // ── HTML tables: detect and promote to a proper `table` expression ──
+    //    draw.io stores tabular data inside text cells as `<table><tr><td>…`.
+    //    Reduce these to TableData so they render as structured grids instead
+    //    of a blob of stripped text.
+    if (
+      !isEdge &&
+      (kind === 'text' || kind === 'rectangle') &&
+      /<table\b/i.test(value)
+    ) {
+      const parsed = parseHtmlTable(value);
+      if (parsed) {
+        effectiveKind = 'table';
+        data = { kind: 'table', headers: parsed.headers, rows: parsed.rows };
+        expressionStyle = styleMapToExpressionStyle(styleMap, 'table');
+      }
+    }
+
+    // ── For edges: resolve source/target endpoints to shape centers when no
+    //    explicit sourcePoint/targetPoint was given. Without this, edges
+    //    collapse to (0, 0) → (0, 0) and become invisible.
+    if (isEdge && (kind === 'arrow' || kind === 'line') && 'points' in (data as object)) {
+      const pts = (data as ArrowData | LineData).points;
+      const hasExplicitSource = geo?.mxPoint &&
+        (Array.isArray(geo.mxPoint) ? geo.mxPoint : [geo.mxPoint]).some((p) => p['@_as'] === 'sourcePoint');
+      const hasExplicitTarget = geo?.mxPoint &&
+        (Array.isArray(geo.mxPoint) ? geo.mxPoint : [geo.mxPoint]).some((p) => p['@_as'] === 'targetPoint');
+
+      const srcId = cell['@_source'];
+      if (!hasExplicitSource && srcId) {
+        const srcCell = cellById.get(srcId);
+        if (srcCell?.mxGeometry) {
+          const g = extractGeometry(srcCell.mxGeometry);
+          pts[0] = [g.position.x + g.size.width / 2, g.position.y + g.size.height / 2];
+        }
+      }
+      const tgtId = cell['@_target'];
+      if (!hasExplicitTarget && tgtId) {
+        const tgtCell = cellById.get(tgtId);
+        if (tgtCell?.mxGeometry) {
+          const g = extractGeometry(tgtCell.mxGeometry);
+          pts[pts.length - 1] = [g.position.x + g.size.width / 2, g.position.y + g.size.height / 2];
+        }
+      }
+    }
+
+    // ── Merge collected edge-label children into the arrow's label ──
+    if (isEdge && kind === 'arrow') {
+      const extraLabels = edgeLabelsByParent.get(id);
+      if (extraLabels && extraLabels.length > 0) {
+        const arrowData = data as ArrowData;
+        const merged = [arrowData.label, ...extraLabels].filter(Boolean).join('\n');
+        arrowData.label = merged || undefined;
+      }
+    }
+
+    // ── Edges need a non-zero bounding box to pass schema validation. ──
+    //    Compute from the resolved points; ensure a minimum 1×1 extent even for
+    //    degenerate cases (self-loops, collapsed endpoints).
+    if (isEdge && (kind === 'arrow' || kind === 'line') && 'points' in (data as object)) {
+      const pts = (data as ArrowData | LineData).points;
+      if (pts.length > 0) {
+        const xs = pts.map((p) => p[0]);
+        const ys = pts.map((p) => p[1]);
+        const minX = Math.min(...xs);
+        const minY = Math.min(...ys);
+        const maxX = Math.max(...xs);
+        const maxY = Math.max(...ys);
+        position = { x: minX, y: minY };
+        size = { width: Math.max(1, maxX - minX), height: Math.max(1, maxY - minY) };
+      }
+    }
 
     // Parse rotation angle from style (Finding #7)
     const rotationStr = styleMap.get('rotation');
@@ -825,7 +1100,7 @@ export function drawioToExpressions(xml: string): VisualExpression[] {
 
     const expr: VisualExpression = {
       id,
-      kind,
+      kind: effectiveKind,
       position,
       size,
       angle,
