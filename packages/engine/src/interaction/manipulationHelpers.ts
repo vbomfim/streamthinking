@@ -634,22 +634,14 @@ export function getSegmentMidpointHandles(
 
   const handles: SegmentHandleHit[] = [];
 
-  // The router reads waypoints[0] only. For Z/L shapes, waypoints[0] controls
-  // the coordinate of the middle segment that is PERPENDICULAR to the exit stub
-  // (e.g. for a horizontal exit, waypoints[0] is the X of the vertical middle
-  // segment; for a vertical exit, waypoints[0] is the Y of the horizontal
-  // middle segment).
-  //
-  // So: among internal segments (skip exit stub at 0→1 and entry stub at
-  // last→last), pick the one whose orientation is perpendicular to the
-  // exit stub. That's the segment the user drags to adjust midpointOffset.
-  const [sx, sy] = routeWaypoints[0]!;
-  const [s1x, s1y] = routeWaypoints[1]!;
-  const exitIsHoriz = Math.abs(sy - s1y) < 0.01 && Math.abs(sx - s1x) >= 0.01;
-  const targetOrientation: 'horizontal' | 'vertical' = exitIsHoriz
-    ? 'vertical'
-    : 'horizontal';
-
+  // Emit a handle on every internal segment (i.e. every segment between the
+  // exit stub and the entry stub), up to 2 handles. The router supports two
+  // waypoints for L-shape routes:
+  //   waypoints[0] → first perpendicular-to-exit middle segment
+  //   waypoints[1] → second middle segment (perpendicular to the first)
+  // For Z-shape routes, only one waypoint is meaningful and only one handle
+  // is produced.
+  let slot = 0;
   for (let i = 1; i < routeWaypoints.length - 2; i++) {
     const [x1, y1] = routeWaypoints[i]!;
     const [x2, y2] = routeWaypoints[i + 1]!;
@@ -661,36 +653,16 @@ export function getSegmentMidpointHandles(
       : isVert
         ? 'vertical'
         : null;
-
-    if (orientation !== targetOrientation) continue;
+    if (!orientation) continue;
 
     handles.push({
       expressionId: expr.id,
-      segmentIndex: 0, // router only reads waypoints[0]
+      segmentIndex: slot,
       position: { x: (x1 + x2) / 2, y: (y1 + y2) / 2 },
       segmentOrientation: orientation,
     });
-    break;
-  }
-
-  // Fallback: if no perpendicular segment found (degenerate route), use the
-  // first internal segment so the handle still appears.
-  if (handles.length === 0) {
-    for (let i = 1; i < routeWaypoints.length - 2; i++) {
-      const [x1, y1] = routeWaypoints[i]!;
-      const [x2, y2] = routeWaypoints[i + 1]!;
-      const isHoriz = Math.abs(y1 - y2) < 0.01;
-      const isVert = Math.abs(x1 - x2) < 0.01;
-      if (isHoriz || isVert) {
-        handles.push({
-          expressionId: expr.id,
-          segmentIndex: 0,
-          position: { x: (x1 + x2) / 2, y: (y1 + y2) / 2 },
-          segmentOrientation: isHoriz ? 'horizontal' : 'vertical',
-        });
-        break;
-      }
-    }
+    slot += 1;
+    if (slot >= 2) break;
   }
 
   return handles;
