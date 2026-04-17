@@ -415,13 +415,32 @@ function buildLShape(
     ? [entryStub[0], exitStub[1]]
     : [exitStub[0], entryStub[1]];
 
-  // Apply waypoint override if available
+  // Alt corner (Z-like path: 2 perpendicular middle segments share one turn point)
+  const alt: Point = exitH
+    ? [exitStub[0], entryStub[1]]
+    : [entryStub[0], exitStub[1]];
+
+  // ── Two-waypoint form (Z-like with independent middles) ──
+  // waypoints[0] controls the first perpendicular-to-exit middle segment,
+  // waypoints[1] controls the second perpendicular-to-first middle segment.
+  if (waypoints && waypoints.length >= 2) {
+    if (exitH) {
+      // Horizontal exit → first middle is vertical (X), second is horizontal (Y)
+      const vx = waypoints[0]!;
+      const hy = waypoints[1]!;
+      return [[vx, exitStub[1]], [vx, hy], [entryStub[0], hy]];
+    }
+    // Vertical exit → first middle is horizontal (Y), second is vertical (X)
+    const hy = waypoints[0]!;
+    const vx = waypoints[1]!;
+    return [[exitStub[0], hy], [vx, hy], [vx, entryStub[1]]];
+  }
+
+  // ── Single-waypoint form: override corner position only ──
   if (waypoints && waypoints.length > 0) {
     if (exitH) {
-      // Horizontal exit → waypoint overrides the X of the corner
       return [[waypoints[0]!, exitStub[1]], [waypoints[0]!, entryStub[1]]];
     }
-    // Vertical exit → waypoint overrides the Y of the corner
     return [[exitStub[0], waypoints[0]!], [entryStub[0], waypoints[0]!]];
   }
 
@@ -431,11 +450,6 @@ function buildLShape(
       !segmentCrossesRect(natural, entryStub, eBounds)) {
     return [natural];
   }
-
-  // Alt corner: the other L-shape variant
-  const alt: Point = exitH
-    ? [exitStub[0], entryStub[1]]
-    : [entryStub[0], exitStub[1]];
 
   if (!segmentCrossesRect(exitStub, alt, sBounds) &&
       !segmentCrossesRect(exitStub, alt, eBounds) &&

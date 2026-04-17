@@ -31,6 +31,7 @@ import {
   computePointDrag,
   getCursorForTarget,
   isPointBasedKind,
+  getSegmentMidpointHandles,
 } from '../interaction/manipulationHelpers.js';
 import type { HandleHit, PointHandleHit, JettyHandleHit, SegmentHandleHit } from '../interaction/manipulationHelpers.js';
 import { computeSnappedDelta } from '../utils/snapToGrid.js';
@@ -172,12 +173,21 @@ export function useManipulationInteraction(
       if (!expr || expr.meta.locked) return;
 
       const data = expr.data as ArrowData;
-      const originalWaypoints = data.waypoints ? [...data.waypoints] : [];
+      // Seed waypoints from current handle positions so dragging slot 1 before
+      // slot 0 doesn't clobber slot 0 with a default 0.
+      const currentHandles = getSegmentMidpointHandles(expr, expressions);
+      const seeded: number[] = data.waypoints ? [...data.waypoints] : [];
+      for (const h of currentHandles) {
+        if (seeded[h.segmentIndex] === undefined) {
+          seeded[h.segmentIndex] =
+            h.segmentOrientation === 'horizontal' ? h.position.y : h.position.x;
+        }
+      }
 
       dragModeRef.current = {
         kind: 'segment-drag',
         handle: target.handle,
-        originalWaypoints,
+        originalWaypoints: seeded,
         startWorld: worldPoint,
       };
     } else if (target.kind === 'handle') {
