@@ -630,30 +630,62 @@ export function getSegmentMidpointHandles(
 
   const handles: SegmentHandleHit[] = [];
 
-  // Skip first segment (start→first turn) and last segment (last turn→end)
-  // as those are the jetty stubs. Handle internal segments only.
-  // Limit to ONE handle (segmentIndex=0) because the orthogonal router
-  // only reads waypoints[0]. Handles for segmentIndex > 0 would write
-  // to unused waypoint slots and silently do nothing.
+  // The router reads waypoints[0] only. For Z/L shapes, waypoints[0] controls
+  // the coordinate of the middle segment that is PERPENDICULAR to the exit stub
+  // (e.g. for a horizontal exit, waypoints[0] is the X of the vertical middle
+  // segment; for a vertical exit, waypoints[0] is the Y of the horizontal
+  // middle segment).
+  //
+  // So: among internal segments (skip exit stub at 0→1 and entry stub at
+  // last→last), pick the one whose orientation is perpendicular to the
+  // exit stub. That's the segment the user drags to adjust midpointOffset.
+  const [sx, sy] = routeWaypoints[0]!;
+  const [s1x, s1y] = routeWaypoints[1]!;
+  const exitIsHoriz = Math.abs(sy - s1y) < 0.01 && Math.abs(sx - s1x) >= 0.01;
+  const targetOrientation: 'horizontal' | 'vertical' = exitIsHoriz
+    ? 'vertical'
+    : 'horizontal';
+
   for (let i = 1; i < routeWaypoints.length - 2; i++) {
     const [x1, y1] = routeWaypoints[i]!;
     const [x2, y2] = routeWaypoints[i + 1]!;
 
-    const midX = (x1 + x2) / 2;
-    const midY = (y1 + y2) / 2;
+    const isHoriz = Math.abs(y1 - y2) < 0.01 && Math.abs(x1 - x2) >= 0.01;
+    const isVert = Math.abs(x1 - x2) < 0.01 && Math.abs(y1 - y2) >= 0.01;
+    const orientation: 'horizontal' | 'vertical' | null = isHoriz
+      ? 'horizontal'
+      : isVert
+        ? 'vertical'
+        : null;
 
-    const isHoriz = Math.abs(y1 - y2) < 0.01;
-    const isVert = Math.abs(x1 - x2) < 0.01;
+    if (orientation !== targetOrientation) continue;
 
-    if (isHoriz || isVert) {
-      handles.push({
-        expressionId: expr.id,
-        segmentIndex: i - 1, // Internal segment index (for waypoints array)
-        position: { x: midX, y: midY },
-        segmentOrientation: isHoriz ? 'horizontal' : 'vertical',
-      });
-      // Only show first matching handle — router reads waypoints[0] only
-      break;
+    handles.push({
+      expressionId: expr.id,
+      segmentIndex: 0, // router only reads waypoints[0]
+      position: { x: (x1 + x2) / 2, y: (y1 + y2) / 2 },
+      segmentOrientation: orientation,
+    });
+    break;
+  }
+
+  // Fallback: if no perpendicular segment found (degenerate route), use the
+  // first internal segment so the handle still appears.
+  if (handles.length === 0) {
+    for (let i = 1; i < routeWaypoints.length - 2; i++) {
+      const [x1, y1] = routeWaypoints[i]!;
+      const [x2, y2] = routeWaypoints[i + 1]!;
+      const isHoriz = Math.abs(y1 - y2) < 0.01;
+      const isVert = Math.abs(x1 - x2) < 0.01;
+      if (isHoriz || isVert) {
+        handles.push({
+          expressionId: expr.id,
+          segmentIndex: 0,
+          position: { x: (x1 + x2) / 2, y: (y1 + y2) / 2 },
+          segmentOrientation: isHoriz ? 'horizontal' : 'vertical',
+        });
+        break;
+      }
     }
   }
 
