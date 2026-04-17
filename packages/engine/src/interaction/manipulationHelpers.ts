@@ -441,6 +441,10 @@ export function detectJettyHandle(
     const expr = expressions[id];
     if (!expr) continue;
 
+    // Skip jetty handle when segment-midpoint handles are shown (same role,
+    // same visual). Keeps hit-testing consistent with rendering.
+    if (getSegmentMidpointHandles(expr, expressions).length > 0) continue;
+
     const handle = getJettyHandlePosition(expr);
     if (!handle) continue;
 

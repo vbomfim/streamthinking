@@ -83,7 +83,7 @@ export function renderSelection(
       // ── Point-based shapes: only show endpoint circles, no bounding box ──
       renderPointHandles(ctx, expr, camera, halfHandle);
       // ── Jetty handle for routed arrows ──
-      renderJettyHandle(ctx, expr, camera, halfHandle);
+      renderJettyHandle(ctx, expr, expressions, camera, halfHandle);
       // ── Self-loop handle (on the outer segment) ──
       renderSelfLoopHandle(ctx, expr, expressions, camera, halfHandle);
       // ── Segment midpoint handles for routed arrows ──
@@ -170,9 +170,14 @@ const JETTY_HANDLE_COLOR = '#4A90D9';
 function renderJettyHandle(
   ctx: CanvasRenderingContext2D,
   expr: VisualExpression,
+  expressions: Record<string, VisualExpression>,
   camera: Camera,
   halfHandle: number,
 ): void {
+  // Segment-midpoint handles cover the Z/L middle segment for routed arrows.
+  // Skip the jetty handle to avoid rendering two overlapping blue squares.
+  if (getSegmentMidpointHandles(expr, expressions).length > 0) return;
+
   const handle = getJettyHandlePosition(expr);
   if (!handle) return;
 
