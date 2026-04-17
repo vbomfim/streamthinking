@@ -494,8 +494,15 @@ function resolveKindFromStyle(
 }
 
 /** Convert a draw.io style map to an ExpressionStyle. */
-function styleMapToExpressionStyle(styleMap: Map<string, string>): ExpressionStyle {
+function styleMapToExpressionStyle(
+  styleMap: Map<string, string>,
+  kind: VisualExpression['kind'],
+): ExpressionStyle {
   const style: ExpressionStyle = { ...DEFAULT_EXPRESSION_STYLE };
+  // draw.io files never use sketchy/hachure rendering — default to solid so
+  // imported diagrams look like they do in draw.io (clean strokes, solid fills).
+  style.fillStyle = 'solid';
+  style.roughness = 0;
 
   const fillColor = styleMap.get('fillColor');
   if (fillColor !== undefined) {
@@ -505,6 +512,18 @@ function styleMapToExpressionStyle(styleMap: Map<string, string>): ExpressionSty
   const strokeColor = styleMap.get('strokeColor');
   if (strokeColor !== undefined && strokeColor !== 'none') {
     style.strokeColor = strokeColor;
+  }
+
+  // Stencils: draw.io's fillColor is the icon's body color (what the user
+  // actually sees in draw.io). Our renderer uses strokeColor to color the
+  // SVG via currentColor replacement. When fillColor is a non-trivial color,
+  // use it as the icon's primary color so icons render with their intended
+  // color instead of being invisible (e.g. strokeColor=#ffffff on white bg).
+  if (kind === 'stencil' && fillColor && fillColor !== 'none' && fillColor !== '#ffffff') {
+    style.strokeColor = fillColor;
+    // The hachure/solid background behind the icon is distracting for real
+    // diagrams — disable it so just the colored icon shows.
+    style.backgroundColor = 'transparent';
   }
 
   const strokeWidth = styleMap.get('strokeWidth');
@@ -939,7 +958,7 @@ export function drawioToExpressions(xml: string): VisualExpression[] {
       ? { position: { x: 0, y: 0 }, size: { width: 0, height: 0 } }
       : extractGeometry(geo);
 
-    const expressionStyle = styleMapToExpressionStyle(styleMap);
+    const expressionStyle = styleMapToExpressionStyle(styleMap, kind);
     const data = buildExpressionData(kind, value, styleMap, cell, geo);
 
     // ── For edges: resolve source/target endpoints to shape centers when no
