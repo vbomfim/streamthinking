@@ -384,6 +384,8 @@ const STENCIL_ID_ALIASES: Record<string, string> = {
   'cisco.wireless.wireless_router': 'cisco-pro-wireless-ap',
   'cisco.wireless.access_point': 'cisco-pro-wireless-ap',
   'cisco.wireless.wlan_controller': 'cisco-pro-wlc',
+  'cisco.wireless.wi-fi_tag': 'cisco-pro-wireless-ap',
+  'cisco.wireless.wifi_tag': 'cisco-pro-wireless-ap',
   'cisco.servers.standard_host': 'cisco-pro-ucs',
   'cisco.servers.ucs': 'cisco-pro-ucs',
   'cisco.computers_and_peripherals.pc': 'desktop-computer',
@@ -392,6 +394,7 @@ const STENCIL_ID_ALIASES: Record<string, string> = {
   'cisco.storage.disk_array': 'storage-array',
   'cisco.storage.storage_server': 'server',
   'cisco.voip.ip_phone': 'cisco-pro-ip-phone',
+  'cisco.modems_and_phones.ip_phone': 'cisco-pro-ip-phone',
 };
 
 /** Resolve a draw.io stencil ID (without the `mxgraph.` prefix) to our catalog ID. */
