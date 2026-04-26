@@ -8,11 +8,21 @@
  * @module
  */
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useCanvasStore, useUiStore } from '@infinicanvas/engine';
 import { exportToJson, importFromJson, buildSvgString, downloadSvg, exportToPng } from '@infinicanvas/engine';
+import type { ContentWarning } from '@infinicanvas/engine';
+import type { ShareResult } from '../hooks/useUrlCanvas.js';
 import { expressionsToDrawio, drawioToExpressions } from '@infinicanvas/protocol';
 import { Download } from 'lucide-react';
+
+/** Props for ExportMenu. */
+interface ExportMenuProps {
+  /** Share current canvas as a URL (from useUrlCanvas hook). */
+  shareAsUrl?: () => Promise<ShareResult>;
+  /** Warnings from loading a URL-shared canvas (stripped content). */
+  loadWarnings?: ContentWarning[];
+}
 
 /** Menu option definition. */
 interface MenuOption {
@@ -22,10 +32,35 @@ interface MenuOption {
 }
 
 /** Export/Import menu dropdown component. */
-export function ExportMenu() {
+export function ExportMenu({ shareAsUrl, loadWarnings }: ExportMenuProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const drawioFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Show load warnings via proper useEffect (content stripped from imported URL)
+  useEffect(() => {
+    if (!loadWarnings || loadWarnings.length === 0) return;
+    const msg = loadWarnings.map((w) => w.message).join('\n');
+    setFeedback(`⚠️ ${msg}`);
+    const timer = setTimeout(() => setFeedback(null), 6000);
+    return () => clearTimeout(timer);
+  }, [loadWarnings]);
+
+  // Cleanup feedback timer on unmount
+  useEffect(() => {
+    return () => {
+      if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    };
+  }, []);
+
+  /** Show feedback message with auto-dismiss. */
+  const showFeedback = useCallback((msg: string, durationMs = 4000) => {
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    setFeedback(msg);
+    feedbackTimerRef.current = setTimeout(() => setFeedback(null), durationMs);
+  }, []);
 
   const handleExportJson = useCallback(() => {
     const { expressions, expressionOrder } = useCanvasStore.getState();
@@ -105,6 +140,27 @@ export function ExportMenu() {
     setIsOpen(false);
   }, []);
 
+  const handleShareAsUrl = useCallback(() => {
+    if (!shareAsUrl) return;
+    setIsOpen(false);
+    void shareAsUrl().then((result) => {
+      if (result.success) {
+        const parts: string[] = [];
+        if (result.clipboardCopied) {
+          parts.push('URL copied to clipboard!');
+        } else {
+          parts.push('URL updated in address bar (clipboard unavailable)');
+        }
+        if (result.warnings && result.warnings.length > 0) {
+          parts.push('⚠️ ' + result.warnings.map((w) => w.message).join('; '));
+        }
+        showFeedback(parts.join('\n'), result.warnings?.length ? 6000 : 3000);
+      } else {
+        showFeedback(result.error ?? 'Share failed', 5000);
+      }
+    });
+  }, [shareAsUrl, showFeedback]);
+
   const handleDrawioFileSelected = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -171,6 +227,9 @@ export function ExportMenu() {
     { action: 'export-drawio', label: 'Export .drawio', onClick: handleExportDrawio },
     { action: 'import-json', label: 'Import JSON', onClick: handleImportJson },
     { action: 'import-drawio', label: 'Import .drawio', onClick: handleImportDrawio },
+    ...(shareAsUrl
+      ? [{ action: 'share-url', label: 'Share as URL', onClick: handleShareAsUrl }]
+      : []),
   ];
 
   return (
@@ -258,6 +317,32 @@ export function ExportMenu() {
         style={{ display: 'none' }}
         aria-hidden="true"
       />
+
+      {/* Feedback toast for share actions */}
+      {feedback && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'absolute',
+            top: '100%',
+            left: 0,
+            marginTop: 4,
+            padding: '6px 12px',
+            fontSize: 12,
+            backgroundColor: 'var(--bg-toolbar, #ffffff)',
+            border: '1px solid var(--border, #e0e0e0)',
+            borderRadius: 6,
+            boxShadow: '0 2px 8px var(--shadow, rgba(0,0,0,0.12))',
+            whiteSpace: 'pre-line',
+            maxWidth: 360,
+            color: 'var(--text-primary, #333333)',
+            zIndex: 100,
+          }}
+        >
+          {feedback}
+        </div>
+      )}
     </div>
   );
 }

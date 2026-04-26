@@ -29,6 +29,7 @@ import { ConnectionStatus } from './components/panels/ConnectionStatus.js';
 import { WelcomeScreen } from './components/WelcomeScreen.js';
 import { useGatewayConnection } from './hooks/useGatewayConnection.js';
 import { useAgentActionHandler } from './hooks/useAgentActionHandler.js';
+import { useUrlCanvas } from './hooks/useUrlCanvas.js';
 import { Settings } from 'lucide-react';
 
 export function App() {
@@ -41,6 +42,7 @@ export function App() {
   const waypointPanelOpen = useCanvasStore((s) => s.waypointPanelOpen);
   const setWaypointPanelOpen = useCanvasStore((s) => s.setWaypointPanelOpen);
   const gatewayState = useGatewayConnection();
+  const { shareAsUrl, loadWarnings } = useUrlCanvas();
   const { isLoading: agentLoading } = useAgentActionHandler(
     gatewayState.sendMessage,
     gatewayState.connected,
@@ -131,7 +133,7 @@ export function App() {
       >
         <ThemeToggle />
         <ThemePickerPanel />
-        <ExportMenu />
+        <ExportMenu shareAsUrl={shareAsUrl} loadWarnings={loadWarnings} />
         <ConnectionStatus {...gatewayState} />
         <button
           type="button"
