@@ -24,12 +24,14 @@ export interface ShareResult {
   url?: string;
   error?: string;
   byteLength?: number;
+  /** Whether the URL was copied to clipboard (false if clipboard API unavailable/denied). */
+  clipboardCopied?: boolean;
 }
 
 /** Return type of the useUrlCanvas hook. */
 export interface UseUrlCanvasReturn {
   /** Encode current canvas into URL hash and copy to clipboard. */
-  shareAsUrl: () => ShareResult;
+  shareAsUrl: () => Promise<ShareResult>;
   /** Whether canvas was loaded from a URL on mount. */
   loadedFromUrl: boolean;
 }
@@ -93,7 +95,7 @@ export function useUrlCanvas(): UseUrlCanvasReturn {
     }
   }, []);
 
-  const shareAsUrl = useCallback((): ShareResult => {
+  const shareAsUrl = useCallback(async (): Promise<ShareResult> => {
     const { expressions, expressionOrder } = useCanvasStore.getState();
     const json = exportToJson(expressions, expressionOrder);
 
@@ -112,18 +114,27 @@ export function useUrlCanvas(): UseUrlCanvasReturn {
     const newHash = buildHash(params);
 
     // Use replaceState to avoid creating browser history entries
-    const newUrl = `${window.location.origin}${window.location.pathname}${window.location.search}${newHash}`;
+    const url = new URL(window.location.href);
+    url.hash = newHash.slice(1);
+    const newUrl = url.toString();
     window.history.replaceState(null, '', newHash);
 
-    // Copy to clipboard
-    void navigator.clipboard.writeText(newUrl).catch((err) => {
+    // Copy to clipboard — surface failures honestly
+    let clipboardCopied = false;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(newUrl);
+        clipboardCopied = true;
+      }
+    } catch (err) {
       console.warn('[useUrlCanvas] Clipboard write failed:', err);
-    });
+    }
 
     return {
       success: true,
       url: newUrl,
       byteLength: encodeResult.byteLength,
+      clipboardCopied,
     };
   }, []);
 

@@ -9,12 +9,15 @@
  * @module
  */
 
-import pako from 'pako';
+import { deflateRaw, inflateRaw } from 'pako';
 import { importFromJson } from './fromJson.js';
 import type { ImportResult } from './fromJson.js';
 
 /** Default maximum compressed size in bytes (32 KB). */
 const DEFAULT_MAX_BYTES = 32_768;
+
+/** Maximum decompressed size in bytes (2 MB) — guards against decompression bombs. */
+const MAX_INFLATED_BYTES = 2_097_152;
 
 /** Successful URL encode result. */
 export interface UrlEncodeResult {
@@ -54,8 +57,9 @@ function toBase64Url(bytes: Uint8Array): string {
 function fromBase64Url(b64url: string): Uint8Array {
   // Restore standard base64 chars
   let b64 = b64url.replace(/-/g, '+').replace(/_/g, '/');
-  // Restore padding
+  // Restore padding (pad === 1 is structurally invalid base64)
   const pad = b64.length % 4;
+  if (pad === 1) throw new Error('Invalid base64url: impossible length');
   if (pad === 2) b64 += '==';
   else if (pad === 3) b64 += '=';
 
@@ -97,7 +101,7 @@ export function encodeCanvasForUrl(
   let deflated: Uint8Array;
   try {
     const utf8 = new TextEncoder().encode(json);
-    deflated = pako.deflateRaw(utf8);
+    deflated = deflateRaw(utf8);
   } catch (err) {
     return {
       success: false,
@@ -143,11 +147,14 @@ export function decodeCanvasFromUrl(encoded: string): ImportResult {
     return { success: false, error: 'Invalid URL data: corrupt base64 encoding' };
   }
 
-  // Step 2: inflateRaw → UTF-8
+  // Step 2: inflateRaw → UTF-8 (with size limit to prevent decompression bombs)
   let jsonString: string;
   try {
-    const inflated = pako.inflateRaw(compressed);
-    jsonString = new TextDecoder().decode(inflated);
+    const inflated = inflateRaw(compressed);
+    if (inflated.length > MAX_INFLATED_BYTES) {
+      return { success: false, error: `Decompressed data too large (${inflated.length} bytes > ${MAX_INFLATED_BYTES} byte limit)` };
+    }
+    jsonString = new TextDecoder('utf-8', { fatal: true }).decode(inflated);
   } catch {
     return { success: false, error: 'Invalid URL data: corrupt compressed data' };
   }

@@ -17,7 +17,7 @@ import { Download } from 'lucide-react';
 /** Props for ExportMenu. */
 interface ExportMenuProps {
   /** Share current canvas as a URL (from useUrlCanvas hook). */
-  shareAsUrl?: () => { success: boolean; url?: string; error?: string; byteLength?: number };
+  shareAsUrl?: () => Promise<{ success: boolean; url?: string; error?: string; byteLength?: number; clipboardCopied?: boolean }>;
 }
 
 /** Menu option definition. */
@@ -114,15 +114,16 @@ export function ExportMenu({ shareAsUrl }: ExportMenuProps) {
 
   const handleShareAsUrl = useCallback(() => {
     if (!shareAsUrl) return;
-    const result = shareAsUrl();
-    if (result.success) {
-      setFeedback('URL copied to clipboard!');
-    } else {
-      setFeedback(result.error ?? 'Share failed');
-    }
     setIsOpen(false);
-    // Clear feedback after 3 seconds
-    setTimeout(() => setFeedback(null), 3000);
+    void shareAsUrl().then((result) => {
+      if (result.success) {
+        setFeedback(result.clipboardCopied ? 'URL copied to clipboard!' : 'URL updated in address bar (clipboard unavailable)');
+      } else {
+        setFeedback(result.error ?? 'Share failed');
+      }
+      // Clear feedback after 3 seconds
+      setTimeout(() => setFeedback(null), 3000);
+    });
   }, [shareAsUrl]);
 
   const handleDrawioFileSelected = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
