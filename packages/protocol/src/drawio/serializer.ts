@@ -730,18 +730,64 @@ export function drawioToExpressions(xml: string): VisualExpression[] {
     ignoreAttributes: false,
     attributeNamePrefix: '@_',
     processEntities: false,
-    isArray: (tagName) => tagName === 'mxCell' || tagName === 'mxPoint',
+    isArray: (tagName) => tagName === 'mxCell' || tagName === 'mxPoint' || tagName === 'diagram',
   });
 
-  let parsed: { mxGraphModel?: { root?: { mxCell?: ParsedMxCell[] } } };
+  type ParsedMxGraphModel = { root?: { mxCell?: ParsedMxCell[] } };
+  type ParsedDiagram = {
+    mxGraphModel?: ParsedMxGraphModel;
+    '#text'?: string;
+  };
+  type ParsedRoot = {
+    mxfile?: { diagram?: ParsedDiagram[] };
+    mxGraphModel?: ParsedMxGraphModel;
+    diagram?: ParsedDiagram[];
+  };
+
+  let parsed: ParsedRoot;
   try {
-    parsed = parser.parse(xml) as typeof parsed;
+    parsed = parser.parse(xml) as ParsedRoot;
   } catch {
     return [];
   }
 
-  const cells = parsed.mxGraphModel?.root?.mxCell;
-  if (!cells) return [];
+  // draw.io files can arrive in three forms:
+  //   1) <mxfile><diagram><mxGraphModel>…</mxGraphModel></diagram></mxfile>  (native export)
+  //   2) <diagram><mxGraphModel>…</mxGraphModel></diagram>                   (single page)
+  //   3) <mxGraphModel>…</mxGraphModel>                                      (bare, what we export)
+  // Compressed diagrams (text content inside <diagram> is base64-deflated)
+  // are NOT supported — users must export with "Uncompressed" / "Formatted XML".
+  let model: ParsedMxGraphModel | undefined = parsed.mxGraphModel;
+  if (!model) {
+    const diagrams =
+      parsed.mxfile?.diagram ??
+      parsed.diagram ??
+      [];
+    for (const d of diagrams) {
+      if (d?.mxGraphModel) {
+        model = d.mxGraphModel;
+        break;
+      }
+    }
+  }
+
+  const cells = model?.root?.mxCell;
+  if (!cells) {
+    // Detect compressed diagrams (draw.io's default export format):
+    // <diagram>H4sI…base64…</diagram> — deflated XML, not supported yet.
+    const diagrams = parsed.mxfile?.diagram ?? parsed.diagram ?? [];
+    for (const d of diagrams) {
+      const text = typeof d === 'string' ? d : d?.['#text'];
+      if (typeof text === 'string' && text.trim().length > 0 && !text.includes('<')) {
+        throw new Error(
+          'This draw.io file is compressed. In draw.io, open Extras → Edit Diagram and ' +
+          'export with "Uncompressed XML" (or disable "Compressed" in File → Properties), ' +
+          'then import the uncompressed .drawio / .xml file.',
+        );
+      }
+    }
+    return [];
+  }
 
   // Guard against excessively large imports
   if (cells.length > MAX_EXPRESSION_COUNT) {

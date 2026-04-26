@@ -441,6 +441,10 @@ export function detectJettyHandle(
     const expr = expressions[id];
     if (!expr) continue;
 
+    // Skip jetty handle when segment-midpoint handles are shown (same role,
+    // same visual). Keeps hit-testing consistent with rendering.
+    if (getSegmentMidpointHandles(expr, expressions).length > 0) continue;
+
     const handle = getJettyHandlePosition(expr);
     if (!handle) continue;
 
@@ -630,31 +634,35 @@ export function getSegmentMidpointHandles(
 
   const handles: SegmentHandleHit[] = [];
 
-  // Skip first segment (start→first turn) and last segment (last turn→end)
-  // as those are the jetty stubs. Handle internal segments only.
-  // Limit to ONE handle (segmentIndex=0) because the orthogonal router
-  // only reads waypoints[0]. Handles for segmentIndex > 0 would write
-  // to unused waypoint slots and silently do nothing.
+  // Emit a handle on every internal segment (i.e. every segment between the
+  // exit stub and the entry stub), up to 2 handles. The router supports two
+  // waypoints for L-shape routes:
+  //   waypoints[0] → first perpendicular-to-exit middle segment
+  //   waypoints[1] → second middle segment (perpendicular to the first)
+  // For Z-shape routes, only one waypoint is meaningful and only one handle
+  // is produced.
+  let slot = 0;
   for (let i = 1; i < routeWaypoints.length - 2; i++) {
     const [x1, y1] = routeWaypoints[i]!;
     const [x2, y2] = routeWaypoints[i + 1]!;
 
-    const midX = (x1 + x2) / 2;
-    const midY = (y1 + y2) / 2;
+    const isHoriz = Math.abs(y1 - y2) < 0.01 && Math.abs(x1 - x2) >= 0.01;
+    const isVert = Math.abs(x1 - x2) < 0.01 && Math.abs(y1 - y2) >= 0.01;
+    const orientation: 'horizontal' | 'vertical' | null = isHoriz
+      ? 'horizontal'
+      : isVert
+        ? 'vertical'
+        : null;
+    if (!orientation) continue;
 
-    const isHoriz = Math.abs(y1 - y2) < 0.01;
-    const isVert = Math.abs(x1 - x2) < 0.01;
-
-    if (isHoriz || isVert) {
-      handles.push({
-        expressionId: expr.id,
-        segmentIndex: i - 1, // Internal segment index (for waypoints array)
-        position: { x: midX, y: midY },
-        segmentOrientation: isHoriz ? 'horizontal' : 'vertical',
-      });
-      // Only show first matching handle — router reads waypoints[0] only
-      break;
-    }
+    handles.push({
+      expressionId: expr.id,
+      segmentIndex: slot,
+      position: { x: (x1 + x2) / 2, y: (y1 + y2) / 2 },
+      segmentOrientation: orientation,
+    });
+    slot += 1;
+    if (slot >= 2) break;
   }
 
   return handles;
