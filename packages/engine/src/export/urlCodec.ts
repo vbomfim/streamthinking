@@ -78,6 +78,8 @@ function sanitizeForUrl(
   let svgCount = 0;
 
   for (const [id, expr] of Object.entries(expressions)) {
+    // NOTE: Only 'image' expressions have user-provided URLs (src field).
+    // If new expression kinds with URL fields are added, update this check.
     if (expr.kind === 'image' && expr.data.kind === 'image') {
       const src = expr.data.src;
       if (isExternalUrl(src)) {
@@ -156,11 +158,28 @@ export function encodeCanvasForUrl(
   json: string,
   maxBytes: number = DEFAULT_MAX_BYTES,
 ): UrlEncodeOutcome {
-  // Guard: empty canvas
-  let payload: { version: string; expressions: Record<string, VisualExpression>; expressionOrder: string[] };
+  // Guard: parse and validate shape defensively (never throw)
+  let version: string;
+  let expressions: Record<string, VisualExpression>;
+  let expressionOrder: string[];
   try {
-    payload = JSON.parse(json) as typeof payload;
-    if (!payload.expressions || Object.keys(payload.expressions).length === 0) {
+    const parsed = JSON.parse(json) as Record<string, unknown>;
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return { success: false, error: 'Invalid JSON input: expected an object' };
+    }
+    if (typeof parsed['version'] !== 'string') {
+      return { success: false, error: 'Invalid JSON input: missing version' };
+    }
+    if (typeof parsed['expressions'] !== 'object' || parsed['expressions'] === null || Array.isArray(parsed['expressions'])) {
+      return { success: false, error: 'Nothing to share — canvas is empty' };
+    }
+    if (!Array.isArray(parsed['expressionOrder'])) {
+      return { success: false, error: 'Invalid JSON input: missing expressionOrder' };
+    }
+    version = parsed['version'] as string;
+    expressions = parsed['expressions'] as Record<string, VisualExpression>;
+    expressionOrder = parsed['expressionOrder'] as string[];
+    if (Object.keys(expressions).length === 0) {
       return { success: false, error: 'Nothing to share — canvas is empty' };
     }
   } catch {
@@ -168,15 +187,15 @@ export function encodeCanvasForUrl(
   }
 
   // Sanitize: strip external images and SVG data URIs
-  const { sanitized, warnings } = sanitizeForUrl(payload.expressions);
-  const sanitizedOrder = payload.expressionOrder.filter((id) => id in sanitized);
+  const { sanitized, warnings } = sanitizeForUrl(expressions);
+  const sanitizedOrder = expressionOrder.filter((id) => id in sanitized);
 
   if (Object.keys(sanitized).length === 0) {
     return { success: false, error: 'Nothing to share — all expressions were removed during safety check' };
   }
 
   const sanitizedJson = JSON.stringify({
-    version: payload.version,
+    version,
     expressions: sanitized,
     expressionOrder: sanitizedOrder,
   });
@@ -252,6 +271,10 @@ export function decodeCanvasFromUrl(encoded: string): UrlDecodeResult {
   }
 
   // Step 2: inflateRaw → UTF-8 (with size limit to prevent decompression bombs)
+  // NOTE: inflateRaw fully decompresses before size check. Practical risk is low
+  // because input is bounded to ~32KB compressed (deflate ratio rarely exceeds 1000:1,
+  // so worst case ~32MB which browsers handle). True streaming limits would require
+  // pako's Inflate class with chunk-level byte counting.
   let jsonString: string;
   try {
     const inflated = inflateRaw(compressed);

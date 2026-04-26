@@ -8,18 +8,20 @@
  * @module
  */
 
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { useCanvasStore, useUiStore } from '@infinicanvas/engine';
 import { exportToJson, importFromJson, buildSvgString, downloadSvg, exportToPng } from '@infinicanvas/engine';
+import type { ContentWarning } from '@infinicanvas/engine';
+import type { ShareResult } from '../hooks/useUrlCanvas.js';
 import { expressionsToDrawio, drawioToExpressions } from '@infinicanvas/protocol';
 import { Download } from 'lucide-react';
 
 /** Props for ExportMenu. */
 interface ExportMenuProps {
   /** Share current canvas as a URL (from useUrlCanvas hook). */
-  shareAsUrl?: () => Promise<{ success: boolean; url?: string; error?: string; byteLength?: number; clipboardCopied?: boolean; warnings?: { message: string }[] }>;
+  shareAsUrl?: () => Promise<ShareResult>;
   /** Warnings from loading a URL-shared canvas (stripped content). */
-  loadWarnings?: { message: string }[];
+  loadWarnings?: ContentWarning[];
 }
 
 /** Menu option definition. */
@@ -37,17 +39,21 @@ export function ExportMenu({ shareAsUrl, loadWarnings }: ExportMenuProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const drawioFileInputRef = useRef<HTMLInputElement>(null);
 
-  // Show load warnings once on mount (content stripped from imported URL)
-  const loadWarningShown = useRef(false);
-  if (loadWarnings && loadWarnings.length > 0 && !loadWarningShown.current) {
-    loadWarningShown.current = true;
-    // Defer to avoid setting state during render
-    setTimeout(() => {
-      const msg = loadWarnings.map((w) => w.message).join('\n');
-      setFeedback(`⚠️ ${msg}`);
-      feedbackTimerRef.current = setTimeout(() => setFeedback(null), 6000);
-    }, 500);
-  }
+  // Show load warnings via proper useEffect (content stripped from imported URL)
+  useEffect(() => {
+    if (!loadWarnings || loadWarnings.length === 0) return;
+    const msg = loadWarnings.map((w) => w.message).join('\n');
+    setFeedback(`⚠️ ${msg}`);
+    const timer = setTimeout(() => setFeedback(null), 6000);
+    return () => clearTimeout(timer);
+  }, [loadWarnings]);
+
+  // Cleanup feedback timer on unmount
+  useEffect(() => {
+    return () => {
+      if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    };
+  }, []);
 
   /** Show feedback message with auto-dismiss. */
   const showFeedback = useCallback((msg: string, durationMs = 4000) => {
@@ -328,7 +334,8 @@ export function ExportMenu({ shareAsUrl, loadWarnings }: ExportMenuProps) {
             border: '1px solid var(--border, #e0e0e0)',
             borderRadius: 6,
             boxShadow: '0 2px 8px var(--shadow, rgba(0,0,0,0.12))',
-            whiteSpace: 'nowrap',
+            whiteSpace: 'pre-line',
+            maxWidth: 360,
             color: 'var(--text-primary, #333333)',
             zIndex: 100,
           }}
