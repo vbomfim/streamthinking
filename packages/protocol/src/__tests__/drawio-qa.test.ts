@@ -338,7 +338,11 @@ describe('[EDGE] XML injection safety', () => {
     const xml = expressionsToDrawio([sticky]);
     const result = drawioToExpressions(xml);
     expect(result).toHaveLength(1);
-    expect((result[0]!.data as { text: string }).text).toBe('<div>Hello & "World"</div>');
+    // draw.io's native behavior is to render HTML labels as HTML when html=1
+    // is set (which is always true on export). On import we strip HTML tags
+    // to get plain text — this matches what the user actually sees in draw.io.
+    // Users who want literal angle brackets should HTML-encode them (&lt;div&gt;).
+    expect((result[0]!.data as { text: string }).text).toBe('Hello & "World"');
   });
 
   it('export: ampersand-heavy label is properly escaped and round-trips', () => {
